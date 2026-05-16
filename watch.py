@@ -14,7 +14,7 @@ from urllib.parse import urlparse
 REFERENCES_DIR = "/opt/diwall/references"
 SHOT_SCRIPT = "/opt/diwall/shot.py"
 OLLAMA_URL = "http://localhost:11434/api/generate"
-OLLAMA_MODEL = "qwen3-vl:8b"
+OLLAMA_MODEL = "qwen3-vl:2b"
 
 PROMPT_DEFAUT = (
     "Tu reçois deux captures d'écran : la première est la référence (état de référence), "
