@@ -9,6 +9,68 @@ from datetime import datetime, timezone
 # Permet d'importer lib/ depuis le même répertoire que shot.py
 sys.path.insert(0, os.path.dirname(os.path.abspath(__file__)))
 
+# ── Set-of-Mark ───────────────────────────────────────────────────────────────
+_SOM_INJECTER_JS = """() => {
+    const SELECTORS = [
+        'a[href]', 'button', 'input:not([type="hidden"])',
+        'select', 'textarea', 'summary',
+        '[role="button"]', '[role="link"]', '[role="tab"]',
+        '[role="checkbox"]', '[role="menuitem"]', '[role="radio"]',
+        '[role="combobox"]', '[role="spinbutton"]', '[role="searchbox"]'
+    ].join(',');
+    const vw = window.innerWidth, vh = window.innerHeight;
+    const container = document.createElement('div');
+    container.id = '__som__';
+    container.style.cssText = 'position:fixed;top:0;left:0;width:0;height:0;pointer-events:none;z-index:2147483647;overflow:visible;';
+    document.body.appendChild(container);
+    const items = [];
+    let num = 1;
+    document.querySelectorAll(SELECTORS).forEach(el => {
+        const s = window.getComputedStyle(el);
+        if (s.display === 'none' || s.visibility === 'hidden' || s.opacity === '0') return;
+        const r = el.getBoundingClientRect();
+        if (r.width < 2 || r.height < 2) return;
+        if (r.right < 0 || r.bottom < 0 || r.left > vw || r.top > vh) return;
+        const box = document.createElement('div');
+        box.style.cssText = [
+            'position:fixed', 'box-sizing:border-box',
+            'border:2px solid #e53e3e', 'border-radius:3px',
+            `left:${Math.round(r.left)}px`, `top:${Math.round(r.top)}px`,
+            `width:${Math.round(r.width)}px`, `height:${Math.round(r.height)}px`,
+        ].join(';');
+        const lbl = document.createElement('span');
+        const topOffset = r.top < 20 ? Math.round(r.height) + 2 : -18;
+        lbl.style.cssText = [
+            'position:absolute', `top:${topOffset}px`, 'left:-2px',
+            'background:#e53e3e', 'color:#fff',
+            'font:bold 11px/1 monospace', 'padding:2px 4px',
+            'border-radius:2px', 'white-space:nowrap',
+        ].join(';');
+        lbl.textContent = String(num);
+        box.appendChild(lbl);
+        container.appendChild(box);
+        items.push({
+            id: num, tag: el.tagName,
+            role: el.getAttribute('role') || el.tagName.toLowerCase(),
+            texte: (el.innerText || el.value || el.placeholder || el.getAttribute('aria-label') || '').trim().slice(0, 60),
+            type: el.type || null,
+        });
+        num++;
+    });
+    return items;
+}"""
+
+_SOM_RETIRER_JS = "() => { const el = document.getElementById('__som__'); if (el) el.remove(); }"
+
+
+def _injecter_som(page, output_dir):
+    """Injecte le Set-of-Mark, capture la vue annotée, nettoie le DOM. Retourne (chemin_som, elements_som)."""
+    elements = page.evaluate(_SOM_INJECTER_JS)
+    chemin_som = chemin_png(output_dir, "state_som")
+    page.screenshot(path=chemin_som, full_page=False)  # fixed = viewport uniquement
+    page.evaluate(_SOM_RETIRER_JS)
+    return chemin_som, elements
+
 
 def parse_args():
     p = argparse.ArgumentParser(description="Diwall — capture Playwright avec actions")
@@ -25,6 +87,8 @@ def parse_args():
     p.add_argument("--hauteur", type=int, default=720, help="Hauteur viewport px (défaut : 720)")
     p.add_argument("--llm", choices=["local", "claude"], default="local",
                    help="Mode LLM pour cliquer_visuel : local (Ollama) ou claude (API)")
+    p.add_argument("--som", action="store_true",
+                   help="Active le Set-of-Mark : capture annotée + liste elements_som dans le JSON")
     return p.parse_args()
 
 
@@ -155,6 +219,11 @@ def main():
             interm = executer_actions(page, actions, args.output_dir, args.timeout, args.llm)
 
             page.screenshot(path=sortie, full_page=True)
+
+            capture_som, elements_som = None, []
+            if args.som:
+                capture_som, elements_som = _injecter_som(page, args.output_dir)
+
             browser.close()
 
         result = {
@@ -168,6 +237,9 @@ def main():
         }
         if interm:
             result["captures_intermediaires"] = interm
+        if capture_som:
+            result["capture_som"] = capture_som
+            result["elements_som"] = elements_som
         print(json.dumps(result, ensure_ascii=False))
 
     except Exception as e:
