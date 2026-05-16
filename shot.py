@@ -188,7 +188,11 @@ def executer_actions(page, actions, output_dir, timeout, mode_llm="local"):
         elif t == "remplir":
             valeur = a.get("valeur", "")
             if valeur == "depuis_vault":
-                raise NotImplementedError("depuis_vault nécessite le module vault (Phase 6)")
+                from lib.vault import lire_credential, domaine_depuis_url
+                cle = a.get("vault_cle")
+                if not cle:
+                    raise ValueError("remplir depuis_vault : champ 'vault_cle' requis")
+                valeur = lire_credential(domaine_depuis_url(page.url), cle)
             page.fill(a["selecteur"], valeur)
 
         elif t == "cliquer":
@@ -218,7 +222,11 @@ def executer_actions(page, actions, output_dir, timeout, mode_llm="local"):
             if som_id is None:
                 raise ValueError("remplir_som requiert un champ 'id'")
             if valeur == "depuis_vault":
-                raise NotImplementedError("depuis_vault nécessite le module vault (Phase 6)")
+                from lib.vault import lire_credential, domaine_depuis_url
+                cle = a.get("vault_cle")
+                if not cle:
+                    raise ValueError("remplir_som depuis_vault : champ 'vault_cle' requis")
+                valeur = lire_credential(domaine_depuis_url(page.url), cle)
             coord = page.evaluate(_SOM_TROUVER_JS, som_id)
             if coord is None:
                 raise ValueError(f"remplir_som : élément SoM {som_id!r} non trouvé sur la page")

@@ -1,0 +1,21 @@
+{
+  "nom": "example_login",
+  "description": "Log in to the app and verify the dashboard",
+  "url": "https://your-app.local/",
+  "actions": [
+    {
+      "type": "remplir_som",
+      "id": 1,
+      "valeur": "depuis_vault",
+      "vault_cle": "password"
+    },
+    {
+      "type": "cliquer_som",
+      "id": 2
+    },
+    {
+      "type": "capturer",
+      "nom": "apres_connexion"
+    }
+  ]
+}
