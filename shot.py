@@ -62,6 +62,31 @@ _SOM_INJECTER_JS = """() => {
 
 _SOM_RETIRER_JS = "() => { const el = document.getElementById('__som__'); if (el) el.remove(); }"
 
+# Même filtrage que l'injection SoM, retourne les coordonnées du centre de l'élément N
+_SOM_TROUVER_JS = """(id) => {
+    const SELECTORS = [
+        'a[href]', 'button', 'input:not([type="hidden"])',
+        'select', 'textarea', 'summary',
+        '[role="button"]', '[role="link"]', '[role="tab"]',
+        '[role="checkbox"]', '[role="menuitem"]', '[role="radio"]',
+        '[role="combobox"]', '[role="spinbutton"]', '[role="searchbox"]'
+    ].join(',');
+    const vw = window.innerWidth, vh = window.innerHeight;
+    const items = [];
+    document.querySelectorAll(SELECTORS).forEach(el => {
+        const s = window.getComputedStyle(el);
+        if (s.display === 'none' || s.visibility === 'hidden' || s.opacity === '0') return;
+        const r = el.getBoundingClientRect();
+        if (r.width < 2 || r.height < 2) return;
+        if (r.right < 0 || r.bottom < 0 || r.left > vw || r.top > vh) return;
+        items.push(el);
+    });
+    const el = items[id - 1];
+    if (!el) return null;
+    const r = el.getBoundingClientRect();
+    return {x: Math.round(r.left + r.width / 2), y: Math.round(r.top + r.height / 2), tag: el.tagName};
+}"""
+
 
 def _injecter_som(page, output_dir):
     """Injecte le Set-of-Mark, capture la vue annotée, nettoie le DOM. Retourne (chemin_som, elements_som)."""
@@ -83,10 +108,36 @@ def _snapshot_a11y(page):
         return None
 
 
+# ── Persistance de session (ReAct) ────────────────────────────────────────────
+
+def _sauver_session(ctx, page, chemin, viewport):
+    """Sauvegarde cookies + localStorage + URL courante dans un fichier JSON."""
+    session = {
+        "url": page.url,
+        "viewport": viewport,
+        "storage_state": ctx.storage_state(),
+    }
+    with open(chemin, "w", encoding="utf-8") as f:
+        json.dump(session, f, ensure_ascii=False, indent=2)
+
+
+def _charger_session(chemin):
+    """Charge une session Diwall depuis un fichier JSON."""
+    with open(chemin, encoding="utf-8") as f:
+        return json.load(f)
+
+
 def parse_args():
     p = argparse.ArgumentParser(description="Diwall — capture Playwright avec actions")
-    p.add_argument("--url", required=True, help="URL à capturer")
-    p.add_argument("--actions", help="Fichier JSON ou JSON inline d'actions séquentielles")
+    # Mode A (séquentiel) : --url requis. Mode B (ReAct) : --reprendre-session à la place.
+    p.add_argument("--url", default=None, help="URL à capturer (Mode A) ou navigation initiale (Mode B)")
+    p.add_argument("--actions", help="Fichier JSON ou JSON inline d'actions séquentielles (Mode A)")
+    p.add_argument("--action", default=None,
+                   help="Action unique JSON pour le pas ReAct (Mode B, ex: '{\"type\":\"cliquer_som\",\"id\":4}')")
+    p.add_argument("--reprendre-session", dest="reprendre_session", default=None,
+                   metavar="FICHIER", help="Reprend une session sauvegardée (Mode B ReAct)")
+    p.add_argument("--sauver-session", dest="sauver_session", default=None,
+                   metavar="FICHIER", help="Sauvegarde l'état navigateur après les actions")
     p.add_argument("--output", help="Chemin de sortie PNG (auto-généré si absent)")
     p.add_argument("--attendre-selecteur", dest="attendre_selecteur",
                    help="Sélecteur CSS à attendre avant la capture finale")
@@ -152,6 +203,28 @@ def executer_actions(page, actions, output_dir, timeout, mode_llm="local"):
             page.screenshot(path=p, full_page=True)
             intermediaires.append(p)
 
+        elif t == "cliquer_som":
+            som_id = a.get("id")
+            if som_id is None:
+                raise ValueError("cliquer_som requiert un champ 'id'")
+            coord = page.evaluate(_SOM_TROUVER_JS, som_id)
+            if coord is None:
+                raise ValueError(f"cliquer_som : élément SoM {som_id!r} non trouvé sur la page")
+            page.mouse.click(coord["x"], coord["y"])
+
+        elif t == "remplir_som":
+            som_id = a.get("id")
+            valeur = a.get("valeur", "")
+            if som_id is None:
+                raise ValueError("remplir_som requiert un champ 'id'")
+            if valeur == "depuis_vault":
+                raise NotImplementedError("depuis_vault nécessite le module vault (Phase 6)")
+            coord = page.evaluate(_SOM_TROUVER_JS, som_id)
+            if coord is None:
+                raise ValueError(f"remplir_som : élément SoM {som_id!r} non trouvé sur la page")
+            page.mouse.click(coord["x"], coord["y"], click_count=3)  # sélectionne tout
+            page.keyboard.type(valeur)
+
         elif t == "cliquer_visuel":
             description = a.get("description", "")
             if not description:
@@ -188,17 +261,41 @@ def main():
     t0 = time.time()
     horodatage = datetime.now(timezone.utc).astimezone().isoformat()
 
-    try:
-        actions = charger_actions(args.actions)
-    except Exception as e:
+    # ── Validation ────────────────────────────────────────────────────────────
+    if not args.url and not args.reprendre_session:
         print(json.dumps({
-            "succes": False,
-            "erreur": "actions_invalides",
-            "message": str(e),
+            "succes": False, "erreur": "argument_manquant",
+            "message": "--url ou --reprendre-session est requis",
             "horodatage": horodatage,
         }))
         sys.exit(1)
 
+    # ── Chargement des actions ────────────────────────────────────────────────
+    if args.reprendre_session:
+        try:
+            if args.action:
+                parsed = json.loads(args.action)
+                # Accepte un objet unique {"type":...} OU un tableau [{...},{...}]
+                actions = parsed if isinstance(parsed, list) else [parsed]
+            else:
+                actions = []
+        except json.JSONDecodeError as e:
+            print(json.dumps({
+                "succes": False, "erreur": "action_invalide",
+                "message": str(e), "horodatage": horodatage,
+            }))
+            sys.exit(1)
+    else:
+        try:
+            actions = charger_actions(args.actions)
+        except Exception as e:
+            print(json.dumps({
+                "succes": False, "erreur": "actions_invalides",
+                "message": str(e), "horodatage": horodatage,
+            }))
+            sys.exit(1)
+
+    # ── Chemin de sortie ──────────────────────────────────────────────────────
     if args.output:
         os.makedirs(os.path.dirname(args.output) or ".", exist_ok=True)
         sortie = args.output
@@ -207,21 +304,37 @@ def main():
 
     erreurs_js = []
     http_status = None
-    url_finale = args.url
+    url_finale = args.url or ""
+    url_cible = url_finale  # pour le handler d'erreur
 
     try:
         from playwright.sync_api import sync_playwright
 
         with sync_playwright() as pw:
             browser = pw.chromium.launch(headless=True)
-            ctx = browser.new_context(
-                viewport={"width": args.largeur, "height": args.hauteur},
-                ignore_https_errors=True,
-            )
+
+            # ── Contexte navigateur ───────────────────────────────────────────
+            if args.reprendre_session:
+                session = _charger_session(args.reprendre_session)
+                viewport = session.get("viewport", {"width": args.largeur, "height": args.hauteur})
+                ctx = browser.new_context(
+                    storage_state=session["storage_state"],
+                    viewport=viewport,
+                    ignore_https_errors=True,
+                )
+                url_cible = session["url"]
+            else:
+                ctx = browser.new_context(
+                    viewport={"width": args.largeur, "height": args.hauteur},
+                    ignore_https_errors=True,
+                )
+                url_cible = args.url
+
             page = ctx.new_page()
             page.on("pageerror", lambda err: erreurs_js.append(str(err)))
 
-            rep = page.goto(args.url, timeout=args.timeout, wait_until="networkidle")
+            # ── Navigation ────────────────────────────────────────────────────
+            rep = page.goto(url_cible, timeout=args.timeout, wait_until="networkidle")
             if rep:
                 http_status = rep.status
             url_finale = page.url
@@ -229,15 +342,27 @@ def main():
             if args.attendre_selecteur:
                 page.wait_for_selector(args.attendre_selecteur, timeout=args.timeout)
 
+            # ── Actions ───────────────────────────────────────────────────────
             interm = executer_actions(page, actions, args.output_dir, args.timeout, args.llm)
+            url_finale = page.url  # mise à jour après actions
 
+            # ── Capture finale ────────────────────────────────────────────────
             page.screenshot(path=sortie, full_page=True)
 
+            # ── SoM ───────────────────────────────────────────────────────────
             capture_som, elements_som = None, []
             if args.som:
                 capture_som, elements_som = _injecter_som(page, args.output_dir)
 
+            # ── A11y ──────────────────────────────────────────────────────────
             a11y_tree = _snapshot_a11y(page) if args.a11y else None
+
+            # ── Sauvegarde session ────────────────────────────────────────────
+            session_file = None
+            if args.sauver_session:
+                _sauver_session(ctx, page, args.sauver_session,
+                                {"width": args.largeur, "height": args.hauteur})
+                session_file = args.sauver_session
 
             browser.close()
 
@@ -257,6 +382,8 @@ def main():
             result["elements_som"] = elements_som
         if a11y_tree is not None:
             result["a11y_tree"] = a11y_tree
+        if session_file:
+            result["session_file"] = session_file
         print(json.dumps(result, ensure_ascii=False))
 
     except Exception as e:
@@ -267,7 +394,7 @@ def main():
             with sync_playwright() as pw:
                 b = pw.chromium.launch(headless=True)
                 pg = b.new_context(ignore_https_errors=True).new_page()
-                pg.goto(args.url, timeout=5000)
+                pg.goto(url_cible, timeout=5000)
                 pg.screenshot(path=echec)
                 b.close()
             capture_echec = echec
