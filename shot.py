@@ -72,6 +72,17 @@ def _injecter_som(page, output_dir):
     return chemin_som, elements
 
 
+# ── Arbre d'accessibilité (A11y) ──────────────────────────────────────────────
+
+def _snapshot_a11y(page):
+    """Retourne le snapshot ARIA de la page (format texte YAML-like, Playwright 1.9+).
+    Inclut rôles, noms, URLs des liens. Retourne None si non disponible."""
+    try:
+        return page.aria_snapshot()
+    except Exception:
+        return None
+
+
 def parse_args():
     p = argparse.ArgumentParser(description="Diwall — capture Playwright avec actions")
     p.add_argument("--url", required=True, help="URL à capturer")
@@ -89,6 +100,8 @@ def parse_args():
                    help="Mode LLM pour cliquer_visuel : local (Ollama) ou claude (API)")
     p.add_argument("--som", action="store_true",
                    help="Active le Set-of-Mark : capture annotée + liste elements_som dans le JSON")
+    p.add_argument("--a11y", action="store_true",
+                   help="Inclut le snapshot d'accessibilité (a11y_tree) dans le JSON")
     return p.parse_args()
 
 
@@ -224,6 +237,8 @@ def main():
             if args.som:
                 capture_som, elements_som = _injecter_som(page, args.output_dir)
 
+            a11y_tree = _snapshot_a11y(page) if args.a11y else None
+
             browser.close()
 
         result = {
@@ -240,6 +255,8 @@ def main():
         if capture_som:
             result["capture_som"] = capture_som
             result["elements_som"] = elements_som
+        if a11y_tree is not None:
+            result["a11y_tree"] = a11y_tree
         print(json.dumps(result, ensure_ascii=False))
 
     except Exception as e:
