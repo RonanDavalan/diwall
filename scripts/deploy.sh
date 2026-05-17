@@ -1,0 +1,108 @@
+#!/usr/bin/env bash
+# deploy.sh — déploie ~/git/Diwall/Diwall/ vers /opt/diwall/
+# Atomique, idempotent, préserve diwall.conf et les références watch.py
+set -euo pipefail
+
+REPO="$(cd "$(dirname "$0")/.." && pwd)"
+DEST="/opt/diwall"
+GROUPE="diwall"
+
+# Fichiers de code à déployer (relatifs à REPO)
+CODE_FILES=(
+    shot.py
+    watch.py
+    rpa.py
+    lib/__init__.py
+    lib/vision.py
+    lib/vault.py
+)
+
+# Répertoires à créer si absents
+DIRS=(
+    "$DEST/lib"
+    "$DEST/scenarios"
+    "$DEST/references"
+    "/tmp/diwall"
+)
+
+# Fichiers à ne PAS toucher (config machine, données générées)
+PRESERVE=(
+    "$DEST/diwall.conf"
+)
+
+echo "=== Diwall — déploiement vers $DEST ==="
+echo "    Source : $REPO"
+echo ""
+
+# ── Créer les répertoires manquants ──────────────────────────────────────────
+for d in "${DIRS[@]}"; do
+    if [ ! -d "$d" ]; then
+        sudo mkdir -p "$d"
+        echo "  Créé    : $d"
+    fi
+done
+
+# ── Copier les fichiers de code ───────────────────────────────────────────────
+changed=0
+for f in "${CODE_FILES[@]}"; do
+    src="$REPO/$f"
+    dst="$DEST/$f"
+    if [ ! -f "$src" ]; then
+        echo "  ABSENT  : $src (ignoré)"
+        continue
+    fi
+    if diff -q "$src" "$dst" > /dev/null 2>&1; then
+        echo "  Inchangé: $f"
+    else
+        sudo cp "$src" "$dst"
+        echo "  Déployé : $f"
+        changed=$((changed + 1))
+    fi
+done
+
+# ── Déployer les scénarios d'exemple ─────────────────────────────────────────
+for f in "$REPO"/scenarios/*.json "$REPO"/scenarios/*.yaml; do
+    [ -f "$f" ] || continue
+    base="$(basename "$f")"
+    dst="$DEST/scenarios/$base"
+    if diff -q "$f" "$dst" > /dev/null 2>&1; then
+        echo "  Inchangé: scenarios/$base"
+    else
+        sudo cp "$f" "$dst"
+        echo "  Déployé : scenarios/$base"
+        changed=$((changed + 1))
+    fi
+done
+
+# ── Créer diwall.conf si absent (ne jamais l'écraser) ────────────────────────
+CONF="$DEST/diwall.conf"
+if [ ! -f "$CONF" ]; then
+    sudo tee "$CONF" > /dev/null << 'CONF_EOF'
+{
+  "vault_dir": "~/Vaults/Diwall"
+}
+CONF_EOF
+    echo "  Créé    : diwall.conf (config par défaut)"
+else
+    echo "  Préservé: diwall.conf (config machine existante)"
+fi
+
+# ── Permissions — une passe atomique ─────────────────────────────────────────
+# chown puis chmod : si interruption après chown mais avant chmod, les fichiers
+# appartiennent au bon groupe mais ont les droits de la copie (644 par défaut)
+# ce qui est plus sûr que l'inverse.
+sudo chown root:"$GROUPE" "$DEST"/*.py "$DEST"/lib/*.py "$DEST"/scripts/*.sh \
+     "$DEST"/diwall.conf 2>/dev/null || true
+sudo chown root:"$GROUPE" "$DEST"/scenarios/*.json "$DEST"/scenarios/*.yaml \
+     2>/dev/null || true
+
+sudo chmod 644 "$DEST"/*.py "$DEST"/lib/*.py "$DEST"/diwall.conf 2>/dev/null || true
+sudo chmod 644 "$DEST"/scenarios/*.json "$DEST"/scenarios/*.yaml 2>/dev/null || true
+sudo chmod 755 "$DEST"/shot.py "$DEST"/watch.py "$DEST"/rpa.py 2>/dev/null || true
+
+echo ""
+if [ "$changed" -gt 0 ]; then
+    echo "=== $changed fichier(s) mis à jour — déploiement terminé ==="
+else
+    echo "=== Aucun changement — /opt/diwall/ est à jour ==="
+fi

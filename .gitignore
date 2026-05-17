@@ -1,0 +1,22 @@
+# Config machine — ne jamais versionner
+diwall.conf
+
+# Données générées par watch.py
+references/
+
+# Captures temporaires
+/tmp/diwall/
+
+# Python
+__pycache__/
+*.pyc
+*.pyo
+*.pyd
+.Python
+venv/
+
+# Éditeurs
+.vscode/
+.idea/
+*.swp
+*~
