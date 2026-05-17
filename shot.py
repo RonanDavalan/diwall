@@ -158,6 +158,7 @@ def parse_args():
 
 def chemin_png(repertoire, prefixe="capture"):
     os.makedirs(repertoire, mode=0o700, exist_ok=True)
+    os.chmod(repertoire, 0o700)  # corrige si le répertoire existait déjà avec de mauvaises permissions
     return os.path.join(repertoire, f"{prefixe}_{int(time.time())}.png")
 
 

@@ -37,10 +37,12 @@ echo ""
 # ── Créer les répertoires manquants ──────────────────────────────────────────
 for d in "${DIRS[@]}"; do
     if [ ! -d "$d" ]; then
-        sudo mkdir -p "$d"
+        sudo install -d -m 700 "$d"
         echo "  Créé    : $d"
     fi
 done
+# /tmp/diwall doit toujours être 700 (captures potentiellement sensibles)
+sudo chmod 700 /tmp/diwall
 
 # ── Copier les fichiers de code ───────────────────────────────────────────────
 changed=0
