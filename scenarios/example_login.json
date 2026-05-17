@@ -1,6 +1,6 @@
 {
   "nom": "example_login",
-  "description": "Log in to the app and verify the dashboard",
+  "description": "Example scenario — log in to an app and capture the result",
   "url": "https://your-app.local/",
   "actions": [
     {
@@ -15,7 +15,7 @@
     },
     {
       "type": "capturer",
-      "nom": "apres_connexion"
+      "nom": "after_login"
     }
   ]
 }

@@ -2,7 +2,7 @@
 
 > **If you are a human developer:** share this README with Claude Code (or your LLM of choice) and ask it to install and configure Diwall. You do not need to understand every detail — your LLM does.
 
-*Projet francophone — documentation complète disponible en français dans `docs/GUIDE_LLM.md`.*
+*LLM technical reference: [`docs/GUIDE_LLM.md`](docs/GUIDE_LLM.md)*
 
 ---
 
@@ -139,14 +139,39 @@ Full LLM reference: [`docs/GUIDE_LLM.md`](docs/GUIDE_LLM.md)
 Credentials are stored in JSON files, one per domain, **never in code or scenario files**:
 
 ```
-~/Vaults/<project>/Diwall/
+~/Vaults/Diwall/
 ├── my-app.local.json        → {"password": "...", "username": "admin"}
 └── other-service.com.json   → {"password": "...", "api_key": "..."}
 ```
 
-In a scenario or action: `"valeur": "depuis_vault", "vault_cle": "password"` — the LLM instructs Diwall to fetch the credential at runtime, without ever seeing it in plaintext.
+In a scenario or action: `"valeur": "depuis_vault", "vault_cle": "password"` — Diwall reads the credential at runtime from the vault directory.
 
 Vault path is configurable via `/opt/diwall/diwall.conf` or `DIWALL_VAULT_DIR` environment variable.
+
+**Recommendation:** protect `~/Vaults/Diwall/` with `chmod 700` and, where possible, an encrypted filesystem such as `gocryptfs` (see `scripts/setup-vault.sh`). Encrypted vault support is planned for a future release.
+
+---
+
+## Security
+
+### Capture storage
+
+By default, captures are stored in `/tmp/diwall/` with permissions `700` (owner only).
+Do not change `--output-dir` to a shared location (`/tmp/`, `~/Desktop/`, etc.) — captures may contain sensitive interface data.
+
+### Local vs cloud models
+
+When Diwall is used with a cloud-based LLM (Claude API, OpenAI, etc.), PNG captures are transmitted to external servers. This is the user's responsibility. For interfaces containing private data (credentials, client information, private keys), use local Ollama models only.
+
+### Vault directory
+
+The vault directory (`~/Vaults/Diwall/` by default) contains credentials in plaintext JSON. Protect it:
+
+```bash
+chmod 700 ~/Vaults/Diwall/
+```
+
+Encrypted filesystem support (`gocryptfs`) is planned. See `scripts/setup-vault.sh`.
 
 ---
 
@@ -174,7 +199,7 @@ Independent architectural analysis, logical conflict resolution,
 workflow optimisation, cross-validation of technical decisions.
 
 **Perception models:**
-- `qwen3-vl:4b` (Alibaba) — surgical click localisation (Set-of-Mark), ~32s
+- `qwen3-vl:4b` (Alibaba) — click localisation via Set-of-Mark, ~32s
 - `qwen3-vl:2b` (Alibaba) — semantic visual comparison, ~1s
 
 **Maintenance operators (via OpenCode):**

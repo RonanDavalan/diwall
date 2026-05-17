@@ -157,7 +157,7 @@ def parse_args():
 
 
 def chemin_png(repertoire, prefixe="capture"):
-    os.makedirs(repertoire, exist_ok=True)
+    os.makedirs(repertoire, mode=0o700, exist_ok=True)
     return os.path.join(repertoire, f"{prefixe}_{int(time.time())}.png")
 
 
