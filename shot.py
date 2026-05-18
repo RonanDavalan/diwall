@@ -231,8 +231,36 @@ def executer_actions(page, actions, output_dir, timeout, mode_llm="local"):
             coord = page.evaluate(_SOM_TROUVER_JS, som_id)
             if coord is None:
                 raise ValueError(f"remplir_som : élément SoM {som_id!r} non trouvé sur la page")
-            page.mouse.click(coord["x"], coord["y"], click_count=3)  # sélectionne tout
-            page.keyboard.type(valeur)
+            if coord.get("tag", "").upper() == "SELECT":
+                ok = page.evaluate("""(args) => {
+                    const SELECTORS = [
+                        'a[href]','button','input:not([type="hidden"])',
+                        'select','textarea','summary',
+                        '[role="button"]','[role="link"]','[role="tab"]',
+                        '[role="checkbox"]','[role="menuitem"]','[role="radio"]',
+                        '[role="combobox"]','[role="spinbutton"]','[role="searchbox"]'
+                    ].join(',');
+                    const vw = window.innerWidth, vh = window.innerHeight;
+                    const items = [];
+                    document.querySelectorAll(SELECTORS).forEach(el => {
+                        const s = window.getComputedStyle(el);
+                        if (s.display==='none'||s.visibility==='hidden'||s.opacity==='0') return;
+                        const r = el.getBoundingClientRect();
+                        if (r.width<2||r.height<2) return;
+                        if (r.right<0||r.bottom<0||r.left>vw||r.top>vh) return;
+                        items.push(el);
+                    });
+                    const el = items[args.id - 1];
+                    if (!el || el.tagName !== 'SELECT') return false;
+                    el.value = args.valeur;
+                    el.dispatchEvent(new Event('change', {bubbles:true}));
+                    return true;
+                }""", {"id": som_id, "valeur": str(valeur)})
+                if not ok:
+                    raise ValueError(f"remplir_som SELECT : élément SoM {som_id!r} introuvable")
+            else:
+                page.mouse.click(coord["x"], coord["y"], click_count=3)
+                page.keyboard.type(valeur)
 
         elif t == "cliquer_visuel":
             description = a.get("description", "")
