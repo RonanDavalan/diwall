@@ -185,6 +185,54 @@ print(lire_credential('target.local', 'password'))
 
 ---
 
+## DOM mutations in Mode A — the SoM trap and how to escape it
+
+SoM re-indexes on every capture. An `id` from capture N is meaningless in capture N+1.
+This creates a problem when an element only appears **after** a first action (modal, conditional field, dropdown reveal).
+
+**The solution: mix SoM and structural CSS selectors in the same action sequence.**
+
+- Use `cliquer_som id=N` for elements visible in the first capture (you have them under your eyes when writing the JSON).
+- Use `cliquer { "selecteur": "…" }` for elements that will appear later but whose HTML structure you can anticipate.
+
+SoM is your exploration map. CSS selectors are your execution GPS.
+
+**Priority order for stable CSS selectors:**
+1. `#id` — most stable (avoid if generated randomly by framework)
+2. `[name=…]`, `[aria-label=…]`, `[title*=…]`, `[data-*=…]` — semantic attributes, survive DOM mutations
+3. `:has-text("…")` — last resort, breaks on i18n changes
+
+**Example — multi-step sequence with a modal that appears mid-sequence:**
+```json
+[
+  {"type": "cliquer_som", "id": 3},
+  {"type": "pause", "ms": 800},
+  {"type": "capturer", "nom": "after_click"},
+  {"type": "cliquer", "selecteur": "#dialog-action button[type=submit]"},
+  {"type": "pause", "ms": 2000}
+]
+```
+
+`#dialog-action button[type=submit]` is not visible in the first SoM capture, but it exists in the
+rendered HTML (the `<dialog>` is just hidden by default). Its structure is invariant — safe to target.
+
+**Using `capturer` to inspect intermediate state without breaking Mode A:**
+`{"type": "capturer", "nom": "modal_open"}` generates a PNG in `output-dir` without interrupting
+the session. Read these PNGs after the sequence to verify intermediate steps. This replaces Mode B
+without its cost (no Playwright restart, no JS state loss).
+
+**When to fall back to Mode B:**
+If the target UI generates random `id={uuid}` per render (some JS frameworks), structural selectors
+are unreliable. Use Mode B as **reconnaissance only**: one call with `--som` after the triggering
+action to map stable attributes, then switch back to Mode A with those selectors for actual execution.
+
+**Limit of this approach:**
+All patterns above assume the future HTML is predictable (components rendered with stable attributes).
+If every modal open generates a random id, the only honest recourse is iterative Mode B — or asking
+developers to add a stable attribute.
+
+---
+
 ## SPA navigation rules
 
 If the target is a JavaScript SPA (single-page application):
@@ -197,6 +245,10 @@ If the target is a JavaScript SPA (single-page application):
 
 3. **Form values are NOT persisted in `storage_state`** (cookies + localStorage only).
    Fill + Submit must be a single atomic action: `--action '[{fill},{submit}]'`
+
+4. **`storage_state` does not preserve JS dialog state** (`dialog.showModal()`, overlays, etc.).
+   Never use `--reprendre-session` to continue a sequence that depends on an open modal — the modal
+   will be gone. Use Mode A with a single uninterrupted sequence instead.
 
 ---
 
