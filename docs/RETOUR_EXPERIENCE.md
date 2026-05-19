@@ -115,7 +115,7 @@ ou au contraire les interdire pour rester strictement CSS.
 
 ---
 
-## Synthèse — ce qui m'aurait fait gagner du temps
+## Synthèse session 1 — ce qui m'aurait fait gagner du temps
 
 1. **Mode A multi-actions par défaut**, Mode B comme exception → à dire plus
    fort dans `GUIDE_LLM.md`. La doc actuelle présente Mode B en premier (§78),
@@ -129,3 +129,170 @@ Le reste — l'idée d'avoir des yeux, la boucle Read(PNG) → analyse → fix,
 le coût marginal d'une capture, la rapidité du SoM vs `cliquer_visuel` —
 c'est aussi bon que la doc le promet. Une fois ces six pièges connus, on
 travaille vite.
+
+---
+
+# Session 2 — Pierre v4 sur Sillage (19 mai 2026, après-midi)
+
+Validation E2E du clonage VPS → IKE4 via l'UI Sillage (post-R13). Six
+nouvelles frictions sont apparues, distinctes de celles de la session 1.
+
+## 7. `attendre` vs `pause` — deux verbes pour deux choses
+
+Réflexe : `{"type":"attendre","duree":1500}` pour insérer un délai de 1,5 s
+entre deux clics. Diwall lève `KeyError: 'selecteur'`. Confusion : « attendre »
+en français suggère un sleep ; en réalité c'est `page.wait_for_selector()`.
+
+**Origine** : `attendre` mappe sur `page.wait_for_selector(a["selecteur"], …)`.
+Champ requis : `selecteur`. La pause temporelle, c'est `pause` avec `ms`.
+
+**Friction ressentie** : l'erreur `KeyError 'selecteur'` ne dit pas
+*« vous vouliez peut-être pause ? »*. Plusieurs minutes à relire `shot.py`
+avant de comprendre que `attendre ≠ sleep`.
+
+**Workaround** : utiliser `{"type":"pause","ms":1500}`.
+
+**Suggestion doc** : renommer ou doc claire — `attendre_selecteur` (alias
+explicite) et garder `attendre` en deprecated. Ou renommer en `wait_for` /
+`sleep` pour lever toute ambiguïté linguistique.
+
+---
+
+## 8. `<dialog>` HTML modal disparaît après `--reprendre-session`
+
+Scénario : Pierre clique un bouton qui appelle `dialog.showModal()`. La
+capture SoM montre bien les éléments de la modal (id=18 « Annuler », id=19
+« Lancer le clonage »). Action suivante : `--reprendre-session` puis
+`cliquer_som id=19` → `élément SoM 19 non trouvé sur la page`.
+
+**Origine** : `storage_state` capture cookies + localStorage + URL, mais pas
+l'état JS d'un `<dialog>` ouvert via `showModal()`. À chaque `--reprendre`,
+Playwright fait `page.goto(url)` → la page recharge → la modal disparaît.
+
+**Friction ressentie** : croire que la session est un *snapshot complet*
+de l'état UI. C'est faux. La session est un *snapshot transactionnel* :
+cookies + storage, pas l'état des composants JS.
+
+**Workaround** : enchaîner `cliquer-bouton-qui-ouvre-modal` + `pause` +
+`cliquer-bouton-de-la-modal` dans **une seule** invocation Mode A. Pas de
+`--reprendre-session` entre les deux.
+
+**Suggestion doc** : ajouter dans `GUIDE_LLM.md` une note sur les pièges
+de la reprise de session — modals, popovers, focus, sélections, scroll,
+champs dirty.
+
+---
+
+## 9. Sélecteurs Playwright étendus pas tous supportés (`:left-of`, etc.)
+
+Tentative : `button:has-text("↺ Cloner"):left-of(:has-text("Gérer →"))`.
+Playwright supporte officiellement `:left-of()`, mais le verbe `cliquer` de
+Diwall fait `page.click(selector)` qui ne semble pas activer ces extensions
+par défaut → timeout 120 s sans capture intermédiaire utile.
+
+**Origine** : la chain de sélecteurs Playwright a deux modes — les pseudos
+classiques (`:has-text`, `:visible`, `:nth-match`) qui marchent partout, et
+les pseudos relationnels (`:left-of`, `:right-of`, `:near`) qui nécessitent
+Playwright >= 1.18 et parfois un `engine` explicite.
+
+**Friction ressentie** : la doc Playwright dit *« ça marche »*, mais sans
+préciser que c'est sensible aux versions. Diagnostic compliqué — `cliquer`
+ne fait pas de capture d'échec utilisable (juste le timeout).
+
+**Workaround** : préférer des sélecteurs *intrinsèques* à l'élément cible
+plutôt que relationnels. Ici, le bouton avait `title="Cloner clone.davalan.fr
+(WordPress) depuis le VPS vers IKE4"` → sélecteur unique :
+`button[title*="Cloner clone.davalan.fr"][title*="(WordPress)"]`.
+
+**Leçon** : SoM > sélecteurs CSS relationnels > sélecteurs CSS basiques.
+Quand un élément a un attribut HTML unique (`title`, `aria-label`, `id`),
+l'utiliser plutôt que sa position.
+
+---
+
+## 10. Plusieurs boutons identiques — `:has-text()` matche le premier
+
+La vue projet contenait **trois** boutons « ↺ Cloner WordPress » (un par
+domaine). Le sélecteur `button:has-text("↺ Cloner WordPress")` matche le
+premier rencontré dans le DOM. Pierre ne sait pas lequel il va lancer.
+
+**Origine** : `page.click(selector)` sans qualificatif. Playwright en mode
+strict refuserait, mais Diwall ne semble pas le forcer.
+
+**Friction ressentie** : « j'ai cliqué Cloner pour clone.davalan.fr, et le
+log montre que c'est sillage.davalan.fr qui a démarré ». Inversion silencieuse.
+
+**Workaround** : sélecteur précis via `title=` (qui contient le nom du
+domaine), ou via SoM (chaque bouton a un `id` SoM unique).
+
+**Suggestion Diwall** : activer le `strict mode` Playwright par défaut, ou
+au moins le surfacer dans `GUIDE_LLM.md`. Un échec strict-mode est BIEN plus
+utile qu'un clic silencieux sur le mauvais élément.
+
+---
+
+## 11. Pas de visibilité sur une action longue (clonage 2-3 min)
+
+Le clonage WordPress prend ~2 min. Diwall capture *après* la `pause` finale.
+Entre temps, l'interface affiche peut-être un spinner, une barre de progrès,
+des logs en temps réel — Pierre ne voit rien. Pour suivre l'exécution j'ai
+dû ouvrir une session SSH en parallèle (`tail -f` du log côté serveur).
+
+**Origine** : Diwall = capture *terminale*. Le modèle « 1 invocation = 1 PNG »
+n'autorise pas le streaming.
+
+**Friction ressentie** : 3 minutes d'attente aveugle. Si le clonage avait
+planté à 30 s, je l'aurais su qu'au bout de 3 min. Et pour itérer, c'est
+2-3 min de plus à chaque test.
+
+**Workaround** : insérer plusieurs `{"type":"capturer","nom":"intermediaire-N"}`
+dans la séquence d'actions. Chaque appel capturer génère un PNG dans
+`output-dir`, on peut faire `Read` dessus à la fin et inspecter visuellement
+les étapes.
+
+**Suggestion Diwall** : option `--stream-toutes-les-Ns 10` qui capture
+automatiquement toutes les 10 s pendant les `pause` longues, et stocke les
+PNG dans `output-dir/`. Très utile pour le debug.
+
+---
+
+## 12. `~/Vaults/Diwall` par défaut, pas `~/Vaults/<Projet>/Diwall`
+
+Le vault par défaut est `~/Vaults/Diwall/<domaine>.json`. Ronan a
+historiquement rangé les credentials en `~/Vaults/Sillage/Diwall/...`.
+La première tentative `remplir … "valeur":"depuis_vault"` a échoué parce
+que Diwall cherchait `~/Vaults/Diwall/sillage.ike4.local.json` (absent).
+
+**Origine** : `lib/vault.py` lit `DIWALL_VAULT_DIR` (env var), sinon défaut
+`~/Vaults/Diwall`. La doc ne dit pas que la convention multi-projet
+`~/Vaults/<Projet>/Diwall/` est gérée à la main par l'utilisateur via env.
+
+**Friction ressentie** : « j'ai mis les credentials au bon endroit, pourquoi
+ça ne marche pas ? ». Cinq minutes de `find` pour réaliser que c'était une
+question de variable d'env.
+
+**Workaround** : `DIWALL_VAULT_DIR=/home/ron/Vaults/Sillage/Diwall` devant
+l'invocation, à chaque fois.
+
+**Suggestion Diwall** : (a) lire un fichier de config par projet
+(`.diwall.toml` à la racine du dépôt courant qui pointe le vault dir), ou
+(b) une convention « auto-détecter `~/Vaults/<basename-du-cwd>/Diwall/` ».
+
+---
+
+## Synthèse session 2 — ce qui se confirme
+
+- **Mode A multi-actions reste la voie royale** — confirmé pour la 2e fois.
+  Pierre v4 a tenté Mode B pour la modal post-clic, ça a foiré (friction #8).
+- **SoM mieux que CSS relationnel** — friction #9. SoM > `:left-of` > tout.
+- **Sélecteurs intrinsèques à l'élément** (`title=`, `aria-label`, `id`)
+  > sélecteurs textuels — friction #10.
+- **Captures intermédiaires sont sous-utilisées** — friction #11. À
+  populariser dans la doc.
+
+Bilan : 12 frictions sur 2 sessions. La 1ère a découvert les pièges
+*structurels* (Mode B, session, `:has-text`, SoM edge cases) ; la 2e les
+pièges *contextuels* (sémantique des verbes, état modal, sélecteurs
+multi-match, suivi d'action longue, vault). Diwall reste un outil d'une
+puissance rare une fois ces pièges connus.
+
