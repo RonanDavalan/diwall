@@ -197,6 +197,14 @@ This creates a problem when an element only appears **after** a first action (mo
 
 SoM is your exploration map. CSS selectors are your execution GPS.
 
+**One-line rule:** Mode A breaks not when an element doesn't exist on screen yet, but when it doesn't exist yet in a structurally predictable form.
+
+**Decision tree — how to target an element:**
+1. Element visible in first capture → `cliquer_som id=N`
+2. Element not yet visible, but present in HTML with a stable attribute (`#id`, `[name]`, `[data-*]`, `[aria-label]`) → `cliquer { "selecteur": "…" }`
+3. Element appears after mutation, no stable attribute → `cliquer_visuel` (~32s, last resort) or Mode B as reconnaissance (one call, then back to Mode A)
+4. DOM is fully generative (uuid-based ids, CSS-in-JS) → iterative Mode B or ask developers to add a stable `data-testid`
+
 **Priority order for stable CSS selectors:**
 1. `#id` — most stable (avoid if generated randomly by framework)
 2. `[name=…]`, `[aria-label=…]`, `[title*=…]`, `[data-*=…]` — semantic attributes, survive DOM mutations
