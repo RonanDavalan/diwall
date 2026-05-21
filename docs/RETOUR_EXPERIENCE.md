@@ -296,3 +296,70 @@ pièges *contextuels* (sémantique des verbes, état modal, sélecteurs
 multi-match, suivi d'action longue, vault). Diwall reste un outil d'une
 puissance rare une fois ces pièges connus.
 
+---
+
+# Session 3 — Validation R33-bis sur Sillage (21 mai 2026, après-midi)
+
+Session courte : valider le rendu de trois pages de l'interface Sillage après
+un changement back-end (durcissement de `config.sh`). Deux frictions, toutes
+deux liées à l'enchaînement d'un parcours authentifié.
+
+## 13. `naviguer` — valider plusieurs pages authentifiées en une invocation
+
+Les sessions 1 et 2 ont établi « Mode A multi-actions = voie royale » pour un
+formulaire sur **une** page. Restait une question : comment valider le rendu de
+**plusieurs** pages derrière un login, sans `--reprendre-session` (proscrit,
+frictions #5 et #8) ?
+
+**Réflexe initial** : une invocation par page, en rejouant le login à chaque
+fois. Coûteux et inutile.
+
+**Réalité** : le verbe `naviguer` (`{"type":"naviguer","url":"…"}`) fait un
+`page.goto()` en conservant le contexte navigateur — donc la session PHP
+obtenue au login. Une seule invocation Mode A enchaîne login + `naviguer` vers
+la page A + `capturer` + `naviguer` vers la page B + `capturer`, etc.
+
+**Pattern** : pour valider N pages authentifiées, une liste d'actions unique —
+`remplir_som`/`cliquer_som` (login), puis pour chaque page `naviguer` +
+`attendre_navigation` + `capturer`. Chaque `capturer` produit un PNG dans
+`output-dir`. Trois pages validées en une invocation, ~4 s.
+
+**Leçon** : `naviguer` étend « Mode A = voie royale » du multi-action au
+multi-page. `--reprendre-session` n'est jamais nécessaire pour un simple
+parcours de validation.
+
+---
+
+## 14. Les fichiers `scenarios/*.json` ne sont pas consommables tels quels
+
+`/opt/diwall/scenarios/sillage_login.json` est un objet
+`{"nom":…, "url":…, "actions":[…]}`. Réflexe : `--actions
+scenarios/sillage_login.json`.
+
+**Réalité** : `--actions` (comme `--action`) attend un **tableau** d'actions.
+`charger_actions` fait `json.load` et renvoie l'objet ; `executer_actions`
+itère alors les **clés** du dict (`"nom"`, `"url"`, `"actions"`) et plante sur
+`"str".get("type")`. Aucun flag `--scenario` n'existe.
+
+**Friction ressentie** : le répertoire `scenarios/` ressemble à une
+bibliothèque prête à l'emploi ; en fait ses fichiers sont des *gabarits*. Pour
+s'en servir, il faut extraire `.actions` (à passer à `--actions`) et `.url`
+(à passer à `--url`) séparément.
+
+**Suggestion Diwall** : soit un flag `--scenario` qui lit l'objet complet
+(`url` + `actions`), soit faire détecter à `charger_actions` un objet
+contenant une clé `actions` et en extraire le tableau.
+
+---
+
+## Synthèse session 3
+
+- `naviguer` complète le tableau : Mode A couvre désormais explicitement le
+  parcours multi-page authentifié — friction #13.
+- Le format des `scenarios/*.json` (objet) diverge de ce que `--actions`
+  consomme (tableau) — friction #14.
+
+14 frictions sur 3 sessions. La 3e était une session de validation pure :
+deux frictions seulement, signe que l'outil est maîtrisé une fois les
+sessions 1 et 2 digérées.
+
