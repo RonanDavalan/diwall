@@ -167,9 +167,14 @@ def charger_actions(source):
         return []
     s = source.strip()
     if s.startswith("[") or s.startswith("{"):
-        return json.loads(s)
-    with open(source, encoding="utf-8") as f:
-        return json.load(f)
+        data = json.loads(s)
+    else:
+        with open(source, encoding="utf-8") as f:
+            data = json.load(f)
+    # Auto-détecte le format scénario {nom, url, actions:[…]} vs tableau direct
+    if isinstance(data, dict) and "actions" in data:
+        return data["actions"]
+    return data
 
 
 def executer_actions(page, actions, output_dir, timeout, mode_llm="local"):
@@ -181,6 +186,11 @@ def executer_actions(page, actions, output_dir, timeout, mode_llm="local"):
             page.goto(a["url"], timeout=timeout)
 
         elif t == "attendre":
+            if "selecteur" not in a:
+                raise ValueError(
+                    "attendre requiert un champ 'selecteur' (CSS). "
+                    "Pour un délai fixe : {\"type\":\"pause\",\"ms\":N}"
+                )
             page.wait_for_selector(a["selecteur"], timeout=timeout)
 
         elif t == "attendre_navigation":
@@ -194,10 +204,10 @@ def executer_actions(page, actions, output_dir, timeout, mode_llm="local"):
                 if not cle:
                     raise ValueError("remplir depuis_vault : champ 'vault_cle' requis")
                 valeur = lire_credential(domaine_depuis_url(page.url), cle)
-            page.fill(a["selecteur"], valeur)
+            page.locator(a["selecteur"]).fill(valeur, timeout=timeout)
 
         elif t == "cliquer":
-            page.click(a["selecteur"], timeout=timeout)
+            page.locator(a["selecteur"]).click(timeout=timeout)
 
         elif t == "pause":
             time.sleep(a.get("ms", 500) / 1000)
@@ -259,7 +269,8 @@ def executer_actions(page, actions, output_dir, timeout, mode_llm="local"):
                 if not ok:
                     raise ValueError(f"remplir_som SELECT : élément SoM {som_id!r} introuvable")
             else:
-                page.mouse.click(coord["x"], coord["y"], click_count=3)
+                page.mouse.click(coord["x"], coord["y"])
+                page.keyboard.press("Control+a")
                 page.keyboard.type(valeur)
 
         elif t == "cliquer_visuel":
@@ -334,8 +345,8 @@ def main():
 
     # ── Chemin de sortie ──────────────────────────────────────────────────────
     if args.output:
-        os.makedirs(os.path.dirname(args.output) or ".", exist_ok=True)
-        sortie = args.output
+        sortie = args.output if os.path.splitext(args.output)[1] else args.output + ".png"
+        os.makedirs(os.path.dirname(sortie) or ".", exist_ok=True)
     else:
         sortie = chemin_png(args.output_dir)
 

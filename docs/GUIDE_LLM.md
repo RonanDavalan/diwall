@@ -145,6 +145,11 @@ Scenario format:
 | `capturer` | `nom` | Named intermediate capture |
 | `pause` | `ms` | Fixed delay |
 
+> **Playwright extended selectors** are supported in `cliquer` and `remplir`:
+> `:has-text("…")`, `:visible`, `:nth-match(N)` work reliably.
+> Avoid relational pseudo-selectors (`:left-of`, `:right-of`, `:near`) — version-sensitive and fail with silent timeout.
+> Prefer intrinsic attributes (`[title*=…]`, `[aria-label=…]`) over positional selectors.
+
 ---
 
 ## Set-of-Mark (SoM) — how to use it
@@ -173,6 +178,12 @@ pass that ID to `cliquer_som` or `remplir_som`.
 1. `DIWALL_VAULT_DIR` environment variable
 2. `vault_dir` key in `/opt/diwall/diwall.conf`
 3. Default: `~/Vaults/Diwall/`
+
+**Per-project usage** — prefix your invocation to override the vault for a specific project:
+```bash
+DIWALL_VAULT_DIR=~/Vaults/MyProject/Diwall /opt/diwall/venv/bin/python3 /opt/diwall/shot.py …
+```
+For a permanent machine-wide default, set `vault_dir` in `/opt/diwall/diwall.conf`.
 
 **Quick test:**
 ```bash
@@ -257,6 +268,31 @@ If the target is a JavaScript SPA (single-page application):
 4. **`storage_state` does not preserve JS dialog state** (`dialog.showModal()`, overlays, etc.).
    Never use `--reprendre-session` to continue a sequence that depends on an open modal — the modal
    will be gone. Use Mode A with a single uninterrupted sequence instead.
+
+---
+
+## Multi-page authenticated pattern
+
+`naviguer` keeps the browser context alive (cookies + storage) across calls.
+Use it to validate N authenticated pages in a single Mode A invocation — no `--reprendre-session` needed.
+
+```bash
+--action '[
+  {"type":"remplir_som","id":1,"valeur":"depuis_vault","vault_cle":"username"},
+  {"type":"remplir_som","id":2,"valeur":"depuis_vault","vault_cle":"password"},
+  {"type":"cliquer_som","id":3},
+  {"type":"attendre_navigation"},
+  {"type":"naviguer","url":"https://target.local/page-a"},
+  {"type":"attendre_navigation"},
+  {"type":"capturer","nom":"page-a"},
+  {"type":"naviguer","url":"https://target.local/page-b"},
+  {"type":"attendre_navigation"},
+  {"type":"capturer","nom":"page-b"}
+]'
+```
+
+Each `capturer` produces a PNG listed in `captures_intermediaires` in the final JSON.
+`--reprendre-session` is never necessary for a validation walk-through.
 
 ---
 
