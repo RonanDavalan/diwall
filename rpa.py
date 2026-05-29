@@ -4,7 +4,8 @@ rpa.py — Phase 6 : exécuteur de scénarios RPA (JSON ou YAML).
 
 Usage :
     /opt/diwall/rpa.py --scenario /opt/diwall/scenarios/example_login.json
-    /opt/diwall/rpa.py --scenario /opt/diwall/scenarios/example_login.yaml  # PyYAML requis
+    /opt/diwall/rpa.py --scenario example_login        # résolu en scenarios/example_login.json
+    /opt/diwall/rpa.py --scenario example_login.yaml   # PyYAML requis
 
 Format du scénario :
     {
@@ -28,6 +29,31 @@ import sys
 
 sys.path.insert(0, os.path.dirname(os.path.abspath(__file__)))
 from lib.vault import lire_credential, domaine_depuis_url
+
+
+def resoudre_chemin_scenario(arg: str) -> tuple:
+    """Résout --scenario en cascade : chemin direct, puis scenarios/<nom>[.json|.yaml|.yml].
+
+    Retourne (chemin_resolu, essais). Si chemin_resolu est None, essais liste les
+    chemins testés pour le message d'erreur.
+    """
+    if os.path.isfile(arg):
+        return arg, [arg]
+    base = os.path.dirname(os.path.abspath(__file__))
+    scenarios_dir = os.path.join(base, "scenarios")
+    essais = [arg]
+    candidats = [os.path.join(scenarios_dir, arg)]
+    if not os.path.splitext(arg)[1]:
+        candidats += [
+            os.path.join(scenarios_dir, arg + ".json"),
+            os.path.join(scenarios_dir, arg + ".yaml"),
+            os.path.join(scenarios_dir, arg + ".yml"),
+        ]
+    for c in candidats:
+        essais.append(c)
+        if os.path.isfile(c):
+            return c, essais
+    return None, essais
 
 
 def charger_scenario(chemin: str) -> dict:
@@ -75,15 +101,17 @@ def main():
     p.add_argument("--timeout", type=int, default=10000, help="Timeout ms par action (défaut : 10000)")
     args = p.parse_args()
 
-    if not os.path.isfile(args.scenario):
+    chemin_scenario, essais = resoudre_chemin_scenario(args.scenario)
+    if not chemin_scenario:
         print(json.dumps({
             "succes": False, "erreur": "fichier_introuvable",
             "message": f"Scénario introuvable : {args.scenario}",
+            "chemins_testes": essais,
         }))
         sys.exit(1)
 
     try:
-        scenario = charger_scenario(args.scenario)
+        scenario = charger_scenario(chemin_scenario)
     except Exception as e:
         print(json.dumps({
             "succes": False, "erreur": "scenario_invalide", "message": str(e),
