@@ -363,3 +363,217 @@ contenant une clé `actions` et en extraire le tableau.
 deux frictions seulement, signe que l'outil est maîtrisé une fois les
 sessions 1 et 2 digérées.
 
+---
+
+# Session 4 — Validation suppression en lot Sillage (29 mai 2026)
+
+Session de validation UI : tester la suppression en lot de clones WordPress
+depuis la vue domaine de l'interface Sillage (cases à cocher + barre d'actions).
+Deux frictions, l'une bloquante (manque d'action dans shot.py), l'autre
+préventive (workaround déjà connu mais non documenté pour rpa.py).
+
+## 15. `remplir` incompatible avec `<select>` — action `select_option` manquante
+
+> **RÉSOLU le 29/05/2026 (commit `4bc463e`).** `remplir_som` détecte désormais
+> `tag == "SELECT"` et applique `el.value = valeur; el.dispatchEvent(new Event('change', {bubbles:true}))`
+> via `page.evaluate()`, au lieu de `fill()`. Plus besoin d'action `select_option`
+> dédiée : on cible le `<select>` par son ID SoM avec `remplir_som`. Validé E2E
+> (suppression en lot Sillage, session 5).
+
+Besoin : choisir une option dans un `<select>` HTML (la barre d'actions en lot
+de Sillage utilise un `<select id="select-action-lot">`).
+
+**Tentative** : `{"type":"remplir","selecteur":"#select-action-lot","valeur":"supprimer"}`.
+
+**Erreur** :
+```
+Locator.fill: Error: Element is not an <input>, <textarea> or [contenteditable] element
+```
+
+`fill()` Playwright ne supporte que les inputs textuels. Pour un `<select>`,
+Playwright expose `select_option()`.
+
+**shot.py n'a pas d'action `select_option`** → blocage total sur tout scénario
+nécessitant un `<select>`.
+
+**Workaround côté LLM** : aucun workaround propre. On peut tenter un `evaluate`
+JavaScript, mais shot.py ne supporte pas `evaluate`. Le scénario s'arrête là.
+
+**Fix côté Diwall** (suggestion d'implémentation) :
+
+```python
+elif t == "select_option":
+    page.locator(a["selecteur"]).select_option(a.get("valeur", ""), timeout=timeout)
+```
+
+À ajouter dans le bloc `elif` de `executer_actions()`, entre `remplir` et `cliquer`.
+Usage dans un scénario :
+```json
+{"type": "select_option", "selecteur": "#select-action-lot", "valeur": "supprimer"}
+```
+
+**Impact** : toute interface utilisant des `<select>` est actuellement non
+testable via scénario rpa.py ou Mode A. Fréquent dans les UI CRUD (filtres,
+actions en lot, sélection de rôle…).
+
+---
+
+## 16. Navigation post-login RPA retombe sur la page de login sans pause
+
+Dans un scénario rpa.py enchaînant login + `naviguer`, la navigation vers la
+page cible retombait sur la page login si aucune pause n'était insérée après
+le clic "Se connecter".
+
+**Scénario défaillant** :
+```json
+{"type":"cliquer_som","id":2},
+{"type":"attendre_navigation"},
+{"type":"naviguer","url":"https://…/page-cible"}
+```
+
+**Scénario fonctionnel** :
+```json
+{"type":"cliquer_som","id":2},
+{"type":"pause","ms":2000},
+{"type":"naviguer","url":"https://…/page-cible"}
+```
+
+**Origine** : `attendre_navigation` ne suffit pas — il détecte `networkidle`
+mais la session PHP côté serveur n'est pas encore validée (session_regenerate_id
+post-login, cf. friction #5). La `pause 2000ms` laisse le serveur émettre le
+cookie de session régénéré avant la prochaine navigation.
+
+**Lien avec friction #5** : même cause racine. Ici c'est dans rpa.py au lieu
+de Mode B, mais le diagnostic est identique : `attendre_navigation` ≠
+« session serveur prête ».
+
+**Suggestion doc** : ajouter dans `GUIDE_LLM.md` (section RPA ou parcours
+authentifiés) : *"Après un submit de formulaire de login, insérer systématiquement
+`{"type":"pause","ms":2000}` avant toute `naviguer` vers une page protégée.
+`attendre_navigation` ne garantit pas que la session serveur est propagée."*
+
+---
+
+## Demande architecturale : documentation LLM avec mémoire des régressions
+
+Au-delà des frictions techniques, une demande structurelle a émergé lors de
+cette session : les LLM qui utilisent Diwall redécouvrent les mêmes frictions
+à chaque session, car le `RETOUR_EXPERIENCE.md` est riche mais non synthétisé
+en règles actionnables.
+
+**Besoin** :
+1. Une **documentation LLM courte** (< 2 pages) listant les règles définitives
+   — ce qui fonctionne, ce qui est proscrit, les workarounds validés. Format
+   "règle → contexte → exemple", pas de narratif.
+2. Un **registre de scénarios testés et validés** (avec leurs résultats attendus)
+   pour détecter les régressions entre versions de shot.py.
+
+**Suggestion** : créer `docs/GUIDE_LLM_REGLES.md` (la synthèse des 16 frictions
+en 20 règles numérotées) et `docs/SCENARIOS_VALIDES.md` (table des scénarios
+avec version shot.py, résultat attendu, date de dernière validation).
+
+---
+
+## Synthèse session 4
+
+- `select_option` manquant dans shot.py → bloquer sur tout `<select>` HTML
+  (friction #15 — **bloquante, demande un correctif shot.py**).
+- Pause obligatoire post-login dans rpa.py (friction #16 — workaround connu,
+  à documenter explicitement dans `GUIDE_LLM.md`).
+- Demande architecturale : doc LLM synthétique + registre de scénarios validés.
+
+16 frictions sur 4 sessions.
+
+---
+
+# Session 5 — Reconnexion VpsL → IKE4 sur Sillage (29 mai 2026, soir)
+
+Session longue et de bout en bout : reconnecter un client hébergé sur un serveur
+**Plesk à comptes cloisonnés** (un utilisateur à droits minimaux par site), via
+l'UI Sillage pilotée par scénarios `rpa.py` — ajout serveur, sonde, création des
+domaines, puis clonage WordPress distant→local. Friction #15 **confirmée résolue**.
+Trois nouvelles frictions, dont une structurante.
+
+## 17. `--scenario` existe désormais — mais attend un chemin, pas un nom
+
+La suggestion de la friction #14 a été **implémentée** ✅ : `rpa.py` a maintenant
+un flag `--scenario` qui lit l'objet complet `{url, actions}`. Mais il attend un
+**chemin de fichier**, pas un nom de scénario du répertoire `scenarios/`.
+
+`--scenario sillage_voir_client` → `{"erreur":"fichier_introuvable"}`.
+Il faut `--scenario /opt/diwall/scenarios/sillage_voir_client.json`.
+
+**Friction ressentie** : le répertoire `scenarios/` ressemble à une bibliothèque
+adressable par nom ; en réalité il faut le chemin complet. (Et il n'y a pas de
+wrapper `diwall.sh` — l'invocation est `venv/bin/python3 rpa.py --scenario …`.)
+
+**Suggestion** : résoudre un nom nu contre `scenarios/<nom>.json` en plus du
+chemin absolu.
+
+---
+
+## 18. Pas d'introspection DOM depuis rpa.py (ni `evaluate`, ni extraction HTML)
+
+Pour passer de « je *vois* un bouton sur la capture » à « je connais son
+**sélecteur** / son **href** », j'ai tenté `evaluer_js`, `extraire_html`,
+`capturer_som` → tous `Type d'action inconnu`. Aucune action ne permet
+d'interroger le DOM (`querySelectorAll`, lire un `href`, lister les liens d'une
+page). Pour découvrir l'URL du bouton « Configurer » et le sélecteur du formulaire
+« Lancer la sonde », j'ai dû lire le **source PHP côté serveur** (via SSH).
+
+**Origine** : `shot.py` expose `naviguer/cliquer/remplir/capturer/*_som/cliquer_visuel`,
+pas d'`evaluate`.
+
+**Friction ressentie** : la capture est en lecture seule. Diwall *voit* mais ne
+*renseigne* pas. Ici je m'en suis sorti parce que j'avais accès au source de
+l'app ; **en boîte noire (vrai cas B2B), ce serait bloquant** — on ne pourrait
+pas extraire un sélecteur sans le deviner visuellement.
+
+**Workaround** : lire le source (PHP/HTML) en parallèle de la capture.
+
+**Suggestion** : action `evaluer` (`page.evaluate`, retour JSON dans la sortie).
+Débloque l'extraction de sélecteurs/href, l'inspection d'état, et — avant #15 —
+aurait résolu le cas `<select>`.
+
+---
+
+## 19. SoM en mode scénario : `som:true` dans `capturer` semble ignoré
+
+Pour obtenir l'overlay numéroté SoM, j'ai mis `{"type":"capturer","som":true}` →
+la capture rendue n'avait **pas** les numéros. `rpa.py` expose un flag CLI `--som`
+(visible dans l'usage) ; c'est probablement lui qui active le SoM, pas un champ
+dans l'action `capturer`.
+
+**Friction ressentie** : le champ `som:true` est accepté **silencieusement**
+(aucune erreur) mais sans effet → on croit avoir le SoM, on ne l'a pas, et on
+perd un aller-retour à comprendre pourquoi les IDs n'apparaissent pas.
+
+**Workaround** : invoquer `rpa.py --som` (à reconfirmer), ou rester en sélecteurs
+CSS quand on connaît le source.
+
+**Suggestion** : soit honorer `som:true` au niveau de l'action `capturer`, soit
+rejeter le champ inconnu avec un avertissement.
+
+---
+
+## Confirmations de cette session
+
+- **#15 résolue** : suppression en lot E2E OK ; `remplir_som` pilote un `<select>`
+  via JS. Le scénario complet (cocher → choisir « supprimer » → dialog → confirmer)
+  passe.
+- **#11 (action longue aveugle)** : le clonage VpsL→IKE4 a pris ~5 min.
+  `--timeout 300000` + lancement en arrière-plan ont tenu (durée 306 622 ms), mais
+  le suivi de progression s'est fait via `ssh … du -sh` en parallèle — aucune
+  visibilité dans Diwall.
+- **`:has()` CSS natif supporté** : `form:has(input[value='lancer_sonde']) button[type='submit']`
+  a fonctionné — à bien distinguer de `:has-text()` Playwright (friction #6).
+
+## Synthèse session 5
+
+19 frictions sur 5 sessions. La 5e **confirme la résolution de #15** (le `<select>`
+n'est plus un mur) et révèle la limite la plus structurante : **#18 — sans
+`evaluate`, Diwall voit mais ne renseigne pas**. Tant que la cible est une app
+dont on possède le source, on complète par la lecture du code ; pour une cible en
+boîte noire, l'absence d'introspection DOM deviendrait bloquante. C'est le candidat
+n°1 pour le prochain incrément de `shot.py`.
+
