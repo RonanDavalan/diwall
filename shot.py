@@ -214,8 +214,14 @@ def executer_actions(page, actions, output_dir, timeout, mode_llm="local"):
 
         elif t == "capturer":
             nom = a.get("nom", "etape")
-            p = chemin_png(output_dir, f"capture_{nom}")
-            page.screenshot(path=p, full_page=True)
+            if a.get("som"):
+                page.evaluate(_SOM_INJECTER_JS)
+                p = chemin_png(output_dir, f"capture_som_{nom}")
+                page.screenshot(path=p, full_page=False)
+                page.evaluate(_SOM_RETIRER_JS)
+            else:
+                p = chemin_png(output_dir, f"capture_{nom}")
+                page.screenshot(path=p, full_page=True)
             intermediaires.append(p)
 
         elif t == "cliquer_som":
