@@ -204,6 +204,7 @@ def executer_actions(page, actions, output_dir, timeout, mode_llm="local",
 
     intermediaires = []
     stream_captures = []
+    evaluations = []
     stream_dir = None
     run_id = int(time.time())
 
@@ -380,6 +381,20 @@ def executer_actions(page, actions, output_dir, timeout, mode_llm="local",
                 page.keyboard.press("Control+a")
                 page.keyboard.type(valeur)
 
+        elif t == "evaluer":
+            script = a.get("script")
+            if not script:
+                raise ValueError("evaluer requiert un champ 'script' (chaîne JS pour page.evaluate)")
+            valeur = page.evaluate(script)
+            entree = {"index": idx, "script": script}
+            try:
+                json.dumps(valeur)
+                entree["valeur"] = valeur
+            except (TypeError, ValueError):
+                entree["valeur"] = str(valeur)
+                entree["serialisation"] = "str"
+            evaluations.append(entree)
+
         elif t == "cliquer_visuel":
             description = a.get("description", "")
             if not description:
@@ -408,7 +423,7 @@ def executer_actions(page, actions, output_dir, timeout, mode_llm="local",
         else:
             raise ValueError(f"Type d'action inconnu : {t!r}")
 
-    return intermediaires, stream_captures
+    return intermediaires, stream_captures, evaluations
 
 
 def main():
@@ -498,7 +513,7 @@ def main():
                 page.wait_for_selector(args.attendre_selecteur, timeout=args.timeout)
 
             # ── Actions ───────────────────────────────────────────────────────
-            interm, stream_captures = executer_actions(
+            interm, stream_captures, evaluations = executer_actions(
                 page, actions, args.output_dir, args.timeout, args.llm,
                 interval_capture_default=args.interval_capture,
             )
@@ -537,6 +552,8 @@ def main():
             result["captures_intermediaires"] = interm
         if stream_captures:
             result["stream_captures"] = stream_captures
+        if evaluations:
+            result["evaluations"] = evaluations
         if capture_som:
             result["capture_som"] = capture_som
             result["elements_som"] = elements_som
