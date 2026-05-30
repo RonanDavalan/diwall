@@ -144,6 +144,72 @@ Scenario format:
 | `attendre_navigation` | — | Wait for networkidle |
 | `capturer` | `nom` | Named intermediate capture |
 | `pause` | `ms` | Fixed delay |
+| `evaluer` | `script` | Runs `page.evaluate(script)`; result returned in `evaluations[]` (v1.1) |
+
+### `evaluer` — DOM/JS introspection (v1.1)
+
+Use when you need to read a value from the page (attribute, global, computed
+state) without parsing a screenshot. Black-box targets: when you cannot see
+the server source, `evaluer` lets the page speak for itself.
+
+```json
+{"type": "evaluer", "script": "document.title"}
+{"type": "evaluer", "script": "window.MyApp?.version ?? null"}
+```
+
+Output is appended to `evaluations` in the JSON result, one entry per call:
+
+```json
+"evaluations": [
+  {"index": 0, "script": "document.title", "valeur": "My App — home"}
+]
+```
+
+Non-JSON-serializable values fall back to `str(value)` with an extra
+`"serialisation": "str"` marker. The script is read from the scenario only —
+never inject user input or URL parameters into it.
+
+### `attendu` — assertion key for `evaluer` (v1.1, rpa.py only)
+
+On an `evaluer` action, the optional `attendu` key turns the evaluation into
+an integration assertion. `shot.py` ignores it; `rpa.py` reads the
+`evaluations` from `shot.py`'s output and compares strictly (`==`).
+
+```json
+{"type": "evaluer", "script": "document.title", "attendu": "My App — home"}
+```
+
+On mismatch, `rpa.py` exits with code `1` and prints to stderr:
+
+```
+Assertion échouée action #N (evaluer) :
+  script  : document.title
+  attendu : "My App — home"
+  obtenu  : "My App — home — Login"
+```
+
+No regex in v1.1 — strict equality only. Use one `evaluer` per assertion.
+
+### `--interval-capture N` — periodic captures during long waits (v1.1)
+
+Adds a screenshot every `N` seconds while a `pause`, `attendre` or
+`attendre_navigation` is in flight. Opt-in: nothing happens without the flag
+or the per-action key.
+
+```bash
+shot.py --url … --actions '[{"type":"pause","ms":10000}]' --interval-capture 2
+```
+
+Per-action override (wins over the CLI default):
+
+```json
+{"type": "attendre", "selecteur": ".loaded", "interval_capture": 1}
+```
+
+Output is written to `/tmp/diwall/stream/<run_id>/<action_index>_<t_ms>.png`
+(mode 700). The JSON gains a `stream_captures` array with the same shape as
+`evaluations`. Useful for cloning, exports, or slow probes where you want
+to see the progression instead of just the final frame.
 
 > **Playwright extended selectors** are supported in `cliquer` and `remplir`:
 > `:has-text("…")`, `:visible`, `:nth-match(N)` work reliably.
