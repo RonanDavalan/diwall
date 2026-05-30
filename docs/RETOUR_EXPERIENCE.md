@@ -577,3 +577,83 @@ dont on possède le source, on complète par la lecture du code ; pour une cible
 boîte noire, l'absence d'introspection DOM deviendrait bloquante. C'est le candidat
 n°1 pour le prochain incrément de `shot.py`.
 
+---
+
+# Session 6 — 30 mai 2026 (validation v1.1 sur le terrain)
+
+Première session après livraison locale de Diwall v1.1 (incréments A/B/C de la
+Phase 8 lot 8.1). Cible : suppression unitaire d'un clone WordPress identifié par
+horodatage sur `sillage.ike4.local`. Mémoire procédurale lue avant exécution :
+`VAL_tester-suppression.md`, `VAL_valider-ui.md` côté Sillage.
+
+## 20. `--reprendre-session` ne préserve pas l'état DOM (case cochée)
+
+**Constat** : workflow stateful découpé en deux invocations
+1. `shot.py … --sauver-session …` (login + navigation + clic sur une checkbox)
+2. `shot.py --reprendre-session … --actions '[choisir action, confirmer]'`
+
+L'étape 2 retourne `succes:true` en ~1 s, sans capture intermédiaire et sans effet
+réel sur la cible. Cause : `storage_state` Playwright ne sauvegarde que cookies
+et `localStorage`, **pas l'état DOM**. La case cochée à l'étape 1 est perdue à la
+reprise ; les actions SoM suivantes ciblent les bons IDs sur une page propre, donc
+opèrent sur des éléments sans intérêt (footer, etc.) sans erreur.
+
+**Workaround** : ne **jamais découper** un workflow stateful. Faire un Mode A
+unique du début à la fin (login → action → confirmation), même si cela impose de
+re-loguer. Sur la même cible, le Mode A unique a pris 7,5 s et réussi ; la
+décomposition avait pris 1,1 s et silencieusement échoué.
+
+**Suggestion** : signaler explicitement dans le JSON de retour de `--reprendre-session`
+si l'URL chargée diffère de l'URL active à la sauvegarde (heuristique faible mais
+utile), ou documenter clairement que l'état DOM n'est pas restauré dans
+`GUIDE_LLM.md` / `26_GUIDE_CLAUDE_SESSION_DIWALL.md`.
+
+## 21. SoM dynamique : la position du SELECT après cochage dépend du nombre de clones
+
+**Constat** : la procédure `VAL_tester-suppression.md` du 29/05 (cas 1 clone)
+donnait SELECT à id SoM=16 après cochage de la checkbox à id=7. Le 30/05 sur 5 clones,
+la checkbox cible était à id=16 et le SELECT s'est retrouvé à **id=22**. La barre
+lot ajoute bien +2 éléments SoM en aval de la liste, mais cette base bouge selon
+le nombre de clones visibles.
+
+**Workaround** : capturer SoM **après** le `cliquer_som` sur la checkbox cible pour
+relever l'ID dynamique du SELECT, puis lancer la suite. Sinon, sélecteurs CSS
+directs (`#select-action-lot`) pour les éléments à id fixe — mais friction #15
+oblige à passer par `remplir_som` pour un `<select>`, qui exige l'id SoM dynamique.
+
+**Suggestion** : nouveau verbe `remplir_select` (sélecteur CSS direct + valeur),
+qui ferait le même boulot interne que `remplir_som` sur un SELECT mais sans
+dépendance à la numérotation SoM volatile. Ouvre la voie au passage en Mode B
+ReAct pour les workflows stateful.
+
+## 22. `evaluer` (livré ce jour) sauve l'audit post-action
+
+Vérification de l'effet de la suppression : au lieu d'une recapture SoM + analyse
+visuelle des slugs visibles, une action
+`{"type":"evaluer","script":"Array.from(document.querySelectorAll('input.chk-clone')).map(i => i.value)"}`
+retourne immédiatement la liste des slugs restants en JSON, comparable
+programmatiquement. **Friction #18 réellement résolue** dès la première session
+post-livraison.
+
+## 23. Identification temporelle d'une cible parmi N : SoM contient le slug
+
+**Constat** : Ronan demande la suppression d'un clone identifié par sa date
+(`2026-05-29 09:20`). La liste contient 5 clones. La procédure validée 29/05
+disait « clone le plus récent = id SoM 7 » — obsolète, car des clones plus récents
+ont été créés depuis. Heureusement, le `value` de chaque checkbox contient le slug
+horodaté (`clone.davalan.fr-2026-05-29-09-20-02`), exposé tel quel dans
+`elements_som[].texte`. L'identification se fait par filtrage textuel sur la sortie
+SoM — pas besoin de vision LLM.
+
+**Leçon** : pour les cibles dont l'horodatage est dans un attribut DOM (`value`,
+`data-*`, `id`), le SoM est auto-suffisant ; pas de delegation vision.
+
+## Synthèse session 6
+
+3 nouvelles frictions consignées (#20–#22), une procédure validée 30/05 ajoutée
+côté Sillage (`VAL_tester-suppression.md` — variante unitaire ciblée), `evaluer`
+adopté en production immédiatement après livraison. **Friction #20
+(`--reprendre-session` + DOM stateful) est la candidate la plus probable pour le
+prochain incrément** : soit signaler la dérive d'état, soit acter dans la doc que
+le découpage est interdit pour les workflows stateful.
+
