@@ -153,6 +153,10 @@ def parse_args():
                    help="Active le Set-of-Mark : capture annotée + liste elements_som dans le JSON")
     p.add_argument("--a11y", action="store_true",
                    help="Inclut le snapshot d'accessibilité (a11y_tree) dans le JSON")
+    p.add_argument("--interval-capture", dest="interval_capture", type=int, default=0,
+                   help="Intervalle en secondes (>0) pour captures périodiques pendant pause/"
+                        "attendre/attendre_navigation. Défaut 0 = désactivé. Override par-action "
+                        "possible via la clé 'interval_capture' du scénario.")
     return p.parse_args()
 
 
@@ -160,6 +164,23 @@ def chemin_png(repertoire, prefixe="capture"):
     os.makedirs(repertoire, mode=0o700, exist_ok=True)
     os.chmod(repertoire, 0o700)  # corrige si le répertoire existait déjà avec de mauvaises permissions
     return os.path.join(repertoire, f"{prefixe}_{int(time.time())}.png")
+
+
+def _preparer_stream_dir(output_dir, run_id):
+    """Crée /tmp/diwall/stream/<run_id>/ en mode 700. Idempotent."""
+    stream_dir = os.path.join(output_dir, "stream", str(run_id))
+    os.makedirs(stream_dir, mode=0o700, exist_ok=True)
+    os.chmod(stream_dir, 0o700)
+    parent = os.path.dirname(stream_dir)
+    os.chmod(parent, 0o700)
+    return stream_dir
+
+
+def _capture_periodique(page, stream_dir, action_index, t_ms):
+    """Prend une capture intermédiaire pendant une attente. Retourne le dict descriptif."""
+    chemin = os.path.join(stream_dir, f"{action_index}_{t_ms}.png")
+    page.screenshot(path=chemin, full_page=False)
+    return {"action_index": action_index, "t_ms": t_ms, "chemin": chemin}
 
 
 def charger_actions(source):
@@ -177,10 +198,33 @@ def charger_actions(source):
     return data
 
 
-def executer_actions(page, actions, output_dir, timeout, mode_llm="local"):
+def executer_actions(page, actions, output_dir, timeout, mode_llm="local",
+                     interval_capture_default=0):
+    from playwright.sync_api import TimeoutError as PWTimeoutError
+
     intermediaires = []
-    for a in actions:
+    stream_captures = []
+    stream_dir = None
+    run_id = int(time.time())
+
+    def _resoudre_intervalle(action):
+        """Retourne (secondes>0) si capture périodique active, sinon 0."""
+        val = action.get("interval_capture", interval_capture_default)
+        try:
+            iv = int(val)
+        except (TypeError, ValueError):
+            return 0
+        return iv if iv > 0 else 0
+
+    def _stream_dir_lazy():
+        nonlocal stream_dir
+        if stream_dir is None:
+            stream_dir = _preparer_stream_dir(output_dir, run_id)
+        return stream_dir
+
+    for idx, a in enumerate(actions):
         t = a.get("type")
+        iv = _resoudre_intervalle(a)
 
         if t == "naviguer":
             page.goto(a["url"], timeout=timeout)
@@ -191,10 +235,52 @@ def executer_actions(page, actions, output_dir, timeout, mode_llm="local"):
                     "attendre requiert un champ 'selecteur' (CSS). "
                     "Pour un délai fixe : {\"type\":\"pause\",\"ms\":N}"
                 )
-            page.wait_for_selector(a["selecteur"], timeout=timeout)
+            if iv <= 0:
+                page.wait_for_selector(a["selecteur"], timeout=timeout)
+            else:
+                t0 = time.time()
+                deadline = t0 + timeout / 1000.0
+                prochain_capture = t0 + iv
+                while True:
+                    restant_s = deadline - time.time()
+                    if restant_s <= 0:
+                        page.wait_for_selector(a["selecteur"], timeout=1)  # déclenche TimeoutError
+                    fenetre_s = min(restant_s, max(prochain_capture - time.time(), 0.01))
+                    try:
+                        page.wait_for_selector(a["selecteur"], timeout=int(fenetre_s * 1000) or 1)
+                        break
+                    except PWTimeoutError:
+                        now = time.time()
+                        if now >= deadline:
+                            raise
+                        if now >= prochain_capture:
+                            stream_captures.append(_capture_periodique(
+                                page, _stream_dir_lazy(), idx, int((now - t0) * 1000)))
+                            prochain_capture = now + iv
 
         elif t == "attendre_navigation":
-            page.wait_for_load_state("networkidle", timeout=timeout)
+            if iv <= 0:
+                page.wait_for_load_state("networkidle", timeout=timeout)
+            else:
+                t0 = time.time()
+                deadline = t0 + timeout / 1000.0
+                prochain_capture = t0 + iv
+                while True:
+                    restant_s = deadline - time.time()
+                    if restant_s <= 0:
+                        page.wait_for_load_state("networkidle", timeout=1)
+                    fenetre_s = min(restant_s, max(prochain_capture - time.time(), 0.01))
+                    try:
+                        page.wait_for_load_state("networkidle", timeout=int(fenetre_s * 1000) or 1)
+                        break
+                    except PWTimeoutError:
+                        now = time.time()
+                        if now >= deadline:
+                            raise
+                        if now >= prochain_capture:
+                            stream_captures.append(_capture_periodique(
+                                page, _stream_dir_lazy(), idx, int((now - t0) * 1000)))
+                            prochain_capture = now + iv
 
         elif t == "remplir":
             valeur = a.get("valeur", "")
@@ -210,7 +296,22 @@ def executer_actions(page, actions, output_dir, timeout, mode_llm="local"):
             page.locator(a["selecteur"]).click(timeout=timeout)
 
         elif t == "pause":
-            time.sleep(a.get("ms", 500) / 1000)
+            duree_s = a.get("ms", 500) / 1000.0
+            if iv <= 0:
+                time.sleep(duree_s)
+            else:
+                t0 = time.time()
+                deadline = t0 + duree_s
+                prochain_capture = t0 + iv
+                while True:
+                    now = time.time()
+                    if now >= deadline:
+                        break
+                    if now >= prochain_capture:
+                        stream_captures.append(_capture_periodique(
+                            page, _stream_dir_lazy(), idx, int((now - t0) * 1000)))
+                        prochain_capture = now + iv
+                    time.sleep(min(0.05, max(deadline - time.time(), 0)))
 
         elif t == "capturer":
             nom = a.get("nom", "etape")
@@ -307,7 +408,7 @@ def executer_actions(page, actions, output_dir, timeout, mode_llm="local"):
         else:
             raise ValueError(f"Type d'action inconnu : {t!r}")
 
-    return intermediaires
+    return intermediaires, stream_captures
 
 
 def main():
@@ -397,7 +498,10 @@ def main():
                 page.wait_for_selector(args.attendre_selecteur, timeout=args.timeout)
 
             # ── Actions ───────────────────────────────────────────────────────
-            interm = executer_actions(page, actions, args.output_dir, args.timeout, args.llm)
+            interm, stream_captures = executer_actions(
+                page, actions, args.output_dir, args.timeout, args.llm,
+                interval_capture_default=args.interval_capture,
+            )
             url_finale = page.url  # mise à jour après actions
 
             # ── Capture finale ────────────────────────────────────────────────
@@ -431,6 +535,8 @@ def main():
         }
         if interm:
             result["captures_intermediaires"] = interm
+        if stream_captures:
+            result["stream_captures"] = stream_captures
         if capture_som:
             result["capture_som"] = capture_som
             result["elements_som"] = elements_som
