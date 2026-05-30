@@ -150,11 +150,56 @@ def main():
     if args.a11y:
         cmd.append("--a11y")
 
+    # Pré-collecte des assertions : clé 'attendu' sur les actions 'evaluer'.
+    # Lue côté rpa.py uniquement ; shot.py l'ignore (clé inconnue).
+    attentes = []
+    for i, a in enumerate(actions):
+        if "attendu" not in a:
+            continue
+        if a.get("type") != "evaluer":
+            print(
+                f"avertissement : clé 'attendu' ignorée sur action #{i} "
+                f"(type {a.get('type')!r}, valide uniquement sur 'evaluer')",
+                file=sys.stderr,
+            )
+            continue
+        attentes.append((i, a["attendu"]))
+
     result = subprocess.run(cmd, capture_output=True, text=True)
     print(result.stdout)
     if result.stderr:
         print(result.stderr, file=sys.stderr)
-    sys.exit(result.returncode)
+
+    if result.returncode != 0 or not attentes:
+        sys.exit(result.returncode)
+
+    # Arbitrage des assertions sur le JSON de shot.py
+    try:
+        sortie = json.loads(result.stdout)
+    except json.JSONDecodeError:
+        # shot.py a réussi mais le JSON est illisible : on ne juge pas.
+        sys.exit(result.returncode)
+
+    evaluations = {e["index"]: e for e in sortie.get("evaluations", [])}
+    for idx, attendu in attentes:
+        ev = evaluations.get(idx)
+        if ev is None:
+            print(
+                f"Assertion impossible action #{idx} : aucune évaluation retournée par shot.py",
+                file=sys.stderr,
+            )
+            sys.exit(1)
+        if ev.get("valeur") != attendu:
+            print(
+                f"Assertion échouée action #{idx} (evaluer) :\n"
+                f"  script  : {ev.get('script')}\n"
+                f"  attendu : {json.dumps(attendu, ensure_ascii=False)}\n"
+                f"  obtenu  : {json.dumps(ev.get('valeur'), ensure_ascii=False)}",
+                file=sys.stderr,
+            )
+            sys.exit(1)
+
+    sys.exit(0)
 
 
 if __name__ == "__main__":
