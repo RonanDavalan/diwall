@@ -582,9 +582,9 @@ n°1 pour le prochain incrément de `shot.py`.
 # Session 6 — 30 mai 2026 (validation v1.1 sur le terrain)
 
 Première session après livraison locale de Diwall v1.1 (incréments A/B/C de la
-Phase 8 lot 8.1). Cible : suppression unitaire d'un clone WordPress identifié par
-horodatage sur `sillage.ike4.local`. Mémoire procédurale lue avant exécution :
-`VAL_tester-suppression.md`, `VAL_valider-ui.md` côté Sillage.
+Phase 8 lot 8.1). Cible : suppression unitaire d'une ressource identifiée par
+horodatage sur `__HOST_ADMIN__` (banc de test). Mémoire procédurale lue avant
+exécution : relevés d'instance de la cible (couche privée du `_CADRE/`).
 
 ## 20. `--reprendre-session` ne préserve pas l'état DOM (case cochée)
 
@@ -600,7 +600,7 @@ opèrent sur des éléments sans intérêt (footer, etc.) sans erreur.
 
 **Workaround** : ne **jamais découper** un workflow stateful. Faire un Mode A
 unique du début à la fin (login → action → confirmation), même si cela impose de
-re-loguer. Sur la même cible, le Mode A unique a pris 7,5 s et réussi ; la
+re-loguer. Sur la cible de test, le Mode A unique a pris 7,5 s et réussi ; la
 décomposition avait pris 1,1 s et silencieusement échoué.
 
 **Suggestion** : signaler explicitement dans le JSON de retour de `--reprendre-session`
@@ -608,18 +608,18 @@ si l'URL chargée diffère de l'URL active à la sauvegarde (heuristique faible 
 utile), ou documenter clairement que l'état DOM n'est pas restauré dans
 `GUIDE_LLM.md` / `26_GUIDE_CLAUDE_SESSION_DIWALL.md`.
 
-## 21. SoM dynamique : la position du SELECT après cochage dépend du nombre de clones
+## 21. SoM dynamique : la position d'un contrôle ajouté dépend du nombre d'éléments listés
 
-**Constat** : la procédure `VAL_tester-suppression.md` du 29/05 (cas 1 clone)
-donnait SELECT à id SoM=16 après cochage de la checkbox à id=7. Le 30/05 sur 5 clones,
-la checkbox cible était à id=16 et le SELECT s'est retrouvé à **id=22**. La barre
-lot ajoute bien +2 éléments SoM en aval de la liste, mais cette base bouge selon
-le nombre de clones visibles.
+**Constat** : une procédure validée sur une page contenant *N* lignes (cas 1
+ligne au 29/05) plaçait le SELECT d'action en bas de liste à un certain ID SoM.
+Le 30/05 sur la même page contenant *N+4* lignes, la même cible a été déplacée
+d'autant d'IDs SoM. La barre d'action ajoute bien un nombre fixe d'éléments
+(+2 ici), mais cette base bouge avec le nombre de lignes visibles précédentes.
 
-**Workaround** : capturer SoM **après** le `cliquer_som` sur la checkbox cible pour
+**Workaround** : capturer SoM **après** le `cliquer_som` sur la cible pour
 relever l'ID dynamique du SELECT, puis lancer la suite. Sinon, sélecteurs CSS
-directs (`#select-action-lot`) pour les éléments à id fixe — mais friction #15
-oblige à passer par `remplir_som` pour un `<select>`, qui exige l'id SoM dynamique.
+directs pour les éléments à id fixe — mais friction #15 oblige à passer par
+`remplir_som` pour un `<select>`, qui exige l'id SoM dynamique.
 
 **Suggestion** : nouveau verbe `remplir_select` (sélecteur CSS direct + valeur),
 qui ferait le même boulot interne que `remplir_som` sur un SELECT mais sans
@@ -637,13 +637,12 @@ post-livraison.
 
 ## 23. Identification temporelle d'une cible parmi N : SoM contient le slug
 
-**Constat** : Ronan demande la suppression d'un clone identifié par sa date
-(`2026-05-29 09:20`). La liste contient 5 clones. La procédure validée 29/05
-disait « clone le plus récent = id SoM 7 » — obsolète, car des clones plus récents
-ont été créés depuis. Heureusement, le `value` de chaque checkbox contient le slug
-horodaté (`clone.davalan.fr-2026-05-29-09-20-02`), exposé tel quel dans
-`elements_som[].texte`. L'identification se fait par filtrage textuel sur la sortie
-SoM — pas besoin de vision LLM.
+**Constat** : demande de suppression d'une ressource identifiée par sa date
+(`AAAA-MM-JJ HH:MM`). La liste contient N candidats. Une heuristique du genre
+« la plus récente = id SoM 7 » devient fausse dès qu'une nouvelle ressource est
+créée. Le `value` de chaque case à cocher contient le slug horodaté
+(`__SLUG_HORODATE__`), exposé tel quel dans `elements_som[].texte`. L'identification
+se fait par filtrage textuel sur la sortie SoM — pas besoin de vision LLM.
 
 **Leçon** : pour les cibles dont l'horodatage est dans un attribut DOM (`value`,
 `data-*`, `id`), le SoM est auto-suffisant ; pas de delegation vision.
