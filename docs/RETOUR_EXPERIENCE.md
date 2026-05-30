@@ -219,8 +219,8 @@ premier rencontré dans le DOM. Pierre ne sait pas lequel il va lancer.
 **Origine** : `page.click(selector)` sans qualificatif. Playwright en mode
 strict refuserait, mais Diwall ne semble pas le forcer.
 
-**Friction ressentie** : « j'ai cliqué Cloner pour __HOST_ADMIN__, et le
-log montre que c'est __HOST_ADMIN__ qui a démarré ». Inversion silencieuse.
+**Friction ressentie** : « j'ai cliqué Cloner pour un domaine donné, et
+le log montre qu'un autre domaine a démarré ». Inversion silencieuse.
 
 **Workaround** : sélecteur précis via `title=` (qui contient le nom du
 domaine), ou via SoM (chaque bouton a un `id` SoM unique).
@@ -258,8 +258,8 @@ PNG dans `output-dir/`. Très utile pour le debug.
 
 ## 12. `~/Vaults/Diwall` par défaut, pas `~/Vaults/<Projet>/Diwall`
 
-Le vault par défaut est `~/Vaults/Diwall/<domaine>.json`. L'opérateur a
-historiquement rangé les credentials en `~/Vaults/<PROJET>/Diwall/...`.
+Le vault par défaut est `~/Vaults/Diwall/<domaine>.json`. L'opérateur
+peut avoir historiquement rangé les credentials en `~/Vaults/<PROJET>/Diwall/...`.
 La première tentative `remplir … "valeur":"depuis_vault"` a échoué parce
 que Diwall cherchait `~/Vaults/Diwall/__HOST_ADMIN__.json` (absent).
 
@@ -271,7 +271,7 @@ que Diwall cherchait `~/Vaults/Diwall/__HOST_ADMIN__.json` (absent).
 ça ne marche pas ? ». Cinq minutes de `find` pour réaliser que c'était une
 question de variable d'env.
 
-**Workaround** : `DIWALL_VAULT_DIR=/home/<user>/Vaults/<PROJET>/Diwall` devant
+**Workaround** : `DIWALL_VAULT_DIR=~/Vaults/<PROJET>/Diwall` devant
 l'invocation, à chaque fois.
 
 **Suggestion Diwall** : (a) lire un fichier de config par projet
