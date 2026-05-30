@@ -134,7 +134,7 @@ travaille vite.
 
 # Session 2 — Pierre v4 sur Sillage (19 mai 2026, après-midi)
 
-Validation E2E du clonage VPS → IKE4 via l'UI Sillage (post-R13). Six
+Validation E2E du clonage VPS → __HOST_ADMIN__ via l'UI Sillage (post-R13). Six
 nouvelles frictions sont apparues, distinctes de celles de la session 1.
 
 ## 7. `attendre` vs `pause` — deux verbes pour deux choses
@@ -200,9 +200,9 @@ préciser que c'est sensible aux versions. Diagnostic compliqué — `cliquer`
 ne fait pas de capture d'échec utilisable (juste le timeout).
 
 **Workaround** : préférer des sélecteurs *intrinsèques* à l'élément cible
-plutôt que relationnels. Ici, le bouton avait `title="Cloner clone.davalan.fr
-(WordPress) depuis le VPS vers IKE4"` → sélecteur unique :
-`button[title*="Cloner clone.davalan.fr"][title*="(WordPress)"]`.
+plutôt que relationnels. Ici, le bouton avait `title="Cloner __HOST_ADMIN__
+(WordPress) depuis le VPS vers __HOST_ADMIN__"` → sélecteur unique :
+`button[title*="Cloner __HOST_ADMIN__"][title*="(WordPress)"]`.
 
 **Leçon** : SoM > sélecteurs CSS relationnels > sélecteurs CSS basiques.
 Quand un élément a un attribut HTML unique (`title`, `aria-label`, `id`),
@@ -219,8 +219,8 @@ premier rencontré dans le DOM. Pierre ne sait pas lequel il va lancer.
 **Origine** : `page.click(selector)` sans qualificatif. Playwright en mode
 strict refuserait, mais Diwall ne semble pas le forcer.
 
-**Friction ressentie** : « j'ai cliqué Cloner pour clone.davalan.fr, et le
-log montre que c'est sillage.davalan.fr qui a démarré ». Inversion silencieuse.
+**Friction ressentie** : « j'ai cliqué Cloner pour un domaine donné, et
+le log montre qu'un autre domaine a démarré ». Inversion silencieuse.
 
 **Workaround** : sélecteur précis via `title=` (qui contient le nom du
 domaine), ou via SoM (chaque bouton a un `id` SoM unique).
@@ -258,10 +258,10 @@ PNG dans `output-dir/`. Très utile pour le debug.
 
 ## 12. `~/Vaults/Diwall` par défaut, pas `~/Vaults/<Projet>/Diwall`
 
-Le vault par défaut est `~/Vaults/Diwall/<domaine>.json`. Ronan a
-historiquement rangé les credentials en `~/Vaults/Sillage/Diwall/...`.
+Le vault par défaut est `~/Vaults/Diwall/<domaine>.json`. L'opérateur
+peut avoir historiquement rangé les credentials en `~/Vaults/<PROJET>/Diwall/...`.
 La première tentative `remplir … "valeur":"depuis_vault"` a échoué parce
-que Diwall cherchait `~/Vaults/Diwall/sillage.ike4.local.json` (absent).
+que Diwall cherchait `~/Vaults/Diwall/__HOST_ADMIN__.json` (absent).
 
 **Origine** : `lib/vault.py` lit `DIWALL_VAULT_DIR` (env var), sinon défaut
 `~/Vaults/Diwall`. La doc ne dit pas que la convention multi-projet
@@ -271,7 +271,7 @@ que Diwall cherchait `~/Vaults/Diwall/sillage.ike4.local.json` (absent).
 ça ne marche pas ? ». Cinq minutes de `find` pour réaliser que c'était une
 question de variable d'env.
 
-**Workaround** : `DIWALL_VAULT_DIR=/home/ron/Vaults/Sillage/Diwall` devant
+**Workaround** : `DIWALL_VAULT_DIR=~/Vaults/<PROJET>/Diwall` devant
 l'invocation, à chaque fois.
 
 **Suggestion Diwall** : (a) lire un fichier de config par projet
@@ -486,7 +486,7 @@ avec version shot.py, résultat attendu, date de dernière validation).
 
 ---
 
-# Session 5 — Reconnexion VpsL → IKE4 sur Sillage (29 mai 2026, soir)
+# Session 5 — Reconnexion __HOST_VPS__ → __HOST_ADMIN__ sur Sillage (29 mai 2026, soir)
 
 Session longue et de bout en bout : reconnecter un client hébergé sur un serveur
 **Plesk à comptes cloisonnés** (un utilisateur à droits minimaux par site), via
@@ -561,7 +561,7 @@ rejeter le champ inconnu avec un avertissement.
 - **#15 résolue** : suppression en lot E2E OK ; `remplir_som` pilote un `<select>`
   via JS. Le scénario complet (cocher → choisir « supprimer » → dialog → confirmer)
   passe.
-- **#11 (action longue aveugle)** : le clonage VpsL→IKE4 a pris ~5 min.
+- **#11 (action longue aveugle)** : le clonage __HOST_VPS__→__HOST_ADMIN__ a pris ~5 min.
   `--timeout 300000` + lancement en arrière-plan ont tenu (durée 306 622 ms), mais
   le suivi de progression s'est fait via `ssh … du -sh` en parallèle — aucune
   visibilité dans Diwall.
