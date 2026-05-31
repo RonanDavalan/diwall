@@ -33,7 +33,7 @@ def parse_args():
     p.add_argument("--sauver-reference", dest="sauver_reference", action="store_true",
                    help="Capture et enregistre la référence visuelle")
     p.add_argument("--comparer", action="store_true",
-                   help="Compare la capture actuelle avec la référence stockée")
+                   help="Compare la capture actuelle avec la référence stockée (LLM sémantique)")
     p.add_argument("--liste", help="Fichier de liste d'URLs (une par ligne, # pour commentaires)")
     p.add_argument("--prompt", default=PROMPT_DEFAUT,
                    help="Prompt LLM pour la comparaison (remplace le prompt par défaut)")
@@ -43,6 +43,26 @@ def parse_args():
                    help="URL ntfy pour les notifications push en cas d'alerte")
     p.add_argument("--timeout", type=int, default=10000,
                    help="Timeout de capture Playwright en ms (défaut : 10000)")
+    # ── Lot 9.1 — diff visuel pixel local ─────────────────────────────────────
+    p.add_argument("--comparer-pixel", dest="comparer_pixel", default=None,
+                   metavar="REF_PNG",
+                   help="Mode pixel : compare une capture à une référence PNG locale (lot 9.1)")
+    p.add_argument("--capture", default=None, metavar="CAP_PNG",
+                   help="Capture à comparer (mode --comparer-pixel). Si absent, --url est requis.")
+    p.add_argument("--seuil-bruit", dest="seuil_bruit", type=int, default=5,
+                   help="Δ max par canal RGB pour considérer un pixel inchangé (défaut : 5)")
+    p.add_argument("--seuil-stable", dest="seuil_stable", type=float, default=0.002,
+                   help="Borne haute du verdict 'stable' en fraction (défaut : 0.002)")
+    p.add_argument("--seuil-regression", dest="seuil_regression", type=float, default=0.05,
+                   help="Borne basse du verdict 'regression' en fraction (défaut : 0.05)")
+    p.add_argument("--heatmap", action="store_true",
+                   help="Produit une heatmap PNG en plus de l'image de diff")
+    p.add_argument("--heatmap-tile", dest="heatmap_tile", type=int, default=16,
+                   help="Côté du tile en pixels pour la heatmap (défaut : 16)")
+    p.add_argument("--llm-en-complement", dest="llm_en_complement", action="store_true",
+                   help="Relance le diff sémantique LLM si verdict pixel != stable")
+    p.add_argument("--sortie-json", dest="sortie_json", default=None,
+                   help="Redirige le JSON de verdict vers un fichier (défaut : stdout)")
     return p.parse_args()
 
 
@@ -178,8 +198,306 @@ def comparer(url, prompt, mode_llm, ntfy_url, timeout):
     }
 
 
+# ── Lot 9.1 — Diff visuel pixel local ─────────────────────────────────────────
+
+def _charger_image_rgb(chemin):
+    """Charge une image PNG en mode RGB. Lève FileNotFoundError ou OSError."""
+    from PIL import Image
+    img = Image.open(chemin)
+    if img.mode != "RGB":
+        img = img.convert("RGB")
+    return img
+
+
+def _calcul_diff_numpy(ref_img, cap_img, seuil_bruit):
+    """Calcul vectorisé du diff via NumPy.
+
+    Retourne (pixels_modifies, pixels_totaux, delta_max_2d, modifie_mask_2d)
+    où delta_max_2d est utilisé pour la heatmap (intensité par tile) et
+    modifie_mask_2d pour l'image diff.
+    """
+    import numpy as np
+    a = np.asarray(ref_img, dtype=np.int16)
+    b = np.asarray(cap_img, dtype=np.int16)
+    delta = np.abs(a - b)
+    delta_max = delta.max(axis=2).astype(np.uint8)  # H × W
+    modifie = delta_max >= seuil_bruit
+    pixels_modifies = int(modifie.sum())
+    pixels_totaux = int(modifie.size)
+    return pixels_modifies, pixels_totaux, delta_max, modifie
+
+
+def _calcul_diff_pillow(ref_img, cap_img, seuil_bruit):
+    """Calcul du diff en Pillow pur (fallback sans NumPy). Lent mais sans dépendance.
+
+    Retourne (pixels_modifies, pixels_totaux, delta_max_flat, modifie_mask_flat)
+    où les masks sont des listes plates de longueur W*H (ordre row-major).
+    """
+    from PIL import ImageChops
+    diff = ImageChops.difference(ref_img, cap_img)
+    pixels = list(diff.getdata())  # list de tuples (r, g, b)
+    delta_max = [max(px) for px in pixels]
+    modifie = [d >= seuil_bruit for d in delta_max]
+    pixels_modifies = sum(1 for m in modifie if m)
+    pixels_totaux = len(modifie)
+    return pixels_modifies, pixels_totaux, delta_max, modifie
+
+
+def _produire_image_diff_numpy(ref_img, modifie_mask, chemin_sortie):
+    """Construit l'image diff via NumPy : pixels inchangés en gris 50 %,
+    pixels modifiés en rouge saturé. modifie_mask est un array 2D booléen H×W."""
+    import numpy as np
+    from PIL import Image
+    a = np.asarray(ref_img, dtype=np.uint8)  # H × W × 3
+    # Fond : luminance ramenée à 50 % d'intensité (gris désaturé).
+    gris = a.mean(axis=2).astype(np.uint8)
+    fond = np.stack([gris // 2 + 64] * 3, axis=2)  # gris medium clair
+    # Pixels modifiés : rouge saturé
+    rouge = np.zeros_like(a)
+    rouge[..., 0] = 255
+    sortie = np.where(modifie_mask[..., None], rouge, fond).astype(np.uint8)
+    Image.fromarray(sortie, mode="RGB").save(chemin_sortie, format="PNG")
+
+
+def _produire_image_diff_pillow(ref_img, modifie_mask, chemin_sortie):
+    """Variante Pillow pur. modifie_mask est une liste plate de longueur W*H."""
+    from PIL import Image
+    w, h = ref_img.size
+    src = list(ref_img.getdata())
+    sortie_pixels = []
+    for i, (r, g, b) in enumerate(src):
+        if modifie_mask[i]:
+            sortie_pixels.append((255, 0, 0))
+        else:
+            lum = (r + g + b) // 3
+            v = lum // 2 + 64
+            sortie_pixels.append((v, v, v))
+    img = Image.new("RGB", (w, h))
+    img.putdata(sortie_pixels)
+    img.save(chemin_sortie, format="PNG")
+
+
+def _produire_heatmap_numpy(delta_max_2d, tile_size, chemin_sortie):
+    """Heatmap NumPy : Δ moyen par tile, gradient noir → rouge saturé."""
+    import numpy as np
+    from PIL import Image
+    h, w = delta_max_2d.shape
+    nh = (h + tile_size - 1) // tile_size
+    nw = (w + tile_size - 1) // tile_size
+    # Pad pour multiple de tile_size
+    padded = np.zeros((nh * tile_size, nw * tile_size), dtype=np.float32)
+    padded[:h, :w] = delta_max_2d
+    # Reshape pour moyenne par tile
+    tiled = padded.reshape(nh, tile_size, nw, tile_size).mean(axis=(1, 3))
+    # Intensité : delta_moyen 0-255 → rouge 0-255
+    intensite = tiled.clip(0, 255).astype(np.uint8)
+    # Expansion en bloc plein de la taille de l'image source
+    expanse = np.repeat(np.repeat(intensite, tile_size, axis=0), tile_size, axis=1)[:h, :w]
+    sortie = np.zeros((h, w, 3), dtype=np.uint8)
+    sortie[..., 0] = expanse  # canal R seul
+    Image.fromarray(sortie, mode="RGB").save(chemin_sortie, format="PNG")
+
+
+def _produire_heatmap_pillow(delta_max_flat, largeur, hauteur, tile_size, chemin_sortie):
+    """Heatmap Pillow pur. delta_max_flat = liste plate de longueur W*H."""
+    from PIL import Image
+    nh = (hauteur + tile_size - 1) // tile_size
+    nw = (largeur + tile_size - 1) // tile_size
+    # Calcul moyen par tile
+    intensites = [[0.0] * nw for _ in range(nh)]
+    compteurs = [[0] * nw for _ in range(nh)]
+    for i, d in enumerate(delta_max_flat):
+        y, x = divmod(i, largeur)
+        ty, tx = y // tile_size, x // tile_size
+        intensites[ty][tx] += d
+        compteurs[ty][tx] += 1
+    pixels = []
+    for y in range(hauteur):
+        ty = y // tile_size
+        for x in range(largeur):
+            tx = x // tile_size
+            c = compteurs[ty][tx]
+            moyenne = int(intensites[ty][tx] / c) if c else 0
+            v = max(0, min(255, moyenne))
+            pixels.append((v, 0, 0))
+    img = Image.new("RGB", (largeur, hauteur))
+    img.putdata(pixels)
+    img.save(chemin_sortie, format="PNG")
+
+
+def _verdict_pixel(taux_diff, seuil_stable, seuil_regression):
+    if taux_diff < seuil_stable:
+        return "stable"
+    if taux_diff < seuil_regression:
+        return "drift"
+    return "regression"
+
+
+def comparer_pixel(args):
+    """Orchestrateur du mode --comparer-pixel.
+
+    Retourne (resultat_dict, exit_code) sans imprimer.
+    """
+    t0 = time.time()
+    ref_path = args.comparer_pixel
+    cap_path = args.capture
+
+    # ── Préconditions I/O ─────────────────────────────────────────────────────
+    if not os.path.isfile(ref_path):
+        return {
+            "succes": False,
+            "type_comparaison": "pixel",
+            "erreur": "reference_introuvable",
+            "message": f"Référence introuvable : {ref_path}",
+        }, 3
+
+    # Si --capture absent, capturer depuis --url
+    if not cap_path:
+        if not args.url:
+            return {
+                "succes": False,
+                "type_comparaison": "pixel",
+                "erreur": "capture_manquante",
+                "message": "Fournir --capture <chemin> ou --url pour générer une capture.",
+            }, 3
+        try:
+            cap_path = os.path.join("/tmp/diwall",
+                                     f"watch_pixel_{slug_url(args.url)}_{int(time.time())}.png")
+            capturer(args.url, cap_path, args.timeout)
+        except Exception as e:
+            return {
+                "succes": False,
+                "type_comparaison": "pixel",
+                "erreur": "capture_echec",
+                "message": str(e),
+            }, 3
+
+    if not os.path.isfile(cap_path):
+        return {
+            "succes": False,
+            "type_comparaison": "pixel",
+            "erreur": "capture_introuvable",
+            "message": f"Capture introuvable : {cap_path}",
+        }, 3
+
+    # ── Chargement images ─────────────────────────────────────────────────────
+    try:
+        ref_img = _charger_image_rgb(ref_path)
+        cap_img = _charger_image_rgb(cap_path)
+    except Exception as e:
+        return {
+            "succes": False,
+            "type_comparaison": "pixel",
+            "erreur": "image_illisible",
+            "message": str(e),
+        }, 3
+
+    # ── Précondition viewport : refus strict (pas de resize) ──────────────────
+    if ref_img.size != cap_img.size:
+        return {
+            "succes": False,
+            "type_comparaison": "pixel",
+            "verdict": "viewport_mismatch",
+            "erreur": (
+                f"Dimensions divergentes : référence {ref_img.size[0]}×{ref_img.size[1]}, "
+                f"capture {cap_img.size[0]}×{cap_img.size[1]}. "
+                "Le redimensionnement automatique est désactivé (introduit du bruit "
+                "d'interpolation). Régénérer la référence avec le viewport courant."
+            ),
+            "dimensions_reference": list(ref_img.size),
+            "dimensions_capture": list(cap_img.size),
+            "reference": ref_path,
+            "capture": cap_path,
+        }, 2
+
+    largeur, hauteur = ref_img.size
+
+    # ── Calcul du delta ───────────────────────────────────────────────────────
+    try:
+        import numpy as np  # noqa: F401
+        moteur = "numpy"
+        pixels_modifies, pixels_totaux, delta_max, modifie_mask = (
+            _calcul_diff_numpy(ref_img, cap_img, args.seuil_bruit)
+        )
+    except ImportError:
+        moteur = "pillow"
+        pixels_modifies, pixels_totaux, delta_max, modifie_mask = (
+            _calcul_diff_pillow(ref_img, cap_img, args.seuil_bruit)
+        )
+
+    taux_diff = pixels_modifies / pixels_totaux if pixels_totaux else 0.0
+    verdict = _verdict_pixel(taux_diff, args.seuil_stable, args.seuil_regression)
+
+    # ── Production des artefacts visuels ──────────────────────────────────────
+    base_cap = os.path.basename(cap_path).rsplit(".", 1)[0]
+    dossier = os.path.dirname(cap_path) or "/tmp/diwall"
+    image_diff_path = None
+    heatmap_path = None
+
+    if verdict != "stable":
+        image_diff_path = os.path.join(dossier, f"diff_{base_cap}.png")
+        if moteur == "numpy":
+            _produire_image_diff_numpy(ref_img, modifie_mask, image_diff_path)
+        else:
+            _produire_image_diff_pillow(ref_img, modifie_mask, image_diff_path)
+
+    if args.heatmap and verdict != "stable":
+        heatmap_path = os.path.join(dossier, f"heatmap_{base_cap}.png")
+        if moteur == "numpy":
+            _produire_heatmap_numpy(delta_max, args.heatmap_tile, heatmap_path)
+        else:
+            _produire_heatmap_pillow(delta_max, largeur, hauteur,
+                                      args.heatmap_tile, heatmap_path)
+
+    # ── Complément LLM optionnel ──────────────────────────────────────────────
+    analyse_llm = None
+    if args.llm_en_complement and verdict != "stable":
+        try:
+            analyse = comparer_ollama(ref_path, cap_path, args.prompt)
+            analyse_llm = analyse.get("analyse")
+        except Exception as e:
+            analyse_llm = f"(complément LLM indisponible : {e})"
+
+    # ── JSON de sortie ────────────────────────────────────────────────────────
+    resultat = {
+        "succes": True,
+        "type_comparaison": "pixel",
+        "verdict": verdict,
+        "taux_diff": round(taux_diff, 6),
+        "pixels_modifies": pixels_modifies,
+        "pixels_totaux": pixels_totaux,
+        "seuils": {
+            "bruit": args.seuil_bruit,
+            "stable": args.seuil_stable,
+            "regression": args.seuil_regression,
+        },
+        "reference": ref_path,
+        "capture": cap_path,
+        "image_diff": image_diff_path,
+        "heatmap": heatmap_path,
+        "duree_ms": int((time.time() - t0) * 1000),
+        "moteur": moteur,
+    }
+    if analyse_llm is not None:
+        resultat["analyse_llm"] = analyse_llm
+
+    exit_code = 1 if verdict == "regression" else 0
+    return resultat, exit_code
+
+
 def main():
     args = parse_args()
+
+    # ── Mode --comparer-pixel (lot 9.1) ───────────────────────────────────────
+    if args.comparer_pixel:
+        resultat, exit_code = comparer_pixel(args)
+        payload = json.dumps(resultat, ensure_ascii=False)
+        if args.sortie_json:
+            with open(args.sortie_json, "w", encoding="utf-8") as f:
+                f.write(payload)
+        else:
+            print(payload)
+        sys.exit(exit_code)
 
     if args.liste:
         with open(args.liste, encoding="utf-8") as f:
