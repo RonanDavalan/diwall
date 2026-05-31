@@ -6,6 +6,8 @@ import sys
 import time
 from datetime import datetime, timezone
 
+__version__ = "1.2.0"
+
 # Permet d'importer lib/ depuis le même répertoire que shot.py
 sys.path.insert(0, os.path.dirname(os.path.abspath(__file__)))
 
@@ -110,21 +112,77 @@ def _snapshot_a11y(page):
 
 # ── Persistance de session (ReAct) ────────────────────────────────────────────
 
+_AVERTISSEMENT_DERIVE = (
+    "URL au moment de la reprise diverge de l'URL au moment de la sauvegarde. "
+    "L'état DOM (cases cochées, champs saisis, modals ouverts) n'a pas été préservé. "
+    "Si le scénario présuppose un état DOM hérité de la session précédente, il échouera "
+    "silencieusement. Voir _CADRE/SPECIFICATIONS/26_GUIDE_CLAUDE_SESSION_DIWALL.md."
+)
+
+_legacy_session_warned = False
+
+
 def _sauver_session(ctx, page, chemin, viewport):
-    """Sauvegarde cookies + localStorage + URL courante dans un fichier JSON."""
+    """Sauvegarde cookies + localStorage + URL courante dans un fichier JSON.
+
+    Format v1.2 enrichi de diwall_meta pour la détection de dérive (lot 8.5).
+    Les clés url et viewport au niveau racine restent présentes pour la
+    rétrocompatibilité du chargement.
+    """
+    horodatage_iso = datetime.now(timezone.utc).astimezone().isoformat(timespec="seconds")
     session = {
         "url": page.url,
         "viewport": viewport,
         "storage_state": ctx.storage_state(),
+        "diwall_meta": {
+            "url_au_moment_sauvegarde": page.url,
+            "horodatage_iso": horodatage_iso,
+            "version_shot": __version__,
+        },
     }
     with open(chemin, "w", encoding="utf-8") as f:
         json.dump(session, f, ensure_ascii=False, indent=2)
 
 
 def _charger_session(chemin):
-    """Charge une session Diwall depuis un fichier JSON."""
+    """Charge une session Diwall depuis un fichier JSON.
+
+    Émet un warning unique sur stderr si le fichier est au format legacy
+    (sans diwall_meta) : la détection de dérive sera désactivée pour ce run.
+    """
+    global _legacy_session_warned
     with open(chemin, encoding="utf-8") as f:
-        return json.load(f)
+        session = json.load(f)
+    if "diwall_meta" not in session and not _legacy_session_warned:
+        print(
+            f"⚠ Session legacy détectée (sans diwall_meta) : "
+            f"{chemin} — détection de dérive d'URL désactivée pour ce fichier.",
+            file=sys.stderr,
+        )
+        _legacy_session_warned = True
+    return session
+
+
+def _detecter_derive_session(session, url_cible_reprise):
+    """Compare l'URL au moment de la sauvegarde à l'URL au moment de la reprise.
+
+    Retourne un dict prêt à injecter sous la clé `derive_session` du JSON
+    de sortie si une divergence est détectée, ou None sinon (URLs identiques,
+    session legacy, ou URL manquante).
+    """
+    meta = session.get("diwall_meta")
+    if not meta:
+        return None
+    url_sauvegardee = meta.get("url_au_moment_sauvegarde")
+    if not url_sauvegardee or not url_cible_reprise:
+        return None
+    if url_sauvegardee == url_cible_reprise:
+        return None
+    return {
+        "url_sauvegardee": url_sauvegardee,
+        "url_reprise": url_cible_reprise,
+        "avertissement": _AVERTISSEMENT_DERIVE,
+    }
 
 
 def parse_args():
@@ -484,6 +542,8 @@ def main():
             browser = pw.chromium.launch(headless=True)
 
             # ── Contexte navigateur ───────────────────────────────────────────
+            derive_session = None
+            session = None
             if args.reprendre_session:
                 session = _charger_session(args.reprendre_session)
                 viewport = session.get("viewport", {"width": args.largeur, "height": args.hauteur})
@@ -492,7 +552,7 @@ def main():
                     viewport=viewport,
                     ignore_https_errors=True,
                 )
-                url_cible = session["url"]
+                url_cible = args.url if args.url else session["url"]
             else:
                 ctx = browser.new_context(
                     viewport={"width": args.largeur, "height": args.hauteur},
@@ -508,6 +568,13 @@ def main():
             if rep:
                 http_status = rep.status
             url_finale = page.url
+
+            # ── Détection de dérive de session (lot 8.5) ──────────────────────
+            # Comparaison sur l'URL effective après navigation (post-normalisation)
+            # afin d'éviter les faux positifs liés au slash terminal ou aux
+            # redirections HTTP transparentes.
+            if args.reprendre_session and session is not None:
+                derive_session = _detecter_derive_session(session, url_finale)
 
             if args.attendre_selecteur:
                 page.wait_for_selector(args.attendre_selecteur, timeout=args.timeout)
@@ -561,6 +628,8 @@ def main():
             result["a11y_tree"] = a11y_tree
         if session_file:
             result["session_file"] = session_file
+        if derive_session:
+            result["derive_session"] = derive_session
         print(json.dumps(result, ensure_ascii=False))
 
     except Exception as e:
