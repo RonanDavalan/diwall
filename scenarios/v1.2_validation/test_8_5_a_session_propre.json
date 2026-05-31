@@ -1,0 +1,4 @@
+[
+  {"type": "naviguer", "url": "https://example.com"},
+  {"type": "capturer", "nom": "etape1"}
+]

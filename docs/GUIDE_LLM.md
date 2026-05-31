@@ -1,6 +1,6 @@
 # Diwall — LLM Session Guide
 
-Version 1.0 — May 2026
+Version 1.2 — June 2026
 
 **You are a language model. This document tells you everything you need to operate Diwall.**
 
@@ -216,6 +216,132 @@ to see the progression instead of just the final frame.
 > Avoid relational pseudo-selectors (`:left-of`, `:right-of`, `:near`) — version-sensitive and fail with silent timeout.
 > Prefer intrinsic attributes (`[title*=…]`, `[aria-label=…]`) over positional selectors.
 
+### `derive_session` — session drift warning (v1.2)
+
+`shot.py --sauver-session` now embeds a `diwall_meta` block recording the URL
+at the moment of saving. When you later run `shot.py --reprendre-session`,
+the effective URL after the initial navigation is compared to that saved
+URL. If they diverge, a `derive_session` key is added to the JSON output:
+
+```json
+{
+  "succes": true,
+  "url_finale": "https://app/settings",
+  "derive_session": {
+    "url_sauvegardee": "https://app/dashboard",
+    "url_reprise":     "https://app/settings",
+    "avertissement":   "URL at reprise time diverges from URL at save time. DOM state (checkboxes, filled fields, open modals) was not preserved..."
+  }
+}
+```
+
+**Read this signal carefully.** It means the assumption that DOM state
+carried over from `--sauver-session` is unsafe. The save/restore mechanism
+only preserves `storage_state` (cookies, localStorage), never the DOM.
+If your workflow depends on a checkbox, a filled field, an open modal or
+a current selection, re-plan it as a **single Mode A** invocation (one
+`shot.py` call, one `actions` list). The drift warning exists precisely
+to prevent the silent failure pattern described in `RETOUR_EXPERIENCE.md`
+friction #20.
+
+Legacy session files written by Diwall v1.1 (without `diwall_meta`) load
+without error; drift detection is then disabled for that file and a
+one-shot warning is printed on stderr.
+
+### Scenario schema and validation (v1.2)
+
+A formal JSON Schema (draft-07) now lives at `scenarios/schema.json` at
+the repository root. It pins all 11 verbs (`naviguer`, `cliquer`,
+`cliquer_som`, `cliquer_visuel`, `remplir`, `remplir_som`, `attendre`,
+`attendre_navigation`, `pause`, `capturer`, `evaluer`), requires the
+correct keys for each, and rejects unknown properties.
+
+Annotate your scenarios with `$schema` for IDE-side validation:
+
+```json
+{
+  "$schema": "../scenarios/schema.json",
+  "nom": "my-test",
+  "url": "https://example.com",
+  "actions": [
+    {"type": "evaluer", "script": "document.title"}
+  ]
+}
+```
+
+At runtime, `rpa.py` validates each scenario it loads if the `jsonschema`
+Python package is available in the venv:
+
+- **`jsonschema` installed** → validation is mandatory and blocking. A
+  typo (`cliker_som`), a misplaced key (`attendu` on `attendre`), or a
+  missing `vault_cle` when `valeur == "depuis_vault"` causes `rpa.py`
+  to exit `1` with a structured diagnostic pointing at the offending
+  field path.
+- **`jsonschema` absent** → one-shot stderr warning, scenario runs as
+  on v1.1. No hard dependency added.
+
+Install in the production venv:
+
+```bash
+/opt/diwall/venv/bin/pip install jsonschema
+```
+
+Effects: typos that previously executed as silent no-ops (because
+`shot.py` skips unknown `type` values) now fail fast at load time. This
+closes the friction #21 class (`attendu` ignored silently on wrong verb).
+
+### `watch.py --comparer-pixel` — local quantitative diff (v1.2)
+
+Complements the existing semantic LLM diff (`--comparer`) with a
+deterministic pixel comparison against a stored reference. Useful for
+nightly drift surveillance where you want a quantitative verdict
+instead of a one-second LLM call.
+
+```bash
+watch.py --comparer-pixel /path/to/reference.png \
+         [--capture /path/to/current.png]      \
+         [--seuil-bruit 5]                     \
+         [--seuil-stable 0.002]                \
+         [--seuil-regression 0.05]             \
+         [--heatmap] [--heatmap-tile 16]       \
+         [--llm-en-complement]
+```
+
+If `--capture` is omitted, a fresh PNG is taken from `--url` first.
+
+Verdict bands:
+
+| `taux_diff` | Verdict | Exit code | Artifacts |
+|---|---|---|---|
+| `< seuil-stable` (default 0.2%) | `stable` | `0` | none |
+| `seuil-stable ≤ x < seuil-regression` | `drift` | `0` | diff image |
+| `≥ seuil-regression` (default 5%) | `regression` | `1` | diff image (+ heatmap if `--heatmap`) |
+
+Special exits: `2` if the capture and reference have **different
+dimensions** (verdict `viewport_mismatch`, no auto-resize — interpolation
+would corrupt the noise threshold; regenerate the reference); `3` on
+I/O errors.
+
+The diff image renders unchanged pixels as 50% grayscale and modified
+pixels as saturated red. The optional heatmap (16×16 tiles by default)
+encodes per-tile mean delta as a red gradient — useful for spotting
+where the change concentrates.
+
+NumPy is used when present (~200 ms on 1280×720); a Pillow-only
+fallback handles light targets (Raspberry Pi) at the cost of ~10 s per
+comparison. Numerical results are identical.
+
+With `--llm-en-complement`, the v1.0 semantic LLM diff re-runs only
+when the pixel verdict is `drift` or `regression`, and the LLM output
+appears under `analyse_llm`. The pixel verdict remains primary; the LLM
+adds qualitative context.
+
+Install NumPy in the production venv (optional but recommended):
+
+```bash
+/opt/diwall/venv/bin/pip install numpy
+```
+
 ---
 
 ## Set-of-Mark (SoM) — how to use it
@@ -381,10 +507,22 @@ Ollama API: use `/api/chat` with `think: false` (not `/api/generate`).
 /opt/diwall/venv/bin/python3 /opt/diwall/watch.py \
   --url https://target.local/ --sauver-reference
 
-# Compare against reference
+# Compare semantically (LLM, qualitative)
 /opt/diwall/venv/bin/python3 /opt/diwall/watch.py \
   --url https://target.local/ --comparer
+
+# Compare quantitatively (pixel diff, deterministic, v1.2)
+/opt/diwall/venv/bin/python3 /opt/diwall/watch.py \
+  --comparer-pixel /opt/diwall/references/<slug>/reference.png \
+  --url https://target.local/ --heatmap
 ```
+
+Choose `--comparer` when you need a verbal explanation of what changed
+(e.g. *"the navigation menu is missing"*) — cost ~1 s per call. Choose
+`--comparer-pixel` when you need a deterministic quantitative verdict
+(stable / drift / regression) that scales to dozens of targets per night
+— cost ~200 ms per call with NumPy. Both can be combined with
+`--llm-en-complement`.
 
 ---
 

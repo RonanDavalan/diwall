@@ -1,0 +1,8 @@
+{
+  "$schema": "../schema.json",
+  "nom": "test_9_2_b",
+  "url": "https://example.com",
+  "actions": [
+    {"type": "cliker_som", "id": 1}
+  ]
+}

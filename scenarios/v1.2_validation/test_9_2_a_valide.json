@@ -1,0 +1,11 @@
+{
+  "$schema": "../schema.json",
+  "nom": "test_9_2_a",
+  "url": "https://example.com",
+  "actions": [
+    {"type": "naviguer", "url": "https://example.com"},
+    {"type": "pause", "ms": 500},
+    {"type": "evaluer", "script": "document.title"},
+    {"type": "capturer", "nom": "page_accueil"}
+  ]
+}
