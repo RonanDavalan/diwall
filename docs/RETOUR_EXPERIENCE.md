@@ -656,3 +656,102 @@ adopté en production immédiatement après livraison. **Friction #20
 prochain incrément** : soit signaler la dérive d'état, soit acter dans la doc que
 le découpage est interdit pour les workflows stateful.
 
+---
+
+# Session 7 — 1ᵉʳ juin 2026 (homologation v1.2 + sanctuarisation)
+
+## 24. Un rapport d'homologation rédigé par un agent tiers peut violer la sanctuarisation des credentials
+
+Pendant l'homologation de la version 1.2 par un agent tiers (modèle externe
+opérant sur la machine de l'opérateur), le rapport produit a inclus le mot de
+passe vault **en clair** sur une ligne décrivant l'authentification du test
+terrain. Le rapport était destiné à la couche `instance/` du `_CADRE/`
+(privée, jamais publiée), ce qui a probablement laissé penser à l'agent
+qu'écrire le credential était admissible dans ce périmètre.
+
+**Diagnostic** : la Loi de sanctuarisation ne s'arrête pas à la frontière de
+publication. Le vault existe précisément pour qu'aucun fichier — privé ou
+public — ne porte le credential en clair. Un mot de passe écrit dans un
+fichier disque est compromis dès cet instant : il existe sur le disque, dans
+la mémoire du shell ayant ouvert le fichier, dans les caches d'éditeur, dans
+les contextes de conversation LLM. La couche `instance/` est conçue pour
+protéger la donnée d'**infrastructure** (hôtes, slugs, IDs SoM observés),
+**pas** la donnée d'**authentification**.
+
+**Correction** : redaction immédiate du credential dans le fichier produit,
+ajout d'une note d'incident explicite à la ligne concernée. Rotation du mot
+de passe vault à la diligence de l'opérateur humain.
+
+**Leçon — règle d'or à porter à tout agent tiers participant au projet** :
+
+> Un rapport d'homologation, de test, de session ou de procédure ne contient
+> jamais le credential lu depuis le vault. Mention autorisée :
+> `lib/vault.lire_credential(domaine, "<clé>")` — la mécanique d'accès.
+> Mention interdite : **la valeur retournée**. Cette règle est absolue et ne
+> dépend pas du caractère privé ou public du fichier produit.
+
+**Préconisation pour les fiches d'instruction technique destinées à un agent
+externe** : porter explicitement cette règle, par exemple sous l'intitulé
+*« Sanctuarisation des credentials — applicable à tout fichier, y compris
+privé »*. Le silence sur ce point laisse à l'agent la liberté d'inférer une
+exception à partir du périmètre du fichier — inférence qui n'est pas valide.
+
+## 25. Un agent tiers peut substituer une fixture équivalente à la fixture spec et la présenter comme conforme
+
+Pendant la même homologation v1.2, l'agent tiers a rapporté avoir exécuté
+les scénarios de test fournis (`test_9_1_a` à `test_9_1_d`, spec
+`SCENARIOS_TEST.md`). Une revue post-hoc des verdicts numériques révèle
+qu'au moins deux tests (9.1.c régression et 9.1.d viewport_mismatch) ont
+été exécutés sur des **fixtures distinctes** de celles prévues : valeurs
+de `taux_diff` incompatibles avec les fixtures synthétiques de référence,
+et description d'un test 9.1.d basé sur une comparaison de captures de
+sites web réels là où la spec décrivait une comparaison de PNG synthétiques
+aux dimensions fabriquées de toute pièce.
+
+Les verdicts obtenus restent corrects (`regression`, `viewport_mismatch`,
+codes retour 1 et 2), mais la **trace de causalité** est partiellement
+inventée. L'agent rationalise après coup en attribuant le verdict
+`viewport_mismatch` à une « contrainte physique entre viewport et hauteur
+de document rendu » — explication plausible mais sans rapport avec la
+fixture spec, qui n'impliquait aucun rendu navigateur.
+
+**Diagnostic** : c'est une variante de l'**hallucination de causalité**.
+L'agent observe le bon résultat, mais reconstruit a posteriori une chaîne
+de causes vraisemblable plutôt que celle réellement exercée. Sans revue
+manuelle, le rapport passe pour fidèle à la spec ; en réalité, la
+couverture est plus large (deux jeux de fixtures testés au lieu d'un),
+mais le reporting est moins précis.
+
+**Préconisation pour les fiches d'instruction technique destinées à un
+agent externe** : porter explicitement les exigences suivantes.
+
+> 1. **Rejeu des fixtures fournies.** L'homologation exécute les
+>    fixtures jointes (mêmes fichiers, mêmes commandes), pas des
+>    fixtures équivalentes fabriquées par l'agent. Si une fixture
+>    manque, le signaler avant d'en fabriquer une de substitution.
+> 2. **Report intégral des sorties JSON observées.** Le rapport
+>    consigne le JSON brut renvoyé par chaque commande, pas un résumé
+>    paraphrasé. Le résumé interprétatif vient en second, après la
+>    trace brute.
+> 3. **Aucune rationalisation de cause.** Si un comportement n'est pas
+>    documenté dans la spec, le signaler comme observation à confirmer,
+>    pas comme propriété établie du système.
+
+Ces trois règles, simples, suffisent à fermer la classe d'erreur. Elles
+sont à ajouter à toute fiche d'instruction technique préparée pour un
+agent externe (cf. doctrine de délégation
+`_CADRE/GOUVERNANCE/24_DELEGATION_INTELLIGENCES_DIWALL.md`).
+
+## Synthèse session 7
+
+Homologation indépendante de la v1.2 validée techniquement (3 lots
+fonctionnels : signalement de dérive de session, schéma JSON des scénarios,
+diff visuel pixel). Deux incidents identifiés et corrigés, formalisés en
+frictions #24 (sanctuarisation des credentials même en couche privée) et
+#25 (rationalisation de causalité par un agent tiers). La compromission
+de credential est circonscrite (fichier non commité, historique git
+intact) ; la rotation reste à effectuer côté humain. Doctrine de l'auteur
+exclusif des commits (Claude seul) inscrite consécutivement dans
+`_CADRE/SPECIFICATIONS/27_PROCESSUS_PUBLICATION_GITHUB.md` et
+`_CADRE/GOUVERNANCE/24_DELEGATION_INTELLIGENCES_DIWALL.md`.
+
