@@ -1,0 +1,9 @@
+{
+  "$schema": "../schema.json",
+  "nom": "test_9_2_c",
+  "url": "https://example.com",
+  "actions": [
+    {"type": "naviguer", "url": "https://example.com"},
+    {"type": "attendre", "selecteur": "h1", "attendu": "Example Domain"}
+  ]
+}
