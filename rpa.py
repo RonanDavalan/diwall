@@ -170,13 +170,28 @@ def main():
     if result.stderr:
         print(result.stderr, file=sys.stderr)
 
-    if result.returncode != 0 or not attentes:
-        sys.exit(result.returncode)
-
-    # Arbitrage des assertions sur le JSON de shot.py
+    # Parse une seule fois pour signalements structurés et assertions
     try:
         sortie = json.loads(result.stdout)
     except json.JSONDecodeError:
+        sortie = None
+
+    # Signalement de dérive de session (lot 8.5) — informatif, n'interrompt pas
+    if sortie and "derive_session" in sortie:
+        d = sortie["derive_session"]
+        print(
+            f"⚠ dérive de session détectée : "
+            f"URL sauvegardée {d.get('url_sauvegardee')!r} "
+            f"≠ URL reprise {d.get('url_reprise')!r}. "
+            f"L'état DOM n'est pas préservé entre sauvegarde et reprise. "
+            f"Voir _CADRE/SPECIFICATIONS/26_GUIDE_CLAUDE_SESSION_DIWALL.md.",
+            file=sys.stderr,
+        )
+
+    if result.returncode != 0 or not attentes:
+        sys.exit(result.returncode)
+
+    if sortie is None:
         # shot.py a réussi mais le JSON est illisible : on ne juge pas.
         sys.exit(result.returncode)
 
