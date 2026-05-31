@@ -1,0 +1,173 @@
+{
+  "$schema": "http://json-schema.org/draft-07/schema#",
+  "$id": "https://raw.githubusercontent.com/RonanDavalan/diwall/main/scenarios/schema.json",
+  "title": "Diwall scenario",
+  "description": "Formal contract for a Diwall scenario: a root object with a target URL and a list of typed actions executed sequentially by shot.py and rpa.py.",
+  "type": "object",
+  "required": ["url", "actions"],
+  "additionalProperties": false,
+  "properties": {
+    "$schema":     { "type": "string" },
+    "nom":         { "type": "string" },
+    "description": { "type": "string" },
+    "url":         { "type": "string", "format": "uri" },
+    "actions": {
+      "type": "array",
+      "minItems": 1,
+      "items": { "$ref": "#/definitions/Action" }
+    }
+  },
+  "definitions": {
+    "Action": {
+      "oneOf": [
+        { "$ref": "#/definitions/Naviguer" },
+        { "$ref": "#/definitions/Cliquer" },
+        { "$ref": "#/definitions/CliquerSom" },
+        { "$ref": "#/definitions/CliquerVisuel" },
+        { "$ref": "#/definitions/Remplir" },
+        { "$ref": "#/definitions/RemplirSom" },
+        { "$ref": "#/definitions/Attendre" },
+        { "$ref": "#/definitions/AttendreNavigation" },
+        { "$ref": "#/definitions/Pause" },
+        { "$ref": "#/definitions/Capturer" },
+        { "$ref": "#/definitions/Evaluer" }
+      ]
+    },
+
+    "Naviguer": {
+      "type": "object",
+      "required": ["type", "url"],
+      "additionalProperties": false,
+      "properties": {
+        "type": { "const": "naviguer" },
+        "url":  { "type": "string", "format": "uri" }
+      }
+    },
+
+    "Cliquer": {
+      "type": "object",
+      "required": ["type", "selecteur"],
+      "additionalProperties": false,
+      "properties": {
+        "type":      { "const": "cliquer" },
+        "selecteur": { "type": "string", "minLength": 1 }
+      }
+    },
+
+    "CliquerSom": {
+      "type": "object",
+      "required": ["type", "id"],
+      "additionalProperties": false,
+      "properties": {
+        "type": { "const": "cliquer_som" },
+        "id":   { "type": "integer", "minimum": 1 }
+      }
+    },
+
+    "CliquerVisuel": {
+      "type": "object",
+      "required": ["type", "description"],
+      "additionalProperties": false,
+      "properties": {
+        "type":        { "const": "cliquer_visuel" },
+        "description": { "type": "string", "minLength": 1 }
+      }
+    },
+
+    "Remplir": {
+      "type": "object",
+      "required": ["type", "selecteur", "valeur"],
+      "additionalProperties": false,
+      "properties": {
+        "type":      { "const": "remplir" },
+        "selecteur": { "type": "string", "minLength": 1 },
+        "valeur":    { "type": "string" },
+        "vault_cle": { "type": "string", "minLength": 1 }
+      },
+      "allOf": [
+        {
+          "if": {
+            "properties": { "valeur": { "const": "depuis_vault" } },
+            "required": ["valeur"]
+          },
+          "then": { "required": ["vault_cle"] }
+        }
+      ]
+    },
+
+    "RemplirSom": {
+      "type": "object",
+      "required": ["type", "id", "valeur"],
+      "additionalProperties": false,
+      "properties": {
+        "type":      { "const": "remplir_som" },
+        "id":        { "type": "integer", "minimum": 1 },
+        "valeur":    { "type": "string" },
+        "vault_cle": { "type": "string", "minLength": 1 }
+      },
+      "allOf": [
+        {
+          "if": {
+            "properties": { "valeur": { "const": "depuis_vault" } },
+            "required": ["valeur"]
+          },
+          "then": { "required": ["vault_cle"] }
+        }
+      ]
+    },
+
+    "Attendre": {
+      "type": "object",
+      "required": ["type", "selecteur"],
+      "additionalProperties": false,
+      "properties": {
+        "type":             { "const": "attendre" },
+        "selecteur":        { "type": "string", "minLength": 1 },
+        "interval_capture": { "type": "number", "exclusiveMinimum": 0 }
+      }
+    },
+
+    "AttendreNavigation": {
+      "type": "object",
+      "required": ["type"],
+      "additionalProperties": false,
+      "properties": {
+        "type":             { "const": "attendre_navigation" },
+        "interval_capture": { "type": "number", "exclusiveMinimum": 0 }
+      }
+    },
+
+    "Pause": {
+      "type": "object",
+      "required": ["type", "ms"],
+      "additionalProperties": false,
+      "properties": {
+        "type":             { "const": "pause" },
+        "ms":               { "type": "integer", "minimum": 0 },
+        "interval_capture": { "type": "number", "exclusiveMinimum": 0 }
+      }
+    },
+
+    "Capturer": {
+      "type": "object",
+      "required": ["type", "nom"],
+      "additionalProperties": false,
+      "properties": {
+        "type": { "const": "capturer" },
+        "nom":  { "type": "string", "pattern": "^[A-Za-z0-9_-]+$" },
+        "som":  { "type": "boolean" }
+      }
+    },
+
+    "Evaluer": {
+      "type": "object",
+      "required": ["type", "script"],
+      "additionalProperties": false,
+      "properties": {
+        "type":    { "const": "evaluer" },
+        "script":  { "type": "string", "minLength": 1 },
+        "attendu": {}
+      }
+    }
+  }
+}
