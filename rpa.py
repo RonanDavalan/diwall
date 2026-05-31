@@ -30,6 +30,57 @@ import sys
 sys.path.insert(0, os.path.dirname(os.path.abspath(__file__)))
 from lib.vault import lire_credential, domaine_depuis_url
 
+_SCHEMA_PATH = os.path.join(os.path.dirname(os.path.abspath(__file__)),
+                            "scenarios", "schema.json")
+_jsonschema_absent_warned = False
+
+
+def _valider_schema(scenario: dict, chemin_scenario: str) -> None:
+    """Valide le scénario contre scenarios/schema.json.
+
+    Auto-active si jsonschema est installé : exit 1 et diagnostic structuré
+    sur stderr si la validation échoue. Émet un warning unique sur stderr
+    et continue sans valider si jsonschema est absent ou si le schéma est
+    introuvable.
+    """
+    global _jsonschema_absent_warned
+    try:
+        import jsonschema
+    except ImportError:
+        if not _jsonschema_absent_warned:
+            print(
+                "⚠ jsonschema absent — validation des scénarios désactivée. "
+                "Installer via : /opt/diwall/venv/bin/pip install jsonschema",
+                file=sys.stderr,
+            )
+            _jsonschema_absent_warned = True
+        return
+
+    if not os.path.isfile(_SCHEMA_PATH):
+        if not _jsonschema_absent_warned:
+            print(
+                f"⚠ schéma de validation introuvable ({_SCHEMA_PATH}) — "
+                "validation des scénarios désactivée.",
+                file=sys.stderr,
+            )
+            _jsonschema_absent_warned = True
+        return
+
+    with open(_SCHEMA_PATH, encoding="utf-8") as f:
+        schema = json.load(f)
+
+    try:
+        jsonschema.validate(instance=scenario, schema=schema)
+    except jsonschema.ValidationError as e:
+        chemin_champ = " → ".join(str(p) for p in e.absolute_path) or "(racine)"
+        print(
+            f"❌ Scénario invalide ({chemin_scenario}) :\n"
+            f"   champ    : {chemin_champ}\n"
+            f"   message  : {e.message}",
+            file=sys.stderr,
+        )
+        sys.exit(1)
+
 
 def resoudre_chemin_scenario(arg: str) -> tuple:
     """Résout --scenario en cascade : chemin direct, puis scenarios/<nom>[.json|.yaml|.yml].
@@ -117,6 +168,10 @@ def main():
             "succes": False, "erreur": "scenario_invalide", "message": str(e),
         }))
         sys.exit(1)
+
+    # Validation contre scenarios/schema.json (lot 9.2). Bloquant si jsonschema
+    # est installé et le schéma rejette ; warning unique sinon.
+    _valider_schema(scenario, chemin_scenario)
 
     url = scenario.get("url")
     if not url:
