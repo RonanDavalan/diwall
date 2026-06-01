@@ -13,6 +13,7 @@ CODE_FILES=(
     watch.py
     rpa.py
     lib/__init__.py
+    lib/journal.py
     lib/modeles.py
     lib/profil_operateur.py
     lib/vision.py
