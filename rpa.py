@@ -28,7 +28,7 @@ import subprocess
 import sys
 
 sys.path.insert(0, os.path.dirname(os.path.abspath(__file__)))
-from lib.vault import lire_credential, domaine_depuis_url
+from lib.vault import domaine_depuis_url, verifier_cles
 
 _SCHEMA_PATH = os.path.join(os.path.dirname(os.path.abspath(__file__)),
                             "scenarios", "schema.json")
@@ -125,23 +125,6 @@ def charger_scenario(chemin: str) -> dict:
             return json.load(f)
 
 
-def resoudre_vault(actions: list, url: str) -> list:
-    """Remplace les valeurs 'depuis_vault' par les credentials lus en mémoire."""
-    domaine = domaine_depuis_url(url)
-    resolues = []
-    for a in actions:
-        a = dict(a)
-        if a.get("valeur") == "depuis_vault":
-            cle = a.get("vault_cle")
-            if not cle:
-                raise ValueError(
-                    f"Action {a.get('type')!r} : 'vault_cle' requis quand valeur='depuis_vault'"
-                )
-            a["valeur"] = lire_credential(domaine, cle)
-        resolues.append(a)
-    return resolues
-
-
 def main():
     p = argparse.ArgumentParser(description="Diwall RPA — exécuteur de scénarios")
     p.add_argument("--scenario", required=True, help="Chemin vers le fichier de scénario (JSON ou YAML)")
@@ -186,8 +169,24 @@ def main():
 
     actions = scenario.get("actions", [])
 
+    # Pré-validation du coffre (fail-fast) SANS résoudre les valeurs : on
+    # vérifie l'existence du coffre et des clés référencées, puis on passe
+    # les actions avec 'depuis_vault' INTACT à shot.py, qui résout lui-même
+    # au moment de remplir. Le credential ne transite jamais par la ligne
+    # de commande (§6.1 spec 35_).
     try:
-        actions = resoudre_vault(actions, url)
+        cles = []
+        for a in actions:
+            if a.get("valeur") == "depuis_vault":
+                cle = a.get("vault_cle")
+                if not cle:
+                    raise ValueError(
+                        f"Action {a.get('type')!r} : 'vault_cle' requis "
+                        f"quand valeur='depuis_vault'"
+                    )
+                cles.append(cle)
+        if cles:
+            verifier_cles(domaine_depuis_url(url), cles)
     except (FileNotFoundError, KeyError, ValueError) as e:
         print(json.dumps({
             "succes": False, "erreur": "vault_erreur", "message": str(e),
