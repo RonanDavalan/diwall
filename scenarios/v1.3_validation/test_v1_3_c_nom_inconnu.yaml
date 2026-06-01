@@ -1,0 +1,18 @@
+# Test v1.3.c — nom inconnu dans auto_confirmer
+#
+# Mélange noms valides + nom hors liste blanche. Vérifie que
+# le warning est émis sur stderr et que seuls les noms valides
+# sont retenus (les inconnus sont ignorés).
+#
+# Attendu :
+# - profil.actif == True
+# - warning unique sur stderr contenant "foo_bar_inexistant"
+# - profil.auto_confirmer == {"ecriture_capture_tmp",
+#                             "invocation_ollama_locale"}
+# - "foo_bar_inexistant" non présent dans auto_confirmer
+
+nom_profil: nom_inconnu
+auto_confirmer:
+  - ecriture_capture_tmp
+  - foo_bar_inexistant
+  - invocation_ollama_locale

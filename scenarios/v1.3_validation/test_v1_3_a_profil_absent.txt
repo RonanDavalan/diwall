@@ -1,0 +1,22 @@
+Test v1.3.a — profil absent (comportement strict)
+==================================================
+
+Pas de fichier YAML pour ce scénario : par construction, on
+vérifie le comportement quand AUCUN profil n'est résolu.
+
+Conditions du test :
+- DIWALL_PROFIL non défini dans l'environnement.
+- Aucun fichier operateur.$(whoami).yaml sous diwall.conf.d/.
+- /opt/diwall/diwall.conf absent ou sans clé profil_par_defaut.
+
+Attendu :
+- charger_profil() retourne le ProfilOperateur strict (_PROFIL_STRICT).
+- profil.actif == False.
+- profil.descripteur() == "(aucun — comportement strict)".
+- profil.auto_confirmer est vide (frozenset()).
+- profil.tracabilite_modeles_active == True (défaut sûr).
+- profil.est_auto_confirme("ecriture_capture_tmp") == False.
+- profil.est_auto_confirme("git_push") == False.
+
+Le verifier.py force ce contexte en supprimant DIWALL_PROFIL de
+l'environnement avant d'invoquer charger_profil().
