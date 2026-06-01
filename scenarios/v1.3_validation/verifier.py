@@ -1,5 +1,5 @@
 #!/usr/bin/env python3
-"""Vérificateur des cinq scénarios de test v1.3.
+"""Vérificateur des scénarios de test v1.3 et v1.3.2.
 
 Exécution :
     PYTHONPATH=/home/ron/git/Diwall/Diwall python3 verifier.py
@@ -11,12 +11,15 @@ Sortie :
 - ligne par scénario : OK / KO + détail.
 - exit 0 si tous OK, 1 sinon.
 
-Reproduction de §8 de _CADRE/SPECIFICATIONS/33_CONFIG_OPERATEUR.md.
+Reproduction de §8 de _CADRE/SPECIFICATIONS/33_CONFIG_OPERATEUR.md (a–e)
+et §7 de _CADRE/SPECIFICATIONS/34_CONSCIENCE_ENVIRONNEMENTALE.md (f–h).
 """
 from __future__ import annotations
 
+import getpass
 import io
 import os
+import socket
 import sys
 from contextlib import redirect_stderr
 from pathlib import Path
@@ -32,6 +35,7 @@ from lib.profil_operateur import (  # noqa: E402
     LISTE_ROUGE_INVIOLABLE,
 )
 from shot import _construire_diwall_meta  # noqa: E402
+from watch import _construire_diwall_meta_watch  # noqa: E402
 
 
 def _charger_capturant_stderr(chemin):
@@ -166,25 +170,103 @@ def test_e_tracabilite_desactivee():
     ])
 
 
+def _profil_strict():
+    """Profil absent → comportement strict, sans toucher durablement à l'env."""
+    chemin_absent = Path("/tmp/diwall_test_profil_inexistant.yaml")
+    if chemin_absent.exists():
+        chemin_absent.unlink()
+    env_sauvegarde = os.environ.pop("DIWALL_PROFIL", None)
+    try:
+        profil, _ = _charger_capturant_stderr(chemin_absent)
+    finally:
+        if env_sauvegarde is not None:
+            os.environ["DIWALL_PROFIL"] = env_sauvegarde
+    return profil
+
+
+def test_f_meta_env_shot():
+    profil = _profil_strict()
+    meta = _construire_diwall_meta(
+        profil, "2026-06-01T22:00:00+02:00", [], "https://example.com",
+    )
+    return _verdict("f) shot.py — champs d'environnement dans diwall_meta", [
+        ("'hostname_executant' présent", "hostname_executant" in meta),
+        ("'utilisateur_executant' présent", "utilisateur_executant" in meta),
+        ("hostname_executant == socket.gethostname()",
+         meta.get("hostname_executant") == socket.gethostname()),
+        ("utilisateur_executant == getpass.getuser()",
+         meta.get("utilisateur_executant") == getpass.getuser()),
+        ("hostname_executant non vide", bool(meta.get("hostname_executant"))),
+        ("utilisateur_executant non vide",
+         bool(meta.get("utilisateur_executant"))),
+    ])
+
+
+def test_g_meta_env_watch():
+    profil = _profil_strict()
+    meta = _construire_diwall_meta_watch(
+        profil, "2026-06-01T22:00:00+02:00", [], "https://example.com",
+    )
+    return _verdict("g) watch.py — champs d'environnement dans diwall_meta", [
+        ("'hostname_executant' présent", "hostname_executant" in meta),
+        ("'utilisateur_executant' présent", "utilisateur_executant" in meta),
+        ("hostname_executant == socket.gethostname()",
+         meta.get("hostname_executant") == socket.gethostname()),
+        ("utilisateur_executant == getpass.getuser()",
+         meta.get("utilisateur_executant") == getpass.getuser()),
+    ])
+
+
+def test_h_env_independant_tracabilite():
+    # Profil tracabilite_modeles.active: false (réutilise le yaml e) :
+    # les champs d'environnement doivent rester présents malgré l'omission
+    # de modeles_utilises.
+    profil, _ = _charger_capturant_stderr(
+        ICI / "test_v1_3_e_tracabilite_desactivee.yaml"
+    )
+    modeles_simules = [{
+        "_tag": "qwen3-vl:2b", "mode_llm": "local", "role": "localisation_clic",
+    }]
+    meta = _construire_diwall_meta(
+        profil, "2026-06-01T22:00:00+02:00", modeles_simules,
+        "https://example.com",
+    )
+    return _verdict(
+        "h) champs d'environnement indépendants de la traçabilité modèles", [
+            ("tracabilite_modeles_active == False",
+             profil.tracabilite_modeles_active is False),
+            ("'modeles_utilises' absent (traçabilité off)",
+             "modeles_utilises" not in meta),
+            ("'hostname_executant' présent malgré traçabilité off",
+             "hostname_executant" in meta),
+            ("'utilisateur_executant' présent malgré traçabilité off",
+             "utilisateur_executant" in meta),
+        ])
+
+
 def main():
-    tous_ok = True
-    for fn in (
+    tests = (
         test_a_profil_absent,
         test_b_profil_minimal,
         test_c_nom_inconnu,
         test_d_tentative_liste_rouge,
         test_e_tracabilite_desactivee,
-    ):
+        test_f_meta_env_shot,
+        test_g_meta_env_watch,
+        test_h_env_independant_tracabilite,
+    )
+    n_ok = 0
+    for fn in tests:
         ok, lignes = fn()
         print("\n".join(lignes))
-        if not ok:
-            tous_ok = False
+        if ok:
+            n_ok += 1
 
     print()
-    if tous_ok:
-        print("=== 5/5 scénarios OK ===")
+    if n_ok == len(tests):
+        print(f"=== {n_ok}/{len(tests)} scénarios OK ===")
         sys.exit(0)
-    print("=== au moins un scénario KO ===")
+    print(f"=== {n_ok}/{len(tests)} OK — au moins un scénario KO ===")
     sys.exit(1)
 
 
