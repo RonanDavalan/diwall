@@ -500,6 +500,88 @@ Ollama API: use `/api/chat` with `think: false` (not `/api/generate`).
 
 ---
 
+## Operator profile and model traceability (v1.3)
+
+Every JSON output from `shot.py` and `watch.py` now carries a
+`diwall_meta` block that documents the version of the script, the
+ISO timestamp of the run, the active operator profile, and the
+exact set of models that were called during the run.
+
+```json
+"diwall_meta": {
+  "version_shot": "1.3.0",
+  "horodatage_iso": "2026-06-02T14:23:11+02:00",
+  "profil_actif": "operateur.exemple.yaml",
+  "url_au_moment_capture": "https://target.local/",
+  "modeles_utilises": [
+    {
+      "nom": "qwen3-vl",
+      "version": "4b",
+      "quantization": "Q4_K_M",
+      "hash_tag_ollama": "sha256:1343d82e…",
+      "role": "localisation_clic"
+    }
+  ]
+}
+```
+
+### Selecting an operator profile
+
+Resolution order (first match wins):
+
+1. `DIWALL_PROFIL` env var → absolute path to a YAML profile.
+2. `~/git/Diwall/Diwall/diwall.conf.d/operateur.$(whoami).yaml`.
+3. `/opt/diwall/diwall.conf` → key `profil_par_defaut`.
+4. None → strict default: all confirmations active, traceability on.
+
+### Profile YAML format
+
+The template lives at `diwall.conf.d/operateur.exemple.yaml`. A
+profile contains only **editable, active** parameters. Sanctuarisation
+locks (red list) are coded in the runtime and cannot be lifted by
+a profile — listing them in YAML would be a false affordance.
+
+```yaml
+nom_profil: my_profile
+
+# Administrative frictions to lift — whitelist names only.
+# Unknown names are ignored with a single stderr warning.
+auto_confirmer:
+  - ecriture_capture_tmp
+  - ecriture_journal_diwall
+  - invocation_ollama_locale
+
+# Model traceability — on by default; turn off if you don't want
+# `modeles_utilises` in diwall_meta.
+tracabilite_modeles:
+  active: true
+  inclure_hash_ollama: true
+```
+
+Recognised `auto_confirmer:` names: `ecriture_capture_tmp`,
+`montage_coffre_visuel`, `lecture_reference_chiffree`,
+`ecriture_journal_diwall`, `invocation_ollama_locale`.
+
+### Why this matters for you (LLM consumer)
+
+If you compare runs over time and notice a regression on a fixed
+visual target, `diwall_meta.modeles_utilises[].hash_tag_ollama`
+lets you tell apart *« the page changed »* from *« the Ollama tag
+was rebuilt with a different quantization »*. The Ollama digest is
+the ground truth for the model that actually answered.
+
+### Turning traceability off
+
+```yaml
+tracabilite_modeles:
+  active: false
+```
+
+This omits the `modeles_utilises` key from `diwall_meta`. Other
+keys (version, timestamp, profile) stay.
+
+---
+
 ## Visual monitoring (watch.py)
 
 ```bash
