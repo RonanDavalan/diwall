@@ -158,6 +158,38 @@ def _construire_diwall_meta(profil, horodatage, modeles_appeles, url_finale):
     return meta
 
 
+def _journaliser_run(result, actions, intention, cible_url, resultat, erreur=None):
+    """Consigne le run dans le journal d'opérations (v1.4). Best-effort.
+
+    N'altère jamais la sortie ni le code de retour de shot.py : toute
+    erreur de journalisation est avalée par lib/journal lui-même.
+    """
+    try:
+        from lib import journal
+    except Exception:
+        return
+    captures = []
+    if result.get("capture"):
+        captures.append(result["capture"])
+    for c in result.get("captures_intermediaires") or []:
+        chemin = c.get("chemin") if isinstance(c, dict) else None
+        if chemin:
+            captures.append(chemin)
+    if result.get("capture_echec"):
+        captures.append(result["capture_echec"])
+    journal.enregistrer_operation(
+        outil="shot.py",
+        version=__version__,
+        cible_url=cible_url,
+        resultat=resultat,
+        actions=actions,
+        diwall_meta=result.get("diwall_meta"),
+        intention=intention,
+        captures=captures,
+        erreur=erreur,
+    )
+
+
 def _sauver_session(ctx, page, chemin, viewport):
     """Sauvegarde cookies + localStorage + URL courante dans un fichier JSON.
 
@@ -251,6 +283,9 @@ def parse_args():
                    help="Intervalle en secondes (>0) pour captures périodiques pendant pause/"
                         "attendre/attendre_navigation. Défaut 0 = désactivé. Override par-action "
                         "possible via la clé 'interval_capture' du scénario.")
+    p.add_argument("--intention", default=None,
+                   help="Libellé métier du run, consigné dans le journal d'opérations "
+                        "(v1.4). Ex. : \"Suppression clone allsys.online 2026-05-30\".")
     return p.parse_args()
 
 
@@ -687,6 +722,7 @@ def main():
         if derive_session:
             result["derive_session"] = derive_session
         print(json.dumps(result, ensure_ascii=False))
+        _journaliser_run(result, actions, args.intention, url_finale, "succes")
 
     except Exception as e:
         capture_echec = None
@@ -717,6 +753,8 @@ def main():
         if capture_echec:
             result["capture_echec"] = capture_echec
         print(json.dumps(result, ensure_ascii=False))
+        _journaliser_run(result, actions, args.intention, url_cible, "echec",
+                         erreur=f"{type(e).__name__}: {e}")
         sys.exit(1)
 
 
