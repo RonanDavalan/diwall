@@ -6,7 +6,7 @@ import sys
 import time
 from datetime import datetime, timezone
 
-__version__ = "1.2.0"
+__version__ = "1.3.0"
 
 # Permet d'importer lib/ depuis le même répertoire que shot.py
 sys.path.insert(0, os.path.dirname(os.path.abspath(__file__)))
@@ -120,6 +120,38 @@ _AVERTISSEMENT_DERIVE = (
 )
 
 _legacy_session_warned = False
+
+
+def _construire_diwall_meta(profil, horodatage, modeles_appeles, url_finale):
+    """Construit le bloc diwall_meta v1.3 pour la sortie JSON.
+
+    Renvoie un dict prêt à injecter sous la clé `diwall_meta` du
+    JSON de sortie. Si la traçabilité modèles est désactivée dans
+    le profil, la clé `modeles_utilises` est omise (§5.4 spec 33_).
+    """
+    meta = {
+        "version_shot": __version__,
+        "horodatage_iso": horodatage,
+        "profil_actif": profil.descripteur(),
+        "url_au_moment_capture": url_finale,
+    }
+    if not profil.tracabilite_modeles_active:
+        return meta
+
+    from lib.modeles import collecter_modele_ollama, collecter_modele_claude
+    modeles_utilises = []
+    for entree in modeles_appeles:
+        tag = entree["_tag"]
+        role = entree["role"]
+        if entree["mode_llm"] == "local":
+            modeles_utilises.append(collecter_modele_ollama(
+                tag, role,
+                inclure_hash=profil.tracabilite_inclure_hash,
+            ))
+        else:
+            modeles_utilises.append(collecter_modele_claude(tag, role))
+    meta["modeles_utilises"] = modeles_utilises
+    return meta
 
 
 def _sauver_session(ctx, page, chemin, viewport):
@@ -257,7 +289,7 @@ def charger_actions(source):
 
 
 def executer_actions(page, actions, output_dir, timeout, mode_llm="local",
-                     interval_capture_default=0):
+                     interval_capture_default=0, modeles_appeles=None):
     from playwright.sync_api import TimeoutError as PWTimeoutError
 
     intermediaires = []
@@ -265,6 +297,8 @@ def executer_actions(page, actions, output_dir, timeout, mode_llm="local",
     evaluations = []
     stream_dir = None
     run_id = int(time.time())
+    if modeles_appeles is None:
+        modeles_appeles = []
 
     def _resoudre_intervalle(action):
         """Retourne (secondes>0) si capture périodique active, sinon 0."""
@@ -465,6 +499,16 @@ def executer_actions(page, actions, output_dir, timeout, mode_llm="local",
             from lib.vision import localiser_element
             result = localiser_element(tmp, description, mode_llm)
 
+            tag_modele = result.get("modele")
+            if tag_modele and not any(
+                m.get("_tag") == tag_modele for m in modeles_appeles
+            ):
+                modeles_appeles.append({
+                    "_tag": tag_modele,
+                    "mode_llm": mode_llm,
+                    "role": "localisation_clic",
+                })
+
             try:
                 os.unlink(tmp)
             except OSError:
@@ -481,13 +525,17 @@ def executer_actions(page, actions, output_dir, timeout, mode_llm="local",
         else:
             raise ValueError(f"Type d'action inconnu : {t!r}")
 
-    return intermediaires, stream_captures, evaluations
+    return intermediaires, stream_captures, evaluations, modeles_appeles
 
 
 def main():
     args = parse_args()
     t0 = time.time()
     horodatage = datetime.now(timezone.utc).astimezone().isoformat()
+
+    from lib.profil_operateur import charger_profil
+    profil = charger_profil()
+    modeles_appeles = []
 
     # ── Validation ────────────────────────────────────────────────────────────
     if not args.url and not args.reprendre_session:
@@ -580,9 +628,10 @@ def main():
                 page.wait_for_selector(args.attendre_selecteur, timeout=args.timeout)
 
             # ── Actions ───────────────────────────────────────────────────────
-            interm, stream_captures, evaluations = executer_actions(
+            interm, stream_captures, evaluations, modeles_appeles = executer_actions(
                 page, actions, args.output_dir, args.timeout, args.llm,
                 interval_capture_default=args.interval_capture,
+                modeles_appeles=modeles_appeles,
             )
             url_finale = page.url  # mise à jour après actions
 
@@ -614,6 +663,9 @@ def main():
             "erreurs_js": erreurs_js,
             "duree_ms": int((time.time() - t0) * 1000),
             "horodatage": horodatage,
+            "diwall_meta": _construire_diwall_meta(
+                profil, horodatage, modeles_appeles, url_finale,
+            ),
         }
         if interm:
             result["captures_intermediaires"] = interm
@@ -654,6 +706,9 @@ def main():
             "http_status": http_status,
             "duree_ms": int((time.time() - t0) * 1000),
             "horodatage": horodatage,
+            "diwall_meta": _construire_diwall_meta(
+                profil, horodatage, modeles_appeles, url_finale,
+            ),
         }
         if capture_echec:
             result["capture_echec"] = capture_echec
