@@ -220,7 +220,13 @@ def main():
             continue
         attentes.append((i, a["attendu"]))
 
-    result = subprocess.run(cmd, capture_output=True, text=True)
+    # Propagation v1.3 du profil opérateur : on transmet explicitement
+    # l'environnement (notamment DIWALL_PROFIL) au subprocess shot.py.
+    # Conforme à _CADRE/SPECIFICATIONS/33_CONFIG_OPERATEUR.md §4.3 :
+    # la résolution du profil actif lit DIWALL_PROFIL en premier.
+    result = subprocess.run(
+        cmd, capture_output=True, text=True, env=os.environ.copy(),
+    )
     print(result.stdout)
     if result.stderr:
         print(result.stderr, file=sys.stderr)
