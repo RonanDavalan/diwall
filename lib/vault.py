@@ -50,3 +50,28 @@ def lire_credential(domaine: str, cle: str) -> str:
             f"Clés disponibles : {list(data.keys())}"
         )
     return data[cle]
+
+
+def verifier_cles(domaine: str, cles) -> None:
+    """Pré-validation fail-fast : vérifie que le coffre du domaine existe et
+    contient les clés demandées, SANS retourner ni exposer les valeurs.
+
+    Permet à un appelant (rpa.py) de diagnostiquer tôt un coffre/clé
+    absent sans jamais charger un credential en clair pour le transmettre.
+    Lève FileNotFoundError (coffre absent) ou KeyError (clé manquante).
+    """
+    vault_dir = _chemin_vault()
+    chemin = os.path.join(vault_dir, f"{domaine}.json")
+    if not os.path.isfile(chemin):
+        raise FileNotFoundError(
+            f"Vault introuvable pour le domaine '{domaine}' : {chemin}\n"
+            f"Créez ce fichier avec les credentials JSON correspondants."
+        )
+    with open(chemin, encoding="utf-8") as f:
+        data = json.load(f)
+    manquantes = [c for c in cles if c not in data]
+    if manquantes:
+        raise KeyError(
+            f"Clé(s) {manquantes} absente(s) du vault '{domaine}' ({chemin})\n"
+            f"Clés disponibles : {list(data.keys())}"
+        )
