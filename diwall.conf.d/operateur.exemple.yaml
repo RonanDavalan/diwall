@@ -1,0 +1,42 @@
+# operateur.exemple.yaml — template public anonymisé
+#
+# Profil opérateur Diwall v1.3. Spécifié dans
+# _CADRE/SPECIFICATIONS/33_CONFIG_OPERATEUR.md.
+#
+# Pour activer un profil :
+#   - copier ce fichier en operateur.<votre_nom>.yaml
+#     (la convention par défaut est operateur.$(whoami).yaml)
+#   - ou pointer DIWALL_PROFIL vers un chemin absolu de profil YAML
+#
+# Les profils nominaux (operateur.*.yaml hors exemple) sont
+# .gitignore : ils restent locaux à la machine.
+
+nom_profil: exemple
+
+# Liste blanche §3.2 — frictions administratives désactivées.
+# Seuls les noms ci-dessous sont reconnus ; tout autre nom est
+# ignoré avec un warning au chargement.
+#
+# Noms reconnus :
+#   - ecriture_capture_tmp
+#   - montage_coffre_visuel        (Phase 7bis)
+#   - lecture_reference_chiffree   (Phase 7bis)
+#   - ecriture_journal_diwall
+#   - invocation_ollama_locale
+auto_confirmer:
+  - ecriture_capture_tmp
+  - ecriture_journal_diwall
+  - invocation_ollama_locale
+
+# Enrichissement diwall_meta — activé par défaut.
+# Désactivable si vous ne voulez pas que le bloc modeles_utilises
+# soit ajouté au JSON de sortie.
+tracabilite_modeles:
+  active: true
+  inclure_hash_ollama: true
+
+# Verrous inviolables (liste rouge §3.1) : NE PAS représenter ici.
+# Ils sont codés en dur dans lib/profil_operateur.py et ne peuvent
+# être désactivés par aucun profil. Documenter un champ non
+# modifiable produirait une « false affordance » (fausse promesse
+# d'accès) et bruiterait le fichier.

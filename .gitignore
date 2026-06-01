@@ -1,6 +1,10 @@
 # Config machine — ne jamais versionner
 diwall.conf
 
+# Profils opérateur nominaux (v1.3) — seul operateur.exemple.yaml est versionné
+diwall.conf.d/operateur.*.yaml
+!diwall.conf.d/operateur.exemple.yaml
+
 # Données générées par watch.py
 references/
 
