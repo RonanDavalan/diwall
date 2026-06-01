@@ -150,6 +150,9 @@ def main():
     p.add_argument("--som", action="store_true", help="Active le Set-of-Mark sur la capture finale")
     p.add_argument("--a11y", action="store_true", help="Inclut le snapshot A11y dans le JSON")
     p.add_argument("--timeout", type=int, default=10000, help="Timeout ms par action (défaut : 10000)")
+    p.add_argument("--intention", default=None,
+                   help="Libellé métier du run pour le journal d'opérations (v1.4). "
+                        "À défaut, le champ 'intention' du scénario est utilisé.")
     args = p.parse_args()
 
     chemin_scenario, essais = resoudre_chemin_scenario(args.scenario)
@@ -204,6 +207,13 @@ def main():
         cmd.append("--som")
     if args.a11y:
         cmd.append("--a11y")
+    # Journal d'opérations (v1.4) : transmettre l'intention à shot.py, qui
+    # journalise le run. L'argument CLI prime sur le champ 'intention' du
+    # scénario. rpa.py ne journalise pas lui-même (un seul run = celui de
+    # shot.py), pour éviter le double comptage.
+    intention = args.intention or scenario.get("intention")
+    if intention:
+        cmd += ["--intention", intention]
 
     # Pré-collecte des assertions : clé 'attendu' sur les actions 'evaluer'.
     # Lue côté rpa.py uniquement ; shot.py l'ignore (clé inconnue).
