@@ -1,0 +1,22 @@
+# Test v1.3.d — tentative de désactivation d'une friction
+# de sanctuarisation (liste rouge §3.1)
+#
+# L'opérateur tente d'ajouter "git_push" à auto_confirmer.
+# La liste rouge est codée en dur dans lib/profil_operateur.py
+# et ne contient AUCUN nom de la liste blanche. "git_push"
+# n'est pas dans la liste blanche, donc il sera traité comme
+# nom inconnu : ignoré avec warning. Le verrou métier reste
+# intact à un autre niveau (verrou anti-push côté Diwall/, etc.).
+#
+# Attendu :
+# - profil.actif == True
+# - warning unique sur stderr contenant "git_push"
+# - profil.auto_confirmer == {"ecriture_capture_tmp"}
+# - "git_push" non présent dans auto_confirmer
+# - profil.est_auto_confirme("git_push") == False
+# - "git_push" reste dans LISTE_ROUGE_INVIOLABLE (constante module)
+
+nom_profil: tentative_liste_rouge
+auto_confirmer:
+  - ecriture_capture_tmp
+  - git_push

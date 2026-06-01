@@ -1,0 +1,19 @@
+# Test v1.3.e — traçabilité modèles désactivée
+#
+# tracabilite_modeles.active: false → la clé modeles_utilises
+# doit être ABSENTE du bloc diwall_meta des sorties shot.py /
+# watch.py, conformément à §5.4 de la spec 33.
+#
+# Attendu :
+# - profil.actif == True
+# - profil.tracabilite_modeles_active == False
+# - _construire_diwall_meta(profil, ..., [entrée_ollama_simulée], ...)
+#   retourne un dict SANS clé "modeles_utilises"
+# - Les autres clés (version_shot, profil_actif, horodatage_iso,
+#   url_au_moment_capture) restent présentes
+
+nom_profil: tracabilite_off
+auto_confirmer: []
+tracabilite_modeles:
+  active: false
+  inclure_hash_ollama: true

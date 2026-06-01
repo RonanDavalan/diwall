@@ -1,0 +1,15 @@
+# Test v1.3.b — profil minimal
+#
+# Un seul nom dans auto_confirmer. Vérifie que les autres
+# frictions de la liste blanche restent actives.
+#
+# Attendu :
+# - profil.actif == True
+# - profil.auto_confirmer == {"ecriture_capture_tmp"}
+# - profil.est_auto_confirme("ecriture_capture_tmp") == True
+# - profil.est_auto_confirme("invocation_ollama_locale") == False
+# - profil.tracabilite_modeles_active == True (défaut hérité)
+
+nom_profil: minimal
+auto_confirmer:
+  - ecriture_capture_tmp
