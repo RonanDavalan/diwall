@@ -11,10 +11,16 @@ from datetime import datetime, timezone
 from urllib.parse import urlparse
 
 
+__version__ = "1.3.0"
+
 REFERENCES_DIR = "/opt/diwall/references"
 SHOT_SCRIPT = "/opt/diwall/shot.py"
 OLLAMA_URL = "http://localhost:11434/api/generate"
 OLLAMA_MODEL = "qwen3-vl:2b"
+CLAUDE_MODEL = "claude-haiku-4-5-20251001"
+
+# Permet d'importer lib/ depuis le même répertoire que watch.py
+sys.path.insert(0, os.path.dirname(os.path.abspath(__file__)))
 
 PROMPT_DEFAUT = (
     "Tu reçois deux captures d'écran : la première est la référence (état de référence), "
@@ -110,10 +116,12 @@ def comparer_ollama(ref_path, actuel_path, prompt):
     resp.raise_for_status()
     raw = resp.json().get("response", "{}")
     try:
-        return json.loads(raw)
+        analyse = json.loads(raw)
     except json.JSONDecodeError:
         changement = "changement" in raw.lower() and "true" in raw.lower()
-        return {"changement_detecte": changement, "analyse": raw.strip(), "priorite": "basse"}
+        analyse = {"changement_detecte": changement, "analyse": raw.strip(), "priorite": "basse"}
+    analyse["_modele"] = OLLAMA_MODEL
+    return analyse
 
 
 def comparer_claude(ref_path, actuel_path, prompt):
@@ -137,10 +145,14 @@ def notifier_ntfy(ntfy_url, url, analyse, priorite="basse"):
         pass
 
 
-def sauver_reference(url, timeout):
+def sauver_reference(url, timeout, profil=None):
     rep = repertoire_reference(url)
     sortie = os.path.join(rep, "reference.png")
     horodatage = datetime.now(timezone.utc).astimezone().isoformat()
+
+    if profil is None:
+        from lib.profil_operateur import charger_profil
+        profil = charger_profil()
 
     data = capturer(url, sortie, timeout)
 
@@ -153,13 +165,55 @@ def sauver_reference(url, timeout):
     with open(os.path.join(rep, "reference.json"), "w", encoding="utf-8") as f:
         json.dump(meta, f, ensure_ascii=False, indent=2)
 
-    return {"succes": True, "url": url, "reference": sortie, "horodatage": horodatage}
+    return {
+        "succes": True,
+        "url": url,
+        "reference": sortie,
+        "horodatage": horodatage,
+        "diwall_meta": _construire_diwall_meta_watch(profil, horodatage, [], url),
+    }
 
 
-def comparer(url, prompt, mode_llm, ntfy_url, timeout):
+def _construire_diwall_meta_watch(profil, horodatage, modeles_appeles, url=None):
+    """Bloc diwall_meta pour les sorties de watch.py (symétrique shot.py).
+
+    Si la traçabilité modèles est désactivée dans le profil, la clé
+    `modeles_utilises` est omise (§5.4 spec 33_).
+    """
+    meta = {
+        "version_watch": __version__,
+        "horodatage_iso": horodatage,
+        "profil_actif": profil.descripteur(),
+    }
+    if url:
+        meta["url_au_moment_capture"] = url
+    if not profil.tracabilite_modeles_active:
+        return meta
+
+    from lib.modeles import collecter_modele_ollama, collecter_modele_claude
+    modeles_utilises = []
+    for entree in modeles_appeles:
+        tag = entree["_tag"]
+        role = entree["role"]
+        if entree["mode_llm"] == "local":
+            modeles_utilises.append(collecter_modele_ollama(
+                tag, role,
+                inclure_hash=profil.tracabilite_inclure_hash,
+            ))
+        else:
+            modeles_utilises.append(collecter_modele_claude(tag, role))
+    meta["modeles_utilises"] = modeles_utilises
+    return meta
+
+
+def comparer(url, prompt, mode_llm, ntfy_url, timeout, profil=None):
     rep = repertoire_reference(url)
     ref_path = os.path.join(rep, "reference.png")
     horodatage = datetime.now(timezone.utc).astimezone().isoformat()
+
+    if profil is None:
+        from lib.profil_operateur import charger_profil
+        profil = charger_profil()
 
     if not os.path.exists(ref_path):
         return {
@@ -167,15 +221,27 @@ def comparer(url, prompt, mode_llm, ntfy_url, timeout):
             "url": url,
             "erreur": "reference_absente",
             "message": f"Pas de référence pour {url} — lancer --sauver-reference d'abord.",
+            "diwall_meta": _construire_diwall_meta_watch(profil, horodatage, [], url),
         }
 
     actuel_path = os.path.join("/tmp/diwall", f"watch_{slug_url(url)}_{int(time.time())}.png")
     data = capturer(url, actuel_path, timeout)
 
+    modeles_appeles = []
     if mode_llm == "local":
         analyse = comparer_ollama(ref_path, actuel_path, prompt)
+        modeles_appeles.append({
+            "_tag": analyse.get("_modele", OLLAMA_MODEL),
+            "mode_llm": "local",
+            "role": "comparaison_semantique",
+        })
     else:
         analyse = comparer_claude(ref_path, actuel_path, prompt)
+        modeles_appeles.append({
+            "_tag": CLAUDE_MODEL,
+            "mode_llm": "claude",
+            "role": "comparaison_semantique",
+        })
 
     changement = analyse.get("changement_detecte", False)
     analyse_llm = analyse.get("analyse")
@@ -195,6 +261,9 @@ def comparer(url, prompt, mode_llm, ntfy_url, timeout):
         "http_status": data.get("http_status"),
         "erreurs_js": data.get("erreurs_js", []),
         "horodatage": horodatage,
+        "diwall_meta": _construire_diwall_meta_watch(
+            profil, horodatage, modeles_appeles, url,
+        ),
     }
 
 
@@ -339,62 +408,72 @@ def comparer_pixel(args):
     Retourne (resultat_dict, exit_code) sans imprimer.
     """
     t0 = time.time()
+    horodatage = datetime.now(timezone.utc).astimezone().isoformat()
+    from lib.profil_operateur import charger_profil
+    profil = charger_profil()
+    modeles_appeles = []
     ref_path = args.comparer_pixel
     cap_path = args.capture
 
+    def _avec_meta(res):
+        res["diwall_meta"] = _construire_diwall_meta_watch(
+            profil, horodatage, modeles_appeles, args.url,
+        )
+        return res
+
     # ── Préconditions I/O ─────────────────────────────────────────────────────
     if not os.path.isfile(ref_path):
-        return {
+        return _avec_meta({
             "succes": False,
             "type_comparaison": "pixel",
             "erreur": "reference_introuvable",
             "message": f"Référence introuvable : {ref_path}",
-        }, 3
+        }), 3
 
     # Si --capture absent, capturer depuis --url
     if not cap_path:
         if not args.url:
-            return {
+            return _avec_meta({
                 "succes": False,
                 "type_comparaison": "pixel",
                 "erreur": "capture_manquante",
                 "message": "Fournir --capture <chemin> ou --url pour générer une capture.",
-            }, 3
+            }), 3
         try:
             cap_path = os.path.join("/tmp/diwall",
                                      f"watch_pixel_{slug_url(args.url)}_{int(time.time())}.png")
             capturer(args.url, cap_path, args.timeout)
         except Exception as e:
-            return {
+            return _avec_meta({
                 "succes": False,
                 "type_comparaison": "pixel",
                 "erreur": "capture_echec",
                 "message": str(e),
-            }, 3
+            }), 3
 
     if not os.path.isfile(cap_path):
-        return {
+        return _avec_meta({
             "succes": False,
             "type_comparaison": "pixel",
             "erreur": "capture_introuvable",
             "message": f"Capture introuvable : {cap_path}",
-        }, 3
+        }), 3
 
     # ── Chargement images ─────────────────────────────────────────────────────
     try:
         ref_img = _charger_image_rgb(ref_path)
         cap_img = _charger_image_rgb(cap_path)
     except Exception as e:
-        return {
+        return _avec_meta({
             "succes": False,
             "type_comparaison": "pixel",
             "erreur": "image_illisible",
             "message": str(e),
-        }, 3
+        }), 3
 
     # ── Précondition viewport : refus strict (pas de resize) ──────────────────
     if ref_img.size != cap_img.size:
-        return {
+        return _avec_meta({
             "succes": False,
             "type_comparaison": "pixel",
             "verdict": "viewport_mismatch",
@@ -408,7 +487,7 @@ def comparer_pixel(args):
             "dimensions_capture": list(cap_img.size),
             "reference": ref_path,
             "capture": cap_path,
-        }, 2
+        }), 2
 
     largeur, hauteur = ref_img.size
 
@@ -455,6 +534,11 @@ def comparer_pixel(args):
         try:
             analyse = comparer_ollama(ref_path, cap_path, args.prompt)
             analyse_llm = analyse.get("analyse")
+            modeles_appeles.append({
+                "_tag": analyse.get("_modele", OLLAMA_MODEL),
+                "mode_llm": "local",
+                "role": "comparaison_semantique",
+            })
         except Exception as e:
             analyse_llm = f"(complément LLM indisponible : {e})"
 
@@ -482,7 +566,7 @@ def comparer_pixel(args):
         resultat["analyse_llm"] = analyse_llm
 
     exit_code = 1 if verdict == "regression" else 0
-    return resultat, exit_code
+    return _avec_meta(resultat), exit_code
 
 
 def main():
