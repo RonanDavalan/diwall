@@ -10,6 +10,7 @@
     "$schema":     { "type": "string" },
     "nom":         { "type": "string" },
     "description": { "type": "string" },
+    "intention":   { "type": "string" },
     "url":         { "type": "string", "format": "uri" },
     "actions": {
       "type": "array",
