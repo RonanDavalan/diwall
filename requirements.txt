@@ -1,0 +1,35 @@
+# Diwall — Python dependencies
+#
+# Tested versions are the floor; later patch versions are expected to
+# work. Install in a virtual environment:
+#
+#     python3 -m venv /opt/diwall/venv
+#     /opt/diwall/venv/bin/pip install -r requirements.txt
+#     /opt/diwall/venv/bin/playwright install chromium
+#
+# Playwright requires its browser binary (Chromium) to be installed
+# separately via the `playwright install` step above — it is not a
+# pip dependency.
+
+# Core: HTTP client for Ollama and Claude APIs
+requests>=2.32
+
+# Core: PNG IO (resize for vision, diff pixel for watch)
+Pillow>=11.0
+
+# Core: scenario JSON schema validation (lot 9.2)
+jsonschema>=4.20
+
+# Core: browser automation (Playwright Python bindings)
+playwright>=1.50
+
+# v1.3: operator profile YAML loader (lib/profil_operateur.py)
+PyYAML>=6.0
+
+# Optional but recommended: NumPy-accelerated pixel diff in watch.py
+# Falls back to Pillow-only if NumPy is missing (≈ 10× slower)
+numpy>=2.0
+
+# Optional: Anthropic API for --llm claude in vision.py / watch.py
+# Not required for the default Ollama-only deployment
+# anthropic>=0.40
