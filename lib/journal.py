@@ -70,6 +70,12 @@ def _resumer_action(action):
     if "valeur" in action:
         if action.get("valeur") == "depuis_vault":
             return f"{tete}=<vault:{action.get('vault_cle', '?')}>"
+        # Défense en profondeur : la valeur d'une saisie n'est jamais
+        # journalisée en clair. Selon le chemin d'appel (rpa.py résout le
+        # vault en amont), une valeur de saisie peut être un credential
+        # déjà résolu — on ne peut pas le distinguer ici, donc on masque.
+        if t in ("remplir", "remplir_som"):
+            return f"{tete}=<saisie>"
         return f"{tete}={str(action.get('valeur'))[:40]}"
     if t == "evaluer" and action.get("script"):
         return f"evaluer:{str(action['script'])[:60]}"
