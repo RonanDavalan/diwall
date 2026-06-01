@@ -12,6 +12,7 @@ CODE_FILES=(
     shot.py
     watch.py
     rpa.py
+    journal.py
     lib/__init__.py
     lib/journal.py
     lib/modeles.py
@@ -103,7 +104,8 @@ sudo chown root:"$GROUPE" "$DEST"/scenarios/*.json "$DEST"/scenarios/*.yaml \
 
 sudo chmod 644 "$DEST"/*.py "$DEST"/lib/*.py "$DEST"/diwall.conf 2>/dev/null || true
 sudo chmod 644 "$DEST"/scenarios/*.json "$DEST"/scenarios/*.yaml 2>/dev/null || true
-sudo chmod 755 "$DEST"/shot.py "$DEST"/watch.py "$DEST"/rpa.py 2>/dev/null || true
+sudo chmod 755 "$DEST"/shot.py "$DEST"/watch.py "$DEST"/rpa.py \
+     "$DEST"/journal.py 2>/dev/null || true
 
 echo ""
 if [ "$changed" -gt 0 ]; then
