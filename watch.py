@@ -1,9 +1,11 @@
 #!/opt/diwall/venv/bin/python3
 import argparse
 import base64
+import getpass
 import json
 import os
 import re
+import socket
 import subprocess
 import sys
 import time
@@ -11,7 +13,7 @@ from datetime import datetime, timezone
 from urllib.parse import urlparse
 
 
-__version__ = "1.3.0"
+__version__ = "1.3.2"
 
 REFERENCES_DIR = "/opt/diwall/references"
 SHOT_SCRIPT = "/opt/diwall/shot.py"
@@ -183,6 +185,8 @@ def _construire_diwall_meta_watch(profil, horodatage, modeles_appeles, url=None)
     meta = {
         "version_watch": __version__,
         "horodatage_iso": horodatage,
+        "hostname_executant": socket.gethostname(),
+        "utilisateur_executant": getpass.getuser(),
         "profil_actif": profil.descripteur(),
     }
     if url:
