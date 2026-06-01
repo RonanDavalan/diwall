@@ -126,6 +126,41 @@ if [[ $NB_FICHIERS -gt 0 ]]; then
     done
 fi
 
+# ── Audit secrets dans les YAML publiés sous diwall.conf.d/ (v1.3) ────────────
+# Cible : operateur.exemple.yaml (template public versionné). Les profils
+# nominaux operateur.*.yaml sont gitignorés et n'entrent pas dans le scope.
+# Patterns interdits : clés YAML qui exposeraient un secret en clair.
+PATTERNS_SECRETS_YAML=(
+    "mot de passe;;;^[[:space:]]*(password|passwd|mot_de_passe)[[:space:]]*:;;;jamais de credential en clair dans un profil opérateur"
+    "token API;;;^[[:space:]]*(token|api_key|apikey|api_token|access_token)[[:space:]]*:;;;jamais de credential en clair dans un profil opérateur"
+    "secret générique;;;^[[:space:]]*secret[[:space:]]*:;;;jamais de credential en clair dans un profil opérateur"
+    "clé privée;;;^[[:space:]]*(private_key|privkey|ssh_key)[[:space:]]*:;;;clé privée à conserver hors du profil"
+    "marqueur PEM;;;-----BEGIN [A-Z ]*PRIVATE KEY-----;;;clé privée à conserver hors du profil"
+)
+
+mapfile -d '' YAMLS < <(find ./diwall.conf.d -type f -name '*.yaml' -print0 2>/dev/null)
+NB_YAMLS=${#YAMLS[@]}
+echo "--- Audit YAML profil opérateur (v1.3) ---"
+echo "Périmètre YAML : $NB_YAMLS fichier(s) sous diwall.conf.d/"
+
+if [[ $NB_YAMLS -gt 0 ]]; then
+    for entree in "${PATTERNS_SECRETS_YAML[@]}"; do
+        label="${entree%%;;;*}"
+        reste="${entree#*;;;}"
+        regex="${reste%%;;;*}"
+        recommandation="${reste#*;;;}"
+        if matches=$(grep -EnH "$regex" "${YAMLS[@]}" 2>/dev/null); then
+            while IFS= read -r ligne; do
+                [[ -z "$ligne" ]] && continue
+                NB_FUITES=$((NB_FUITES + 1))
+                FUITES_PAR_PATTERN["$label"]=$(( ${FUITES_PAR_PATTERN["$label"]:-0} + 1 ))
+                echo "FUITE [$label] $ligne"
+                echo "       → $recommandation"
+            done <<< "$matches"
+        fi
+    done
+fi
+
 echo
 echo "=== Résumé ==="
 if [[ $NB_FUITES -eq 0 ]]; then
