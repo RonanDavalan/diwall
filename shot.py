@@ -1,12 +1,14 @@
 #!/opt/diwall/venv/bin/python3
 import argparse
+import getpass
 import json
 import os
+import socket
 import sys
 import time
 from datetime import datetime, timezone
 
-__version__ = "1.3.0"
+__version__ = "1.3.2"
 
 # Permet d'importer lib/ depuis le même répertoire que shot.py
 sys.path.insert(0, os.path.dirname(os.path.abspath(__file__)))
@@ -132,6 +134,8 @@ def _construire_diwall_meta(profil, horodatage, modeles_appeles, url_finale):
     meta = {
         "version_shot": __version__,
         "horodatage_iso": horodatage,
+        "hostname_executant": socket.gethostname(),
+        "utilisateur_executant": getpass.getuser(),
         "profil_actif": profil.descripteur(),
         "url_au_moment_capture": url_finale,
     }
