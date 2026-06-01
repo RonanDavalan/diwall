@@ -145,7 +145,7 @@ def _localiser_claude(image_path, description, largeur, hauteur):
     except ImportError:
         raise ImportError(
             "Le mode claude nécessite : pip install anthropic\n"
-            "Ou utiliser --llm local (Ollama qwen3-vl:8b)."
+            f"Ou utiliser --llm local (Ollama {OLLAMA_MODEL})."
         )
 
     client = anthropic.Anthropic()
@@ -181,14 +181,21 @@ def localiser_element(image_path, description, mode_llm="local"):
         mode_llm    : "local" (Ollama qwen3-vl) ou "claude" (API Anthropic)
 
     Returns:
-        {"found": True, "x": int, "y": int, "confiance": float}
-        {"found": False, "erreur": str}
+        {"found": True, "x": int, "y": int, "confiance": float, "modele": str}
+        {"found": False, "erreur": str, "modele": str}
+
+    La clé `modele` (v1.3) porte le tag exact résolu au runtime
+    (`OLLAMA_MODEL` ou `CLAUDE_MODEL`). Source de vérité pour la
+    composition de `diwall_meta.modeles_utilises`.
     """
     largeur, hauteur = _dimensions_png(image_path)
 
     if mode_llm == "local":
-        return _localiser_ollama(image_path, description, largeur, hauteur)
+        result = _localiser_ollama(image_path, description, largeur, hauteur)
+        result["modele"] = OLLAMA_MODEL
     elif mode_llm == "claude":
-        return _localiser_claude(image_path, description, largeur, hauteur)
+        result = _localiser_claude(image_path, description, largeur, hauteur)
+        result["modele"] = CLAUDE_MODEL
     else:
         raise ValueError(f"Mode LLM inconnu : {mode_llm!r}. Utiliser 'local' ou 'claude'.")
+    return result
