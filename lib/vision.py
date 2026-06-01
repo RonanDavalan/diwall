@@ -13,7 +13,7 @@ import struct
 
 
 OLLAMA_URL = "http://localhost:11434/api/generate"
-OLLAMA_MODEL = "qwen3-vl:4b"
+OLLAMA_MODEL = "qwen3-vl:2b"  # depuis 2 juin 2026 — voir _CADRE/BENCHMARK_MODELES_VISION.md v1.1
 CLAUDE_MODEL = "claude-haiku-4-5-20251001"
 
 
