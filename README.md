@@ -50,6 +50,7 @@ The language model decides what to do next.
 | **Visual monitoring** | Detect if a page changed since last reference |
 | **Pixel diff** | Quantitative, deterministic diff against a stored reference (v1.2) |
 | **Credential vault** | Secure credential injection — never in plaintext, never on the command line |
+| **Encrypted vault** | gocryptfs-backed vault — `VaultFermeError` (exit 42) if vault not mounted (v1.5) |
 | **Operator profile** | YAML profile to lift repetitive administrative confirmations (v1.3) |
 | **Model traceability** | Every run records which models were called, including Ollama digest (v1.3) |
 | **Operation log** | Persistent append-only log of all runs — who did what, where, when (v1.4) |
@@ -152,7 +153,7 @@ In a scenario or action: `"valeur": "depuis_vault", "vault_cle": "password"` —
 
 Vault path is configurable via `/opt/diwall/diwall.conf` or `DIWALL_VAULT_DIR` environment variable.
 
-**Recommendation:** protect `~/Vaults/Diwall/` with `chmod 700` and, where possible, an encrypted filesystem such as `gocryptfs` (see `scripts/setup-vault.sh`). Encrypted vault support is planned for a future release.
+**Recommendation:** protect `~/Vaults/Diwall/` with `chmod 700` and encrypt it with `gocryptfs` (see `scripts/setup-vault.sh --gocryptfs`). Encrypted vault is fully supported since v1.5.0 — if the vault is initialised but not mounted, Diwall returns a structured `VaultFermeError` (exit code 42) instead of silently failing.
 
 ---
 
