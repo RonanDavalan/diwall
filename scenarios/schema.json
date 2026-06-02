@@ -31,7 +31,9 @@
         { "$ref": "#/definitions/AttendreNavigation" },
         { "$ref": "#/definitions/Pause" },
         { "$ref": "#/definitions/Capturer" },
-        { "$ref": "#/definitions/Evaluer" }
+        { "$ref": "#/definitions/Evaluer" },
+        { "$ref": "#/definitions/Defiler" },
+        { "$ref": "#/definitions/AttendreNtfy" }
       ]
     },
 
@@ -168,6 +170,32 @@
         "type":    { "const": "evaluer" },
         "script":  { "type": "string", "minLength": 1 },
         "attendu": {}
+      }
+    },
+
+    "Defiler": {
+      "type": "object",
+      "required": ["type"],
+      "additionalProperties": false,
+      "properties": {
+        "type":      { "const": "defiler" },
+        "px":        { "type": "integer" },
+        "selecteur": { "type": "string", "minLength": 1 }
+      },
+      "oneOf": [
+        { "required": ["px"] },
+        { "required": ["selecteur"] }
+      ]
+    },
+
+    "AttendreNtfy": {
+      "type": "object",
+      "required": ["type", "id_som"],
+      "additionalProperties": false,
+      "properties": {
+        "type":    { "const": "attendre_mfa_ntfy" },
+        "id_som":  { "type": "integer", "minimum": 1 },
+        "timeout": { "type": "integer", "minimum": 10, "default": 120 }
       }
     }
   }

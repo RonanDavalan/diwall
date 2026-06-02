@@ -40,6 +40,7 @@ def _preuves_dir():
 ACTIONS_ECRITURE = frozenset({
     "cliquer", "cliquer_som", "cliquer_visuel",
     "remplir", "remplir_som", "evaluer",
+    "attendre_mfa_ntfy",
 })
 
 
@@ -86,6 +87,33 @@ def _resumer_action(action):
 
 def resumer_actions(actions):
     return [_resumer_action(a) for a in (actions or [])]
+
+
+def _neutraliser_actions_raw(actions):
+    """Actions brutes neutralisées pour le champ actions_raw (v1.6).
+
+    Préserve la structure dict (contrairement à resumer_actions qui produit
+    des chaînes plates). Masquage appliqué :
+    - remplir / remplir_som avec valeur directe : remplacée par "<saisie>"
+    - depuis_vault et depuis_vault_totp : conservés tels quels (pas de valeur réelle)
+    - evaluer : script tronqué à 500 caractères
+    - attendre_mfa_ntfy : copié tel quel (le topic vient du vault, pas de l'action)
+    - tout le reste : copié tel quel
+    """
+    resultat = []
+    for a in actions or []:
+        if not isinstance(a, dict):
+            continue
+        a2 = dict(a)
+        t = a2.get("type", "")
+        if t in ("remplir", "remplir_som"):
+            v = a2.get("valeur")
+            if v not in ("depuis_vault", "depuis_vault_totp", None):
+                a2["valeur"] = "<saisie>"
+        elif t == "evaluer" and "script" in a2:
+            a2["script"] = a2["script"][:500]
+        resultat.append(a2)
+    return resultat
 
 
 # ── Archivage des preuves (étape 3) ──────────────────────────────────────────
@@ -156,6 +184,10 @@ def enregistrer_operation(outil, version, cible_url, resultat, actions,
         actions_resumees = resumer_actions(actions)
         if actions_resumees:
             entree["actions"] = actions_resumees
+        if resultat == "succes" and actions:
+            raw = _neutraliser_actions_raw(actions)
+            if raw:
+                entree["actions_raw"] = raw
         if captures_ref:
             entree["captures"] = captures_ref
         if meta.get("modeles_utilises"):

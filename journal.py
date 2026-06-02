@@ -25,6 +25,10 @@ def _journal_path():
     return os.environ.get("DIWALL_JOURNAL", "/var/log/diwall/operations.jsonl")
 
 
+def _skills_dir():
+    return os.environ.get("DIWALL_SKILLS_DIR", "/opt/diwall/skills")
+
+
 def _fichiers():
     """Journal courant + fichiers tournés (logrotate), du plus ancien au plus récent."""
     base = _journal_path()
@@ -91,7 +95,50 @@ def main():
     p.add_argument("--format", choices=["texte", "json"], default="texte")
     p.add_argument("--limite", type=int, default=0,
                    help="N dernières entrées (0 = toutes)")
+    p.add_argument("--exporter-skill", metavar="OPERATION_ID",
+                   help="Exporte le run réussi en fichier skill dans skills/")
+    p.add_argument("--nom", help="Nom du skill à créer (requis avec --exporter-skill)")
     args = p.parse_args()
+
+    # ── Export skill ──────────────────────────────────────────────────────────
+    if args.exporter_skill:
+        _avertir_fallback()
+        entrees = _lire_entrees()
+        cible = next(
+            (e for e in entrees if e.get("operation_id") == args.exporter_skill),
+            None,
+        )
+        if not cible:
+            print(
+                f"Erreur : operation_id '{args.exporter_skill}' introuvable.",
+                file=sys.stderr,
+            )
+            sys.exit(1)
+        if "actions_raw" not in cible:
+            print(
+                "Erreur : actions_raw absent — run antérieur à v1.6 ou run sans actions.",
+                file=sys.stderr,
+            )
+            sys.exit(1)
+        nom = args.nom
+        if not nom:
+            print("Erreur : --nom est requis avec --exporter-skill.", file=sys.stderr)
+            sys.exit(1)
+        skill = {
+            "nom": nom,
+            "url": cible.get("cible_url", ""),
+            "actions": cible["actions_raw"],
+        }
+        if cible.get("intention"):
+            skill["description"] = cible["intention"]
+        skills_dir = _skills_dir()
+        os.makedirs(skills_dir, exist_ok=True)
+        chemin = os.path.join(skills_dir, f"{nom}.json")
+        with open(chemin, "w", encoding="utf-8") as f:
+            json.dump(skill, f, ensure_ascii=False, indent=2)
+            f.write("\n")
+        print(f"Skill exporté : {chemin}")
+        return
 
     _avertir_fallback()
     filtrees = [e for e in _lire_entrees() if _garde(e, args)]

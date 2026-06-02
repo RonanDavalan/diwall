@@ -9,7 +9,7 @@ import sys
 import time
 from datetime import datetime, timezone
 
-__version__ = "1.4.0"
+__version__ = "1.6.0"
 
 # Permet d'importer lib/ depuis le même répertoire que shot.py
 sys.path.insert(0, os.path.dirname(os.path.abspath(__file__)))
@@ -67,6 +67,27 @@ _SOM_INJECTER_JS = """() => {
 
 _SOM_RETIRER_JS = "() => { const el = document.getElementById('__som__'); if (el) el.remove(); }"
 
+_SOM_COMPTER_HORS_VIEWPORT_JS = """() => {
+    const SELECTORS = [
+        'a[href]', 'button', 'input:not([type="hidden"])',
+        'select', 'textarea', 'summary',
+        '[role="button"]', '[role="link"]', '[role="tab"]',
+        '[role="checkbox"]', '[role="menuitem"]', '[role="radio"]',
+        '[role="combobox"]', '[role="spinbutton"]', '[role="searchbox"]'
+    ].join(',');
+    const vw = window.innerWidth, vh = window.innerHeight;
+    let n = 0;
+    document.querySelectorAll(SELECTORS).forEach(el => {
+        const s = window.getComputedStyle(el);
+        if (s.display === 'none' || s.visibility === 'hidden' || s.opacity === '0') return;
+        const r = el.getBoundingClientRect();
+        if (r.width < 2 || r.height < 2) return;
+        if (r.right >= 0 && r.bottom >= 0 && r.left <= vw && r.top <= vh) return;
+        n++;
+    });
+    return n;
+}"""
+
 # Même filtrage que l'injection SoM, retourne les coordonnées du centre de l'élément N
 _SOM_TROUVER_JS = """(id) => {
     const SELECTORS = [
@@ -93,13 +114,18 @@ _SOM_TROUVER_JS = """(id) => {
 }"""
 
 
-def _injecter_som(page, output_dir):
-    """Injecte le Set-of-Mark, capture la vue annotée, nettoie le DOM. Retourne (chemin_som, elements_som)."""
+def _injecter_som(page, output_dir, nom="state_som"):
+    """Injecte le Set-of-Mark, capture la vue annotée, nettoie le DOM.
+
+    Retourne (chemin_som, elements_som, hors_vp) où hors_vp est le
+    nombre d'éléments interactifs présents dans le DOM mais hors viewport.
+    """
     elements = page.evaluate(_SOM_INJECTER_JS)
-    chemin_som = chemin_png(output_dir, "state_som")
+    chemin_som = chemin_png(output_dir, nom)
     page.screenshot(path=chemin_som, full_page=False)  # fixed = viewport uniquement
     page.evaluate(_SOM_RETIRER_JS)
-    return chemin_som, elements
+    hors_vp = page.evaluate(_SOM_COMPTER_HORS_VIEWPORT_JS)
+    return chemin_som, elements, hors_vp
 
 
 # ── Arbre d'accessibilité (A11y) ──────────────────────────────────────────────
@@ -439,6 +465,9 @@ def executer_actions(page, actions, output_dir, timeout, mode_llm="local",
                 if not cle:
                     raise ValueError("remplir depuis_vault : champ 'vault_cle' requis")
                 valeur = lire_credential(domaine_depuis_url(page.url), cle)
+            elif valeur == "depuis_vault_totp":
+                from lib.vault import lire_totp, domaine_depuis_url
+                valeur = lire_totp(domaine_depuis_url(page.url))
             page.locator(a["selecteur"]).fill(valeur, timeout=timeout)
 
         elif t == "cliquer":
@@ -465,10 +494,7 @@ def executer_actions(page, actions, output_dir, timeout, mode_llm="local",
         elif t == "capturer":
             nom = a.get("nom", "etape")
             if a.get("som"):
-                page.evaluate(_SOM_INJECTER_JS)
-                p = chemin_png(output_dir, f"capture_som_{nom}")
-                page.screenshot(path=p, full_page=False)
-                page.evaluate(_SOM_RETIRER_JS)
+                p, _, _ = _injecter_som(page, output_dir, f"capture_som_{nom}")
             else:
                 p = chemin_png(output_dir, f"capture_{nom}")
                 page.screenshot(path=p, full_page=True)
@@ -494,6 +520,9 @@ def executer_actions(page, actions, output_dir, timeout, mode_llm="local",
                 if not cle:
                     raise ValueError("remplir_som depuis_vault : champ 'vault_cle' requis")
                 valeur = lire_credential(domaine_depuis_url(page.url), cle)
+            elif valeur == "depuis_vault_totp":
+                from lib.vault import lire_totp, domaine_depuis_url
+                valeur = lire_totp(domaine_depuis_url(page.url))
             coord = page.evaluate(_SOM_TROUVER_JS, som_id)
             if coord is None:
                 raise ValueError(f"remplir_som : élément SoM {som_id!r} non trouvé sur la page")
@@ -577,6 +606,36 @@ def executer_actions(page, actions, output_dir, timeout, mode_llm="local",
                 )
 
             page.mouse.click(result["x"], result["y"])
+
+        elif t == "defiler":
+            px = a.get("px")
+            sel = a.get("selecteur")
+            if sel:
+                page.evaluate(
+                    "(s) => document.querySelector(s)?.scrollIntoView({block:'center',inline:'nearest'})",
+                    sel,
+                )
+            elif px is not None:
+                page.evaluate("(n) => window.scrollBy(0, n)", int(px))
+            else:
+                raise ValueError("defiler requiert 'px' (pixels relatifs) ou 'selecteur' (CSS scrollIntoView)")
+
+        elif t == "attendre_mfa_ntfy":
+            id_som = a.get("id_som")
+            if id_som is None:
+                raise ValueError("attendre_mfa_ntfy requiert un champ 'id_som'")
+            timeout_mfa = int(a.get("timeout", 120))
+            from lib.vault import lire_credential, domaine_depuis_url
+            from lib import ntfy as ntfy_lib
+            topic = lire_credential(domaine_depuis_url(page.url), "ntfy_topic")
+            ntfy_lib.publier_attente(topic, page.url)
+            code = ntfy_lib.attendre_code(topic, timeout_s=timeout_mfa)
+            coord = page.evaluate(_SOM_TROUVER_JS, id_som)
+            if coord is None:
+                raise ValueError(f"attendre_mfa_ntfy : élément SoM {id_som!r} non trouvé")
+            page.mouse.click(coord["x"], coord["y"])
+            page.keyboard.press("Control+a")
+            page.keyboard.type(str(code))
 
         else:
             raise ValueError(f"Type d'action inconnu : {t!r}")
@@ -703,9 +762,9 @@ def main():
             page.screenshot(path=sortie, full_page=True)
 
             # ── SoM ───────────────────────────────────────────────────────────
-            capture_som, elements_som = None, []
+            capture_som, elements_som, hors_vp_som = None, [], 0
             if args.som:
-                capture_som, elements_som = _injecter_som(page, args.output_dir)
+                capture_som, elements_som, hors_vp_som = _injecter_som(page, args.output_dir)
 
             # ── A11y ──────────────────────────────────────────────────────────
             a11y_tree = _snapshot_a11y(page) if args.a11y else None
@@ -740,6 +799,12 @@ def main():
         if capture_som:
             result["capture_som"] = capture_som
             result["elements_som"] = elements_som
+            if hors_vp_som > 0:
+                result["som_hors_viewport"] = hors_vp_som
+                result["avertissement_scroll"] = (
+                    f"{hors_vp_som} élément(s) interactif(s) hors viewport "
+                    "— utilisez defiler avant cliquer_som"
+                )
         if a11y_tree is not None:
             result["a11y_tree"] = a11y_tree
         if session_file:
