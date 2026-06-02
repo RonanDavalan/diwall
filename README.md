@@ -48,7 +48,11 @@ The language model decides what to do next.
 | **Session persistence** | Maintain login state across multi-step ReAct loops |
 | **RPA scenarios** | Execute action sequences from JSON files |
 | **Visual monitoring** | Detect if a page changed since last reference |
-| **Credential vault** | Secure credential injection — never in plaintext in code or scenarios |
+| **Pixel diff** | Quantitative, deterministic diff against a stored reference (v1.2) |
+| **Credential vault** | Secure credential injection — never in plaintext, never on the command line |
+| **Operator profile** | YAML profile to lift repetitive administrative confirmations (v1.3) |
+| **Model traceability** | Every run records which models were called, including Ollama digest (v1.3) |
+| **Operation log** | Persistent append-only log of all runs — who did what, where, when (v1.4) |
 
 ---
 
@@ -84,7 +88,7 @@ cd ~/git/Diwall/Diwall
 
 # 3. Create Python virtual environment
 sudo /usr/bin/python3 -m venv /opt/diwall/venv
-sudo /opt/diwall/venv/bin/pip install playwright requests Pillow
+sudo /opt/diwall/venv/bin/pip install -r requirements.txt
 
 # 4. Install Chromium
 sudo /opt/diwall/venv/bin/playwright install chromium
@@ -198,9 +202,9 @@ SoM injection, session persistence. Principal author of the source code.
 Independent architectural analysis, logical conflict resolution,
 workflow optimisation, cross-validation of technical decisions.
 
-**Perception models:**
-- `qwen3-vl:4b` (Alibaba) — click localisation via Set-of-Mark, ~32s
-- `qwen3-vl:2b` (Alibaba) — semantic visual comparison, ~1s
+**Perception models (Ollama, local):**
+- `qwen3-vl:2b` (Alibaba) — click localisation and semantic comparison, ~9–19s (default since v1.3.1)
+- `qwen3-vl:8b` (Alibaba) — robust fallback, ~114s
 
 **Maintenance operators (via OpenCode):**
 - Big Pickle — heavy semantic cleanup of documentation
