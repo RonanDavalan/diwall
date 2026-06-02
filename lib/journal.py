@@ -168,18 +168,50 @@ def enregistrer_operation(outil, version, cible_url, resultat, actions,
         print(f"⚠ journal : opération non journalisée ({e})", file=sys.stderr)
 
 
+def _fallback_path():
+    return os.environ.get(
+        "DIWALL_JOURNAL_FALLBACK",
+        "/tmp/diwall/operations.fallback.jsonl",
+    )
+
+
 def _ecrire_ligne(entree):
-    """Append atomique d'une ligne JSON, sous verrou exclusif."""
+    """Append atomique d'une ligne JSON, sous verrou exclusif.
+
+    Le fichier est ouvert et refermé à chaque appel — aucun descripteur
+    de fichier n'est conservé entre deux runs. Ce choix est intentionnel :
+    il immunise l'implémentation contre le glissement de descripteur lors
+    d'une rotation logrotate (rename de l'inode courant), sans exiger
+    copytruncate. Ne pas introduire un fd persistant de module sans relire
+    cette note.
+    """
     path = _journal_path()
     repertoire = os.path.dirname(path)
     if repertoire:
         os.makedirs(repertoire, exist_ok=True)
     ligne = json.dumps(entree, ensure_ascii=False) + "\n"
-    with open(path, "a", encoding="utf-8") as f:
+    try:
+        with open(path, "a", encoding="utf-8") as f:
+            try:
+                fcntl.flock(f.fileno(), fcntl.LOCK_EX)
+                f.write(ligne)
+                f.flush()
+                os.fsync(f.fileno())
+            finally:
+                fcntl.flock(f.fileno(), fcntl.LOCK_UN)
+    except OSError:
+        # Fallback sans consolidation auto (spec 36_ §2.3).
+        # En cas d'échec du fallback lui-même, on abandonne silencieusement.
         try:
-            fcntl.flock(f.fileno(), fcntl.LOCK_EX)
-            f.write(ligne)
-            f.flush()
-            os.fsync(f.fileno())
-        finally:
-            fcntl.flock(f.fileno(), fcntl.LOCK_UN)
+            fb = _fallback_path()
+            os.makedirs(os.path.dirname(fb) or ".", exist_ok=True)
+            with open(fb, "a", encoding="utf-8") as f:
+                f.write(ligne)
+                f.flush()
+            print(
+                f"⚠ journal : log principal inaccessible, "
+                f"entrée écrite dans {fb}",
+                file=sys.stderr,
+            )
+        except OSError:
+            raise  # remonte pour être avalée par l'enveloppe best-effort
