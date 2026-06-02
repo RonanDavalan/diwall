@@ -45,6 +45,16 @@ for d in "${DIRS_SUDO[@]}"; do
     fi
 done
 
+# ── /var/log/diwall : journal d'opérations v1.4 ───────────────────────────────
+if [ ! -d "/var/log/diwall" ]; then
+    sudo install -d -m 2770 -o root -g diwall /var/log/diwall
+    echo "  Créé    : /var/log/diwall"
+fi
+if [ ! -d "/var/log/diwall/preuves" ]; then
+    sudo install -d -m 2770 -o root -g diwall /var/log/diwall/preuves
+    echo "  Créé    : /var/log/diwall/preuves"
+fi
+
 # ── /tmp/diwall : répertoire de ron, jamais sudo ──────────────────────────────
 # Captures éphémères lues/écrites par ron directement — pas besoin de root.
 if [ ! -d "/tmp/diwall" ]; then
