@@ -3,6 +3,7 @@ import argparse
 import getpass
 import json
 import os
+import resource
 import socket
 import sys
 import time
@@ -156,6 +157,22 @@ def _construire_diwall_meta(profil, horodatage, modeles_appeles, url_finale):
             modeles_utilises.append(collecter_modele_claude(tag, role))
     meta["modeles_utilises"] = modeles_utilises
     return meta
+
+
+def _nettoyer_session_ephemere(chemin_session, explicitement_demandee):
+    """Supprime un fichier de session éphémère si non demandé explicitement.
+
+    Un fichier de session contient des jetons d'authentification actifs.
+    S'il n'a pas été demandé via --sauver-session, il n'a pas vocation à
+    persister après le run. Best-effort : un échec de suppression est ignoré.
+    """
+    if explicitement_demandee or not chemin_session:
+        return
+    try:
+        if os.path.isfile(chemin_session):
+            os.unlink(chemin_session)
+    except OSError:
+        pass
 
 
 def _journaliser_run(result, actions, intention, cible_url, resultat, erreur=None):
@@ -568,6 +585,14 @@ def executer_actions(page, actions, output_dir, timeout, mode_llm="local",
 
 
 def main():
+    # Interdire les core dumps pour ce processus : si Playwright crashe
+    # pendant qu'un credential est en mémoire, le noyau ne peut pas écrire
+    # un dump contenant le secret (spec 36_ §2.5).
+    try:
+        resource.setrlimit(resource.RLIMIT_CORE, (0, 0))
+    except (ValueError, resource.error):
+        pass  # best-effort — certains environnements refusent, ce n'est pas bloquant
+
     args = parse_args()
     t0 = time.time()
     horodatage = datetime.now(timezone.utc).astimezone().isoformat()
@@ -723,6 +748,10 @@ def main():
             result["derive_session"] = derive_session
         print(json.dumps(result, ensure_ascii=False))
         _journaliser_run(result, actions, args.intention, url_finale, "succes")
+        _nettoyer_session_ephemere(
+            getattr(args, "reprendre_session", None),
+            explicitement_demandee=bool(args.sauver_session),
+        )
 
     except Exception as e:
         capture_echec = None
@@ -755,6 +784,10 @@ def main():
         print(json.dumps(result, ensure_ascii=False))
         _journaliser_run(result, actions, args.intention, url_cible, "echec",
                          erreur=f"{type(e).__name__}: {e}")
+        _nettoyer_session_ephemere(
+            getattr(args, "reprendre_session", None),
+            explicitement_demandee=bool(getattr(args, "sauver_session", None)),
+        )
         sys.exit(1)
 
 
