@@ -64,7 +64,7 @@ def test_t1_mutatif_preuves():
     ]
     journal.enregistrer_operation(
         outil="shot.py", version="1.4.0",
-        cible_url="https://__HOST_ADMIN__/?vue=domaine&domaine=__DOMAINE_CLIENT__",
+        cible_url="https://target.local/?vue=domaine&domaine=__DOMAINE_CLIENT__",
         resultat="succes", actions=actions, diwall_meta=META,
         intention="Suppression clone __DOMAINE_CLIENT__ 2026-05-30", captures=[cap],
     )
@@ -93,7 +93,7 @@ def test_t2_lecture_pas_archivage():
         {"type": "pause", "ms": 100},
     ]
     journal.enregistrer_operation(
-        outil="shot.py", version="1.4.0", cible_url="https://__HOST_ADMIN__/",
+        outil="shot.py", version="1.4.0", cible_url="https://target.local/",
         resultat="succes", actions=actions, diwall_meta=META, captures=[cap],
     )
     e = _entrees()[-1]
@@ -115,7 +115,7 @@ def test_t3_securite_zero_credential():
     ]
     journal.enregistrer_operation(
         outil="shot.py", version="1.4.0",
-        cible_url="https://__HOST_ADMIN__/?vue=login",
+        cible_url="https://target.local/?vue=login",
         resultat="succes", actions=actions, diwall_meta=META, intention="Login",
     )
     e = _entrees()[-1]
