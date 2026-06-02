@@ -67,6 +67,20 @@ def _garde(e, args):
     return True
 
 
+def _avertir_fallback():
+    """Avertit si des entrées non migrées existent dans le fichier de secours."""
+    fb = os.environ.get(
+        "DIWALL_JOURNAL_FALLBACK",
+        "/tmp/diwall/operations.fallback.jsonl",
+    )
+    if os.path.isfile(fb) and os.path.getsize(fb) > 0:
+        print(
+            f"⚠  Entrées non consolidées dans {fb}\n"
+            f"   Consolider : cat {fb} >> {_journal_path()}\n",
+            file=sys.stderr,
+        )
+
+
 def main():
     p = argparse.ArgumentParser(description="Diwall — lecture du journal d'opérations")
     p.add_argument("--cible", help="Filtre sous-chaîne sur cible_url")
@@ -79,6 +93,7 @@ def main():
                    help="N dernières entrées (0 = toutes)")
     args = p.parse_args()
 
+    _avertir_fallback()
     filtrees = [e for e in _lire_entrees() if _garde(e, args)]
     if args.limite > 0:
         filtrees = filtrees[-args.limite:]
