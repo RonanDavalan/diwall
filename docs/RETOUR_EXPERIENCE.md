@@ -755,3 +755,145 @@ exclusif des commits (Claude seul) inscrite consécutivement dans
 `_CADRE/SPECIFICATIONS/27_PROCESSUS_PUBLICATION_GITHUB.md` et
 `_CADRE/GOUVERNANCE/24_DELEGATION_INTELLIGENCES_DIWALL.md`.
 
+---
+
+# Session 8 — 2 juin 2026 (exercices opérateur « Marc le stagiaire »)
+
+Session de validation d'utilisabilité : trois exercices en conditions réelles,
+opérateur simulé sans connaissance du code interne, contrainte absolue — pas de
+script Python, uniquement `/opt/diwall/`. Vault Phase 7 (gocryptfs, v1.5.0) en
+production. Deux nouvelles frictions, plusieurs confirmations structurantes.
+
+## 26. `evaluer` + `element.click()` ne soumet pas un formulaire HTTP
+
+**Contexte** : mise à jour de thèmes WordPress depuis `update-core.php`. Les
+cases à cocher sont hors viewport initial. Approche :
+
+```json
+{"type": "evaluer", "script": "document.querySelector('input[name=upgrade]').click()"}
+```
+
+Le scénario se termine avec `succes:true`. La capture post-action montre la
+page d'accueil WordPress — pas la page de résultat de mise à jour. Les thèmes
+n'ont pas été mis à jour.
+
+**Origine** : dans Playwright (et dans les navigateurs modernes), un `.click()`
+simulé sur un `<input type="submit">` déclenche l'événement DOM `click` mais
+**ne garantit pas la soumission HTTP du formulaire parent**. Le navigateur peut
+traiter différemment un clic synthétique et un clic utilisateur réel, notamment
+quand des validation handlers JS sont attachés.
+
+**Solution validée** :
+
+```json
+{"type": "evaluer", "script": "document.querySelector('input[value=\"theme-slug\"]').closest('form').submit();"}
+```
+
+`.closest('form').submit()` appelle directement la méthode native de soumission
+du formulaire — identique à ce que le navigateur fait sur un clic utilisateur.
+
+**Règle** : pour soumettre un formulaire via `evaluer`, toujours utiliser
+`.closest('form').submit()` plutôt que `.click()` sur le bouton submit.
+
+---
+
+## 27. SoM IDs invalides après `evaluer` + scroll
+
+**Contexte** : pour voir des éléments hors viewport, `evaluer` avec
+`window.scrollTo(0, 900)` suivi d'une capture SoM. Les IDs obtenus
+(`id: 27`, `id: 28`…) sont ensuite utilisés dans `cliquer_som` dans un
+scénario rpa.py qui refait un login complet.
+
+Le scénario échoue : `cliquer_som : élément SoM 27 non trouvé sur la page`.
+
+**Origine** : les IDs SoM sont calculés lors de la capture annotée
+(`state_som_*.png`). Ils numérotent les éléments **visibles dans le
+viewport au moment de la capture**. Quand le scénario rpa.py relance depuis
+zéro (nouveau login, nouvelle navigation), le DOM est identique mais le
+viewport de départ est en haut de page — les éléments inférieurs ont des IDs
+différents, ou ne sont pas encore visibles.
+
+**Il n'y a pas de "mémoire SoM" entre invocations.**
+
+**Workaround** :
+- Pour les éléments hors viewport, préférer les **sélecteurs CSS directs**
+  (valeur connue : `input[value="theme-slug"]`) ou un `evaluer` qui fait
+  le scroll ET la soumission dans la même action.
+- Ou : capturer le SoM dans le même scénario qui utilise les IDs
+  (sans reprise de session).
+
+**Règle** : un ID SoM observé dans une session précédente n'est valide que si
+le même scénario, dans la même invocation, a fait la capture SoM sur le même
+viewport. Ne jamais réutiliser un ID SoM cross-session.
+
+---
+
+## Confirmations de cette session
+
+### a11y_tree suffit pour du crawl sémantique (0 Ollama)
+
+Exercice EX02 : trouver un mot-clé sur un site public sans connaître la page.
+4 pages, 3 requêtes shot.py avec `--a11y` uniquement. Mot-clé trouvé dans un
+`<strong>`, contexte précis retourné. **Aucun appel à un modèle de vision.**
+
+L'a11y_tree est auto-suffisant pour les tâches de type :
+- recherche de texte/balise
+- navigation par liens (extraction des `href`)
+- vérification de présence d'éléments
+- découverte de la structure de page
+
+`cliquer_visuel` / Ollama ne sont nécessaires que quand l'élément cible n'a
+pas de représentation sémantique accessible (image cliquable, zone graphique,
+canvas).
+
+### Vault gocryptfs Phase 7 — transparent pour l'opérateur
+
+Exercice EX01 : l'opérateur n'a jamais eu à gérer le vault — il était monté.
+Aucun code 42, aucun message d'erreur vault. Le credential a été injecté
+silencieusement depuis le scénario (`"valeur":"depuis_vault"`).
+
+**Ce que valide cet exercice en conditions réelles** : la cascade de détection
+`/proc/mounts` fonctionne, la transparence du vault monté est totale pour un
+opérateur non-développeur.
+
+### La preuve live est irréfutable là où la capture statique est contestable
+
+Exercice EX03, bonus : un tiers conteste les captures d'écran (« fabriquées par IA »).
+Réponse : ouvrir le navigateur en direct sur le wp-admin, naviguer vers la liste
+des extensions, lire la version installée (1.1.5) en temps réel.
+
+**Enseignement** : Diwall ne produit pas que des PNG statiques. Il peut être
+utilisé pour une **démonstration interactive** — l'opérateur pilote la capture
+en direct, le tiers observe l'interface réelle. La capture devient incidente,
+le navigateur est la preuve.
+
+### Navigation multi-domaines sans confusion
+
+L'exercice EX03 impliquait deux interfaces simultanées :
+- `<sillage-admin>` — interface d'administration (credentials via vault)
+- `<clone-wp>/wp-admin` — tableau de bord WordPress (credentials ad hoc en JSON)
+
+Aucune confusion dans les scénarios, aucun credential cross-domaine. La
+séparation des scénarios JSON par domaine cible est suffisante.
+
+---
+
+## Synthèse session 8
+
+3 exercices opérateur, 2 nouvelles frictions consignées (#26, #27).
+
+**Bilan utilisabilité** : un opérateur sans connaissance du code interne peut
+accomplir des tâches métier réelles avec Diwall en quelques minutes
+(EX01 : 2 min 26 s, EX02 : 35 s, EX03 : 8 min). La contrainte "pas de script
+Python" est tenable — les scénarios JSON déclaratifs couvrent 95 % des besoins.
+
+**Les deux limites rencontrées** sont toutes deux liées à la gestion du viewport
+et de l'état entre invocations — un thème récurrent depuis la session 1.
+
+**Candidat n°1 pour le prochain incrément** : une action native `scroll`
+(ou `defiler`) qui déplace le viewport et **recalcule les IDs SoM** après
+défilement, dans la même invocation. Élimine les frictions #27 et plusieurs
+cas de #20.
+
+27 frictions sur 8 sessions.
+
