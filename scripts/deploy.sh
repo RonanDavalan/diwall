@@ -21,12 +21,11 @@ CODE_FILES=(
     lib/vault.py
 )
 
-# Répertoires à créer si absents
-DIRS=(
+# Répertoires /opt/diwall à créer avec sudo (appartiennent à root:diwall)
+DIRS_SUDO=(
     "$DEST/lib"
     "$DEST/scenarios"
     "$DEST/references"
-    "/tmp/diwall"
 )
 
 # Fichiers à ne PAS toucher (config machine, données générées)
@@ -38,15 +37,22 @@ echo "=== Diwall — déploiement vers $DEST ==="
 echo "    Source : $REPO"
 echo ""
 
-# ── Créer les répertoires manquants ──────────────────────────────────────────
-for d in "${DIRS[@]}"; do
+# ── Créer les répertoires /opt manquants (sudo) ───────────────────────────────
+for d in "${DIRS_SUDO[@]}"; do
     if [ ! -d "$d" ]; then
         sudo install -d -m 700 "$d"
         echo "  Créé    : $d"
     fi
 done
-# /tmp/diwall doit toujours être 700 (captures potentiellement sensibles)
-sudo chmod 700 /tmp/diwall
+
+# ── /tmp/diwall : répertoire de ron, jamais sudo ──────────────────────────────
+# Captures éphémères lues/écrites par ron directement — pas besoin de root.
+if [ ! -d "/tmp/diwall" ]; then
+    install -d -m 700 "/tmp/diwall"
+    echo "  Créé    : /tmp/diwall"
+else
+    chmod 700 /tmp/diwall
+fi
 
 # ── Copier les fichiers de code ───────────────────────────────────────────────
 changed=0
