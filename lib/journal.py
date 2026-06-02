@@ -118,17 +118,21 @@ def archiver_preuves(operation_id, captures):
 # ── Écriture d'une entrée ────────────────────────────────────────────────────
 def enregistrer_operation(outil, version, cible_url, resultat, actions,
                           diwall_meta=None, intention=None, captures=None,
-                          erreur=None):
+                          erreur=None, mutatif=None):
     """Compose et écrit une entrée de journal. Best-effort, ne lève jamais.
 
     Réutilise les champs d'environnement de `diwall_meta` (v1.3.2) :
     hostname_executant, utilisateur_executant, profil_actif,
     modeles_utilises.
+
+    `mutatif` : si None, déduit des actions (est_mutatif) ; sinon imposé
+    par l'appelant (watch.py n'a pas d'actions au sens de shot.py —
+    --sauver-reference est mutatif, les comparaisons sont en lecture).
     """
     try:
         meta = diwall_meta or {}
         operation_id = uuid.uuid4().hex[:12]
-        mutatif = est_mutatif(actions)
+        mutatif = est_mutatif(actions) if mutatif is None else bool(mutatif)
 
         if mutatif and captures:
             captures_ref = archiver_preuves(operation_id, captures)
