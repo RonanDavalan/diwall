@@ -33,9 +33,11 @@ Architecture in one sentence: `shot.py` = hands (executor). You = brain (intelli
 │   ├── vision.py        ← visual localisation (qwen3-vl:2b via Ollama)
 │   ├── journal.py       ← operation log writer (v1.4)
 │   ├── modeles.py       ← Ollama model metadata collector (v1.3)
+│   ├── ntfy.py          ← async MFA bridge via ntfy (v1.6)
 │   ├── profil_operateur.py ← operator profile loader (v1.3)
-│   └── vault.py         ← credential vault reader
+│   └── vault.py         ← credential vault reader + TOTP (v1.6)
 ├── scenarios/           ← RPA scenario files (JSON)
+├── skills/              ← promoted replayable scenarios (v1.6)
 └── references/          ← watch.py visual references
 
 /tmp/diwall/             ← temporary PNG captures (cleared on reboot, owned by your user)
@@ -143,15 +145,17 @@ Scenario format:
 |---|---|---|
 | `naviguer` | `url` | Full HTTP reload — avoid in SPAs |
 | `cliquer` | `selecteur` (CSS) | Mode A only |
-| `remplir` | `selecteur`, `valeur` | `valeur` can be `"depuis_vault"` |
+| `remplir` | `selecteur`, `valeur` | `valeur` can be `"depuis_vault"` or `"depuis_vault_totp"` |
 | `cliquer_som` | `id` | Exact DOM click via SoM |
-| `remplir_som` | `id`, `valeur`, [`vault_cle`] | Exact DOM fill |
+| `remplir_som` | `id`, `valeur`, [`vault_cle`] | Exact DOM fill; `valeur` can be `"depuis_vault_totp"` |
 | `cliquer_visuel` | `description` | LLM vision fallback (~32s, avoid if SoM works) |
 | `attendre` | `selecteur` | Wait for CSS selector |
 | `attendre_navigation` | — | Wait for networkidle |
 | `capturer` | `nom` | Named intermediate capture |
 | `pause` | `ms` | Fixed delay |
 | `evaluer` | `script` | Runs `page.evaluate(script)`; result returned in `evaluations[]` (v1.1) |
+| `defiler` | `px` or `selecteur` | Scroll viewport: relative pixels or `scrollIntoView` (v1.6) |
+| `attendre_mfa_ntfy` | `id_som`, [`timeout`] | Wait for 2FA code via ntfy, type into SoM element (v1.6) |
 
 ### `evaluer` — DOM/JS introspection (v1.1)
 
@@ -674,6 +678,115 @@ Credentials from the vault are **never written to the log**. A `remplir_som`
 with `depuis_vault` is recorded as `remplir_som#1=<vault:password>`. Any other
 fill value is recorded as `<saisie>` (defence in depth — `rpa.py` no longer
 resolves the vault before `shot.py`, but the log masking is unconditional).
+
+### Procedural memory — skills (v1.6)
+
+Every successful run stores its raw actions (vault-safe) in an `actions_raw`
+field in the log. After a successful session, promote it to a replayable skill:
+
+```bash
+# Find the operation_id of the run you want to promote
+/opt/diwall/venv/bin/python3 /opt/diwall/journal.py --cible target.local --limite 5
+
+# Export as a named skill
+/opt/diwall/venv/bin/python3 /opt/diwall/journal.py \
+  --exporter-skill a1b2c3d4e5f6 \
+  --nom connexion_admin
+# → writes /opt/diwall/skills/connexion_admin.json
+```
+
+Skills are plain scenario files in `/opt/diwall/skills/` — replay with `rpa.py --scenario`.
+
+---
+
+## Scroll and off-screen elements (v1.6)
+
+### `defiler` — scroll the viewport
+
+```json
+{"type": "defiler", "px": 600}
+{"type": "defiler", "px": -300}
+{"type": "defiler", "selecteur": "form#checkout"}
+```
+
+`px` is relative (positive = down, negative = up). `selecteur` scrolls the element
+into the center of the viewport. Exactly one parameter is required.
+
+`defiler` is **not mutating** — it does not change state on the server and is not
+classified as `mutatif` in the log.
+
+### `som_hors_viewport` — off-screen interactive elements warning
+
+When you capture with `--som`, the JSON may include:
+
+```json
+"som_hors_viewport": 3,
+"avertissement_scroll": "3 élément(s) interactif(s) hors viewport — utilisez defiler avant cliquer_som"
+```
+
+This means **3 interactive elements exist in the DOM but are below the fold** and
+were not numbered. Before using `cliquer_som` on one of them, scroll to it first:
+
+```json
+{"type": "defiler", "selecteur": "input#otp-field"},
+{"type": "remplir_som", "id": 7, "valeur": "123456"}
+```
+
+When all elements are visible, these keys are absent from the JSON.
+
+---
+
+## 2FA / MFA (v1.6)
+
+### TOTP — Google Authenticator / Authy (fully automatic)
+
+Store the base32 seed in the vault under key `totp_cle`:
+
+```json
+{"username": "admin", "password": "...", "totp_cle": "JBSWY3DPEHPK3PXP"}
+```
+
+Use `"depuis_vault_totp"` as the fill value (no `vault_cle` needed — key is always `totp_cle`):
+
+```json
+{"type": "remplir_som", "id": 4, "valeur": "depuis_vault_totp"}
+```
+
+Diwall generates the current 6-digit code at fill time. The code is **never logged**.
+
+### Async MFA via ntfy (SMS / email — requires human relay)
+
+For codes received by SMS or email, Diwall cannot retrieve them automatically.
+Use `attendre_mfa_ntfy`: Diwall pauses, notifies the operator via ntfy,
+and waits for the human to publish the code.
+
+Store the ntfy topic (a secret random string) in the vault:
+
+```json
+{"ntfy_topic": "a3f9c2e1b8d7k4m2"}
+```
+
+Generate a topic: `openssl rand -hex 12`
+
+In the scenario:
+
+```json
+{"type": "attendre_mfa_ntfy", "id_som": 5, "timeout": 120}
+```
+
+The operator publishes the code from their phone or via curl:
+
+```bash
+curl -d "847291" https://ntfy.mon-serveur.local/a3f9c2e1b8d7k4m2
+```
+
+Diwall retrieves the code and types it into SoM element 5.
+
+Configure the ntfy URL in `diwall.conf` or `DIWALL_NTFY_URL` env var (default: `https://ntfy.sh`):
+
+```json
+{"vault_dir": "~/Vaults/Diwall", "ntfy": {"url": "https://ntfy.mon-serveur.local"}}
+```
 
 ---
 

@@ -51,6 +51,11 @@ The language model decides what to do next.
 | **Pixel diff** | Quantitative, deterministic diff against a stored reference (v1.2) |
 | **Credential vault** | Secure credential injection — never in plaintext, never on the command line |
 | **Encrypted vault** | gocryptfs-backed vault — `VaultFermeError` (exit 42) if vault not mounted (v1.5) |
+| **Scroll** | `defiler` action — relative pixel scroll or `scrollIntoView` by CSS selector (v1.6) |
+| **Off-screen warning** | `som_hors_viewport` count in JSON when interactive elements exist below the fold (v1.6) |
+| **Procedural memory** | Successful runs stored as replayable skills via `journal.py --exporter-skill` (v1.6) |
+| **TOTP 2FA** | Google Authenticator / Authy codes generated at runtime from vault seed (v1.6) |
+| **Async MFA via ntfy** | SMS/email 2FA codes received asynchronously via ntfy push notification (v1.6) |
 | **Operator profile** | YAML profile to lift repetitive administrative confirmations (v1.3) |
 | **Model traceability** | Every run records which models were called, including Ollama digest (v1.3) |
 | **Operation log** | Persistent append-only log of all runs — who did what, where, when (v1.4) |

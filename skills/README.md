@@ -11,7 +11,7 @@ Un skill est un fichier JSON au même format qu'un scénario `scenarios/*.json` 
 {
   "nom": "connexion_sillage",
   "description": "Connexion admin Sillage depuis la page de login",
-  "url": "https://sillage.ike4.local/",
+  "url": "https://mon-app.local/",
   "actions": [
     {"type": "remplir_som", "id": 1, "valeur": "depuis_vault", "vault_cle": "password"},
     {"type": "cliquer_som", "id": 2}

@@ -7,8 +7,8 @@ Répond à : « qu'ai-je fait sur cette cible ? », « cet objet a-t-il déjà
 logrotate (operations.jsonl, .1, .2.gz, …).
 
 Exemples :
-    journal.py --cible sillage.ike4.local
-    journal.py --cible allsys.online --mutatif
+    journal.py --cible target.local
+    journal.py --cible my-app.local --mutatif
     journal.py --depuis 2026-05-30 --intention suppression
 
 Spécification : _CADRE/SPECIFICATIONS/35_JOURNAL_OPERATIONS.md §étape 6.
