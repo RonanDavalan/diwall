@@ -1,6 +1,6 @@
 # Diwall — LLM Session Guide
 
-Version 1.2 — June 2026
+Version 1.4 — June 2026
 
 **You are a language model. This document tells you everything you need to operate Diwall.**
 
@@ -26,15 +26,22 @@ Architecture in one sentence: `shot.py` = hands (executor). You = brain (intelli
 ├── shot.py              ← main script (Phases 1–4)
 ├── watch.py             ← visual monitoring (Phase 5)
 ├── rpa.py               ← RPA scenario runner (Phase 6)
+├── journal.py           ← operation log reader (v1.4)
 ├── diwall.conf          ← {"vault_dir": "~/Vaults/<project>/Diwall"}
 ├── venv/                ← isolated Python — ALWAYS use this venv
 ├── lib/
-│   ├── vision.py        ← visual localisation (qwen3-vl:4b via Ollama)
+│   ├── vision.py        ← visual localisation (qwen3-vl:2b via Ollama)
+│   ├── journal.py       ← operation log writer (v1.4)
+│   ├── modeles.py       ← Ollama model metadata collector (v1.3)
+│   ├── profil_operateur.py ← operator profile loader (v1.3)
 │   └── vault.py         ← credential vault reader
 ├── scenarios/           ← RPA scenario files (JSON)
 └── references/          ← watch.py visual references
 
-/tmp/diwall/             ← temporary PNG captures (cleared on reboot)
+/tmp/diwall/             ← temporary PNG captures (cleared on reboot, owned by your user)
+/var/log/diwall/         ← persistent operation log (v1.4)
+  ├── operations.jsonl   ← append-only JSONL log
+  └── preuves/           ← archived captures from mutating runs
 ~/Vaults/<project>/Diwall/  ← credentials vault (never in git)
 ```
 
@@ -126,7 +133,7 @@ Scenario format:
 }
 ```
 
-`rpa.py` resolves `depuis_vault` in memory before calling `shot.py` — credentials never appear in CLI arguments.
+`shot.py` resolves `depuis_vault` at fill time (reading from the vault for the current page domain). `rpa.py` passes actions intact — credentials never appear in CLI arguments or process lists.
 
 ---
 
@@ -492,9 +499,10 @@ Each `capturer` produces a PNG listed in `captures_intermediaires` in the final 
 
 | Model | Size | Role | Speed |
 |---|---|---|---|
-| `qwen3-vl:4b` | 3.3 GB | `vision.py` — click localisation | ~32s |
-| `qwen3-vl:2b` | 1.9 GB | `watch.py` — semantic comparison | ~1s |
-| `qwen3-vl:8b` | 6.1 GB | Fallback (not default) | ~35s |
+| `qwen3-vl:2b` | 1.9 GB | **Default** — click localisation (`vision.py`) + semantic comparison (`watch.py`) | ~9–19s / ~1s |
+| `qwen3-vl:8b` | 6.1 GB | Robust fallback — not default | ~114s |
+
+`qwen3-vl:2b` became the default for both tools in v1.3.1, confirmed by 5/5 benchmark (2 June 2026). The digest is pinned in `_CADRE/SPECIFICATIONS/22_BENCHMARK_MODELES_VISION.md`; if `diwall_meta.modeles_utilises[].hash_tag_ollama` diverges from the pinned value, run the benchmark before concluding a regression.
 
 Ollama API: use `/api/chat` with `think: false` (not `/api/generate`).
 
@@ -509,16 +517,18 @@ exact set of models that were called during the run.
 
 ```json
 "diwall_meta": {
-  "version_shot": "1.3.0",
+  "version_shot": "1.4.0",
   "horodatage_iso": "2026-06-02T14:23:11+02:00",
+  "hostname_executant": "neo",
+  "utilisateur_executant": "ron",
   "profil_actif": "operateur.exemple.yaml",
   "url_au_moment_capture": "https://target.local/",
   "modeles_utilises": [
     {
       "nom": "qwen3-vl",
-      "version": "4b",
+      "version": "2b",
       "quantization": "Q4_K_M",
-      "hash_tag_ollama": "sha256:1343d82e…",
+      "hash_tag_ollama": "sha256:0635d9d8…",
       "role": "localisation_clic"
     }
   ]
@@ -579,6 +589,77 @@ tracabilite_modeles:
 
 This omits the `modeles_utilises` key from `diwall_meta`. Other
 keys (version, timestamp, profile) stay.
+
+---
+
+## Operation log — what did I do here? (v1.4)
+
+Every run of `shot.py`, `watch.py`, and `rpa.py` is automatically appended to
+`/var/log/diwall/operations.jsonl`. Before operating on a target, query the log:
+
+```bash
+# All operations on a target
+/opt/diwall/venv/bin/python3 /opt/diwall/journal.py --cible target.local
+
+# Mutating operations only (form fills, clicks, DOM changes)
+/opt/diwall/venv/bin/python3 /opt/diwall/journal.py --cible target.local --mutatif
+
+# Filter by date and intent keyword
+/opt/diwall/venv/bin/python3 /opt/diwall/journal.py --cible target.local \
+  --depuis 2026-06-01 --intention suppression
+```
+
+Sample output:
+```
+2026-06-02T08:41:59+02:00  [succes] ✏ MUTATIF  shot.py  https://target.local/
+      intention : Delete clone allsys.online 2026-05-30
+      actions   : cliquer_som#10, remplir_som#19=<saisie>, cliquer #btn-lot-confirmer
+      preuves   : 2 → /var/log/diwall/preuves/2026-06/4bd9449655d8/…
+
+1 opération(s).
+```
+
+### `--intention` flag
+
+Pass a human-readable description of what a run is for — it appears in the log
+and makes the history intelligible months later.
+
+```bash
+/opt/diwall/venv/bin/python3 /opt/diwall/shot.py \
+  --url https://target.local/ \
+  --intention "Nightly login smoke test" \
+  --actions '[{"type":"pause","ms":100}]'
+```
+
+In an RPA scenario file, the optional `intention` key is equivalent:
+
+```json
+{
+  "nom": "my_scenario",
+  "intention": "Create new client christophe-leveque",
+  "url": "https://target.local/",
+  "actions": [ … ]
+}
+```
+
+### Mutating vs read-only
+
+The log classifies every run automatically:
+
+- **`mutatif: true`** — at least one action that changes state (`cliquer*`,
+  `remplir*`, `evaluer`). Captures are archived under
+  `/var/log/diwall/preuves/AAAA-MM/<id>/` as a permanent audit trail.
+- **`mutatif: false`** — read-only run (captures, waits, pauses). No archiving.
+
+`--sauver-reference` on `watch.py` is always `mutatif: true` (overwrites a
+sanctuarised reference).
+
+### Credential safety in the log
+
+Credentials from the vault are **never written to the log**. A `remplir_som`
+with `depuis_vault` is recorded as `remplir_som#1=<vault:password>`. Any other
+fill value is recorded as `<saisie>` (defence in depth — `rpa.py` no longer
+resolves the vault before `shot.py`, but the log masking is unconditional).
 
 ---
 
