@@ -16,6 +16,7 @@ CODE_FILES=(
     lib/__init__.py
     lib/journal.py
     lib/modeles.py
+    lib/ntfy.py
     lib/profil_operateur.py
     lib/vision.py
     lib/vault.py
@@ -26,6 +27,7 @@ DIRS_SUDO=(
     "$DEST/lib"
     "$DEST/scenarios"
     "$DEST/references"
+    "$DEST/skills"
 )
 
 # Fichiers à ne PAS toucher (config machine, données générées)
@@ -96,6 +98,20 @@ for f in "$REPO"/scenarios/*.json "$REPO"/scenarios/*.yaml; do
     fi
 done
 
+# ── Déployer les skills (README + skills versionnés) ─────────────────────────
+for f in "$REPO"/skills/*.json "$REPO"/skills/*.md; do
+    [ -f "$f" ] || continue
+    base="$(basename "$f")"
+    dst="$DEST/skills/$base"
+    if diff -q "$f" "$dst" > /dev/null 2>&1; then
+        echo "  Inchangé: skills/$base"
+    else
+        sudo cp "$f" "$dst"
+        echo "  Déployé : skills/$base"
+        changed=$((changed + 1))
+    fi
+done
+
 # ── Créer diwall.conf si absent (ne jamais l'écraser) ────────────────────────
 CONF="$DEST/diwall.conf"
 if [ ! -f "$CONF" ]; then
@@ -117,9 +133,12 @@ sudo chown root:"$GROUPE" "$DEST"/*.py "$DEST"/lib/*.py "$DEST"/scripts/*.sh \
      "$DEST"/diwall.conf 2>/dev/null || true
 sudo chown root:"$GROUPE" "$DEST"/scenarios/*.json "$DEST"/scenarios/*.yaml \
      2>/dev/null || true
+sudo chown root:"$GROUPE" "$DEST"/skills/*.json "$DEST"/skills/*.md \
+     2>/dev/null || true
 
 sudo chmod 644 "$DEST"/*.py "$DEST"/lib/*.py "$DEST"/diwall.conf 2>/dev/null || true
 sudo chmod 644 "$DEST"/scenarios/*.json "$DEST"/scenarios/*.yaml 2>/dev/null || true
+sudo chmod 644 "$DEST"/skills/*.json "$DEST"/skills/*.md 2>/dev/null || true
 sudo chmod 755 "$DEST"/shot.py "$DEST"/watch.py "$DEST"/rpa.py \
      "$DEST"/journal.py 2>/dev/null || true
 sudo chmod 755 "$DEST"/scripts/setup-vault.sh \

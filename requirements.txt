@@ -30,6 +30,9 @@ PyYAML>=6.0
 # Falls back to Pillow-only if NumPy is missing (≈ 10× slower)
 numpy>=2.0
 
+# v1.6.0: TOTP generation for 2FA (Google Authenticator / Authy)
+pyotp>=2.9
+
 # Optional: Anthropic API for --llm claude in vision.py / watch.py
 # Not required for the default Ollama-only deployment
 # anthropic>=0.40

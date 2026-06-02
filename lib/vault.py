@@ -175,3 +175,15 @@ def verifier_cles(domaine: str, cles) -> None:
             f"Clé(s) {manquantes} absente(s) du vault '{domaine}' ({chemin})\n"
             f"Clés disponibles : {list(data.keys())}"
         )
+
+
+def lire_totp(domaine: str) -> str:
+    """Génère le code TOTP courant depuis la seed stockée dans le vault.
+
+    Lit la clé 'totp_cle' (seed base32) pour le domaine et retourne le
+    code à 6 chiffres valable pour la fenêtre de 30 secondes courante.
+    Requiert pyotp>=2.9 (requirements.txt).
+    """
+    import pyotp
+    seed = lire_credential(domaine, "totp_cle")
+    return pyotp.TOTP(seed).now()
