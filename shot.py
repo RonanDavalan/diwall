@@ -754,6 +754,27 @@ def main():
         )
 
     except Exception as e:
+        # Coffre fermé : erreur distincte, pas de tentative Playwright (inutile),
+        # code de sortie 42 par symétrie avec Phase 7bis.
+        from lib.vault import VaultFermeError
+        if isinstance(e, VaultFermeError):
+            result = {
+                "succes": False,
+                "erreur": "vault_ferme",
+                "message": str(e),
+                "code_sortie_recommande": VaultFermeError.CODE_SORTIE,
+                "http_status": http_status,
+                "duree_ms": int((time.time() - t0) * 1000),
+                "horodatage": horodatage,
+                "diwall_meta": _construire_diwall_meta(
+                    profil, horodatage, modeles_appeles, url_cible,
+                ),
+            }
+            print(json.dumps(result, ensure_ascii=False))
+            _journaliser_run(result, actions, args.intention, url_cible, "echec",
+                             erreur=f"VaultFermeError: {e}")
+            sys.exit(VaultFermeError.CODE_SORTIE)
+
         capture_echec = None
         try:
             from playwright.sync_api import sync_playwright

@@ -28,7 +28,7 @@ import subprocess
 import sys
 
 sys.path.insert(0, os.path.dirname(os.path.abspath(__file__)))
-from lib.vault import domaine_depuis_url, verifier_cles
+from lib.vault import domaine_depuis_url, verifier_cles, VaultFermeError
 
 _SCHEMA_PATH = os.path.join(os.path.dirname(os.path.abspath(__file__)),
                             "scenarios", "schema.json")
@@ -187,6 +187,13 @@ def main():
                 cles.append(cle)
         if cles:
             verifier_cles(domaine_depuis_url(url), cles)
+    except VaultFermeError as e:
+        print(json.dumps({
+            "succes": False, "erreur": "vault_ferme",
+            "message": str(e),
+            "code_sortie_recommande": VaultFermeError.CODE_SORTIE,
+        }))
+        sys.exit(VaultFermeError.CODE_SORTIE)
     except (FileNotFoundError, KeyError, ValueError) as e:
         print(json.dumps({
             "succes": False, "erreur": "vault_erreur", "message": str(e),

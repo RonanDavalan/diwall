@@ -122,6 +122,10 @@ sudo chmod 644 "$DEST"/*.py "$DEST"/lib/*.py "$DEST"/diwall.conf 2>/dev/null || 
 sudo chmod 644 "$DEST"/scenarios/*.json "$DEST"/scenarios/*.yaml 2>/dev/null || true
 sudo chmod 755 "$DEST"/shot.py "$DEST"/watch.py "$DEST"/rpa.py \
      "$DEST"/journal.py 2>/dev/null || true
+sudo chmod 755 "$DEST"/scripts/setup-vault.sh \
+     "$DEST"/scripts/migrate-vault.sh \
+     "$DEST"/scripts/mount-vault.sh \
+     "$DEST"/scripts/umount-vault.sh 2>/dev/null || true
 
 echo ""
 if [ "$changed" -gt 0 ]; then
