@@ -71,6 +71,8 @@ def parse_args():
                    help="Relance le diff sémantique LLM si verdict pixel != stable")
     p.add_argument("--sortie-json", dest="sortie_json", default=None,
                    help="Redirige le JSON de verdict vers un fichier (défaut : stdout)")
+    p.add_argument("--intention", default=None,
+                   help="Libellé métier du run, consigné dans le journal d'opérations (v1.4).")
     return p.parse_args()
 
 
@@ -208,6 +210,30 @@ def _construire_diwall_meta_watch(profil, horodatage, modeles_appeles, url=None)
             modeles_utilises.append(collecter_modele_claude(tag, role))
     meta["modeles_utilises"] = modeles_utilises
     return meta
+
+
+def _journaliser_run_watch(result, cible_url, mutatif, intention=None):
+    """Consigne un run watch.py dans le journal d'opérations (v1.4). Best-effort."""
+    try:
+        from lib import journal
+    except Exception:
+        return
+    captures = []
+    for cle in ("capture", "reference", "image_diff", "heatmap"):
+        c = result.get(cle)
+        if c:
+            captures.append(c)
+    journal.enregistrer_operation(
+        outil="watch.py",
+        version=__version__,
+        cible_url=cible_url or "",
+        resultat="succes" if result.get("succes", True) else "echec",
+        actions=[],
+        diwall_meta=result.get("diwall_meta"),
+        intention=intention,
+        captures=captures,
+        mutatif=mutatif,
+    )
 
 
 def comparer(url, prompt, mode_llm, ntfy_url, timeout, profil=None):
@@ -579,6 +605,8 @@ def main():
     # ── Mode --comparer-pixel (lot 9.1) ───────────────────────────────────────
     if args.comparer_pixel:
         resultat, exit_code = comparer_pixel(args)
+        _journaliser_run_watch(resultat, args.url or args.comparer_pixel,
+                               mutatif=False, intention=args.intention)
         payload = json.dumps(resultat, ensure_ascii=False)
         if args.sortie_json:
             with open(args.sortie_json, "w", encoding="utf-8") as f:
@@ -596,6 +624,7 @@ def main():
                 r = comparer(url, args.prompt, args.llm, args.ntfy_url, args.timeout)
             except Exception as e:
                 r = {"succes": False, "url": url, "erreur": str(e)}
+            _journaliser_run_watch(r, url, mutatif=False, intention=args.intention)
             resultats.append(r)
         print(json.dumps(resultats, ensure_ascii=False))
         return
@@ -610,8 +639,12 @@ def main():
 
     if args.sauver_reference:
         result = sauver_reference(args.url, args.timeout)
+        _journaliser_run_watch(result, args.url, mutatif=True,
+                               intention=args.intention)
     elif args.comparer:
         result = comparer(args.url, args.prompt, args.llm, args.ntfy_url, args.timeout)
+        _journaliser_run_watch(result, args.url, mutatif=False,
+                               intention=args.intention)
     else:
         print(json.dumps({
             "succes": False,
