@@ -384,6 +384,20 @@ DIWALL_VAULT_DIR=~/Vaults/MyProject/Diwall /opt/diwall/venv/bin/python3 /opt/diw
 ```
 For a permanent machine-wide default, set `vault_dir` in `/opt/diwall/diwall.conf`.
 
+**Encrypted vault (v1.5.0+):** the vault directory can be a `gocryptfs` mountpoint.
+Use `scripts/setup-vault.sh --gocryptfs` to initialise, `scripts/mount-vault.sh` to mount
+(password via interactive prompt, never in arguments), `scripts/umount-vault.sh` to unmount.
+
+If the vault is initialised (`gocryptfs.conf` present in the crypt dir) but **not mounted**,
+every credential read raises `VaultFermeError` — both `shot.py` and `rpa.py` catch it,
+return `{"erreur": "vault_ferme"}` in their JSON output, and exit with code **42**.
+This lets the caller distinguish "wrong key" from "vault locked" without guessing.
+
+```bash
+# Exit code 42 = vault initialised but not mounted
+/opt/diwall/venv/bin/python3 /opt/diwall/shot.py … ; echo "exit: $?"
+```
+
 **Quick test:**
 ```bash
 /opt/diwall/venv/bin/python3 -c "
