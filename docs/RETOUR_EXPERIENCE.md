@@ -897,3 +897,124 @@ cas de #20.
 
 27 frictions sur 8 sessions.
 
+---
+
+# Session 9 — 3 juin 2026 (audit visuel tableau de bord — projet Sillage)
+
+Session d'usage réel sur l'interface d'administration Sillage (SPA, session authentifiée via
+`rpa.py`). Deux captures successives du tableau de bord (≈ 1 min d'écart) ont permis
+d'identifier 4 lacunes fonctionnelles de Diwall et de démontrer sa valeur en tant qu'audit
+sémantique : Diwall a indirectement révélé un bug applicatif dans le code PHP cible.
+
+## 28. `--comparer-pixel` sans zones d'exclusion — faux négatif sur contenu dynamique
+
+**Contexte** : comparaison pixel entre deux captures du tableau de bord admin (données live :
+compteurs de clones, horodatages, badges de statut). Verdict `stable` (0.19% < seuil 0.2%)
+alors que trois champs de données avaient changé : un compteur (5→6), un horodatage mis à jour,
+un badge de couleur différente.
+
+**Origine** : `--comparer-pixel` compare tous les pixels de façon uniforme. Sur une page à
+contenu structurellement dynamique, des mutations sémantiques réelles peuvent rester sous le
+seuil de bruit si elles n'affectent qu'un petit nombre de pixels.
+
+**Absence de solution actuelle** : aucune option d'exclusion de zones dans `watch.py`.
+
+**Besoin identifié** : `--exclure-zone x,y,w,h` (une ou plusieurs zones, coordonnées pixel)
+ou `--masque mask.png` (image binaire indiquant les zones à ignorer). Permettrait d'isoler les
+zones stables (structure, navigation, pied de page) des zones dynamiques (données live).
+
+**Règle provisoire** : pour les pages à contenu dynamique, compléter systématiquement avec
+`--llm-en-complement` jusqu'à l'implémentation des zones d'exclusion.
+
+---
+
+## 29. Seuil `stable` trop proche du bruit de rendu Playwright pour pages vivantes
+
+**Contexte** : même session. Deux renders identiques de la même page, pris à quelques secondes
+d'intervalle, peuvent produire jusqu'à ~0.19% de pixels différents (bruit de sous-pixel
+anti-aliasing, état de sélection, animations CSS figées à des frames différents).
+
+**Origine** : le seuil `stable` (0.002 = 0.2%) a été calibré pour du bruit de rendu. Pour des
+pages de contenu vivant, ce seuil est trop proche du plancher de bruit — une régression
+sémantique significative peut rester invisible si elle n'affecte qu'une petite zone.
+
+**Besoin identifié** : `--llm-en-complement` devrait être le mode par défaut pour les pages
+de contenu vivant, pas une option explicite. Ou : seuil `stable` séparable du seuil de bruit
+(`--seuil-bruit` conservé, `--seuil-stable` abaissé à 0.001 pour les usages exigeants).
+
+**Règle provisoire** : toujours utiliser `--llm-en-complement` dès que la page contient des
+données mutables (compteurs, dates, états).
+
+---
+
+## 30. `watch.py --sauver-reference` sans paramètre de nommage de vue
+
+**Contexte** : création d'une référence pour le tableau de bord admin (distinct de la page
+de login qui a sa propre référence). Le répertoire cible a dû être créé manuellement :
+```bash
+sudo mkdir -p /opt/diwall/references/hostname_vue_tableau_bord/
+sudo cp capture.png /opt/diwall/references/hostname_vue_tableau_bord/reference.png
+```
+
+**Origine** : `watch.py --sauver-reference` dérive le nom du répertoire depuis l'URL sans
+permettre de nommer la vue. Quand plusieurs vues du même hostname doivent être référencées
+(login, tableau de bord, page client, réglages), il n'y a pas de mécanisme natif pour les
+distinguer.
+
+**Besoin identifié** : paramètre `--nom <vue>` dans `watch.py --sauver-reference`. Exemple :
+```bash
+watch.py --url https://host/ --sauver-reference --nom vue_tableau_bord
+# → /opt/diwall/references/host_vue_tableau_bord/
+```
+
+---
+
+## 31. `watch.py --sauver-reference` incompatible avec les sessions authentifiées
+
+**Contexte** : le tableau de bord admin est protégé par login. Pour obtenir une capture de
+référence, il a fallu : (1) capturer via `rpa.py` avec scénario de login, (2) copier le PNG
+manuellement dans le répertoire de référence, (3) rédiger `reference.json` à la main.
+
+**Origine** : `watch.py --sauver-reference` navigue vers l'URL sans session active. Pour les
+pages authentifiées, il ne peut pas produire la capture de référence directement.
+
+**Besoin identifié** : `watch.py --sauver-reference --capture CAPTURE_EXISTANTE` pour
+enregistrer une capture déjà produite (par `rpa.py` ou `shot.py`) comme référence, sans
+rejouer la navigation. Exemple :
+```bash
+# 1. Capture via rpa.py (avec login)
+rpa.py --scenario login.json > /tmp/out.json
+CAPTURE=$(jq -r .capture /tmp/out.json)
+
+# 2. Enregistrement comme référence
+watch.py --sauver-reference --capture "$CAPTURE" --nom vue_tableau_bord
+```
+
+---
+
+## Bonus — Valeur détective de Diwall : bug applicatif découvert par analyse de dérive
+
+La comparaison des deux captures a révélé un badge de statut incohérent (`-1j` pour un clone
+effectué quelques minutes avant). Investigation : `date.timezone` absent de la configuration
+PHP-FPM → PHP utilisait UTC, le shell bash écrivait les horodatages en heure locale (CEST).
+L'écart de 2h rendait le timestamp du clone « dans le futur » pour PHP → calcul négatif.
+
+**Enseignement** : la comparaison visuelle sémantique (ou même pixel à haute sensibilité) peut
+détecter des bugs métier que les tests unitaires ne couvrent pas — ici, un problème de cohérence
+entre couches (shell↔PHP) visible uniquement sur des données live fraîches.
+
+---
+
+## Synthèse session 9
+
+4 nouvelles frictions fonctionnelles (#28 à #31), toutes liées à l'usage sur pages dynamiques
+authentifiées — un cas d'usage croissant à mesure que Diwall est intégré dans des projets
+réels plutôt que des exercices sur pages publiques.
+
+**Candidats prioritaires pour le prochain incrément :**
+1. `--exclure-zone` dans `watch.py` (#28) — bloquant pour la surveillance de tableaux de bord
+2. `--sauver-reference --capture CAPTURE` (#31) — bloquant pour toute référence authentifiée
+3. `--nom` dans `--sauver-reference` (#30) — ergonomie, multi-vues par hostname
+
+31 frictions sur 9 sessions.
+
