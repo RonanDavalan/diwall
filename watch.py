@@ -13,7 +13,7 @@ from datetime import datetime, timezone
 from urllib.parse import urlparse
 
 
-__version__ = "1.4.0"
+__version__ = "1.7.0"
 
 REFERENCES_DIR = "/opt/diwall/references"
 SHOT_SCRIPT = "/opt/diwall/shot.py"
@@ -55,8 +55,16 @@ def parse_args():
     p.add_argument("--comparer-pixel", dest="comparer_pixel", default=None,
                    metavar="REF_PNG",
                    help="Mode pixel : compare une capture à une référence PNG locale (lot 9.1)")
-    p.add_argument("--capture", default=None, metavar="CAP_PNG",
-                   help="Capture à comparer (mode --comparer-pixel). Si absent, --url est requis.")
+    p.add_argument("--capture", default=None, metavar="PNG",
+                   help="PNG existant à utiliser : comme capture à comparer (--comparer-pixel) "
+                        "ou comme référence à enregistrer (--sauver-reference, évite une navigation).")
+    p.add_argument("--exclure-zone", dest="exclure_zone", action="append", default=[],
+                   metavar="X,Y,W,H",
+                   help="Zone à ignorer lors du diff (peut être répété). "
+                        "Format : x,y,largeur,hauteur en pixels.")
+    p.add_argument("--nom", default=None,
+                   help="Nom de la vue de référence — plusieurs vues par URL "
+                        "(ex. : --nom login, --nom dashboard). Défaut : vue unique.")
     p.add_argument("--seuil-bruit", dest="seuil_bruit", type=int, default=5,
                    help="Δ max par canal RGB pour considérer un pixel inchangé (défaut : 5)")
     p.add_argument("--seuil-stable", dest="seuil_stable", type=float, default=0.002,
@@ -85,8 +93,10 @@ def slug_url(url):
     return re.sub(r"_+", "_", slug).strip("_")
 
 
-def repertoire_reference(url):
+def repertoire_reference(url, nom=None):
     d = os.path.join(REFERENCES_DIR, slug_url(url))
+    if nom:
+        d = os.path.join(d, nom)
     os.makedirs(d, exist_ok=True)
     return d
 
@@ -149,8 +159,8 @@ def notifier_ntfy(ntfy_url, url, analyse, priorite="basse"):
         pass
 
 
-def sauver_reference(url, timeout, profil=None):
-    rep = repertoire_reference(url)
+def sauver_reference(url, timeout, profil=None, capture_path=None, nom=None):
+    rep = repertoire_reference(url, nom)
     sortie = os.path.join(rep, "reference.png")
     horodatage = datetime.now(timezone.utc).astimezone().isoformat()
 
@@ -158,7 +168,20 @@ def sauver_reference(url, timeout, profil=None):
         from lib.profil_operateur import charger_profil
         profil = charger_profil()
 
-    data = capturer(url, sortie, timeout)
+    if capture_path:
+        import shutil
+        if not os.path.isfile(capture_path):
+            return {
+                "succes": False,
+                "url": url,
+                "erreur": "capture_introuvable",
+                "message": f"--capture : fichier introuvable : {capture_path}",
+                "diwall_meta": _construire_diwall_meta_watch(profil, horodatage, [], url),
+            }
+        shutil.copy2(capture_path, sortie)
+        data = {}
+    else:
+        data = capturer(url, sortie, timeout)
 
     meta = {
         "url": url,
@@ -166,6 +189,10 @@ def sauver_reference(url, timeout, profil=None):
         "http_status": data.get("http_status"),
         "erreurs_js": data.get("erreurs_js", []),
     }
+    if nom:
+        meta["nom"] = nom
+    if capture_path:
+        meta["source_capture"] = capture_path
     with open(os.path.join(rep, "reference.json"), "w", encoding="utf-8") as f:
         json.dump(meta, f, ensure_ascii=False, indent=2)
 
@@ -236,8 +263,8 @@ def _journaliser_run_watch(result, cible_url, mutatif, intention=None):
     )
 
 
-def comparer(url, prompt, mode_llm, ntfy_url, timeout, profil=None):
-    rep = repertoire_reference(url)
+def comparer(url, prompt, mode_llm, ntfy_url, timeout, profil=None, zones=None, nom=None):
+    rep = repertoire_reference(url, nom)
     ref_path = os.path.join(rep, "reference.png")
     horodatage = datetime.now(timezone.utc).astimezone().isoformat()
 
@@ -246,32 +273,56 @@ def comparer(url, prompt, mode_llm, ntfy_url, timeout, profil=None):
         profil = charger_profil()
 
     if not os.path.exists(ref_path):
+        hint = f" (vue '{nom}')" if nom else ""
         return {
             "succes": False,
             "url": url,
             "erreur": "reference_absente",
-            "message": f"Pas de référence pour {url} — lancer --sauver-reference d'abord.",
+            "message": (
+                f"Pas de référence pour {url}{hint} — "
+                "lancer --sauver-reference d'abord."
+            ),
             "diwall_meta": _construire_diwall_meta_watch(profil, horodatage, [], url),
         }
 
     actuel_path = os.path.join("/tmp/diwall", f"watch_{slug_url(url)}_{int(time.time())}.png")
     data = capturer(url, actuel_path, timeout)
 
+    # ── Masquage des zones exclues avant envoi au LLM ─────────────────────────
+    ref_path_cmp = ref_path
+    cap_path_cmp = actuel_path
+    tmp_masques = []
+    if zones:
+        ref_img_m = _masquer_zones(_charger_image_rgb(ref_path), zones)
+        cap_img_m = _masquer_zones(_charger_image_rgb(actuel_path), zones)
+        ref_path_cmp = actuel_path + ".ref_masked.png"
+        cap_path_cmp = actuel_path + ".cap_masked.png"
+        ref_img_m.save(ref_path_cmp)
+        cap_img_m.save(cap_path_cmp)
+        tmp_masques = [ref_path_cmp, cap_path_cmp]
+
     modeles_appeles = []
-    if mode_llm == "local":
-        analyse = comparer_ollama(ref_path, actuel_path, prompt)
-        modeles_appeles.append({
-            "_tag": analyse.get("_modele", OLLAMA_MODEL),
-            "mode_llm": "local",
-            "role": "comparaison_semantique",
-        })
-    else:
-        analyse = comparer_claude(ref_path, actuel_path, prompt)
-        modeles_appeles.append({
-            "_tag": CLAUDE_MODEL,
-            "mode_llm": "claude",
-            "role": "comparaison_semantique",
-        })
+    try:
+        if mode_llm == "local":
+            analyse = comparer_ollama(ref_path_cmp, cap_path_cmp, prompt)
+            modeles_appeles.append({
+                "_tag": analyse.get("_modele", OLLAMA_MODEL),
+                "mode_llm": "local",
+                "role": "comparaison_semantique",
+            })
+        else:
+            analyse = comparer_claude(ref_path_cmp, cap_path_cmp, prompt)
+            modeles_appeles.append({
+                "_tag": CLAUDE_MODEL,
+                "mode_llm": "claude",
+                "role": "comparaison_semantique",
+            })
+    finally:
+        for p in tmp_masques:
+            try:
+                os.unlink(p)
+            except OSError:
+                pass
 
     changement = analyse.get("changement_detecte", False)
     analyse_llm = analyse.get("analyse")
@@ -295,6 +346,39 @@ def comparer(url, prompt, mode_llm, ntfy_url, timeout, profil=None):
             profil, horodatage, modeles_appeles, url,
         ),
     }
+
+
+# ── Zones d'exclusion (v1.7) ──────────────────────────────────────────────────
+
+def _zones_depuis_args(exclure_zone_list):
+    """Parse ['x,y,w,h', ...] → [(x, y, w, h), ...]"""
+    zones = []
+    for spec in (exclure_zone_list or []):
+        parts = spec.split(",")
+        if len(parts) != 4:
+            raise ValueError(
+                f"--exclure-zone : format invalide '{spec}' "
+                "(attendu : x,y,largeur,hauteur en pixels entiers)"
+            )
+        try:
+            zones.append(tuple(int(p) for p in parts))
+        except ValueError:
+            raise ValueError(
+                f"--exclure-zone : valeurs non entières dans '{spec}'"
+            )
+    return zones
+
+
+def _masquer_zones(img, zones):
+    """Peint les zones exclues en gris (128, 128, 128) sur une copie de l'image."""
+    if not zones:
+        return img
+    from PIL import ImageDraw
+    img = img.copy()
+    draw = ImageDraw.Draw(img)
+    for (x, y, w, h) in zones:
+        draw.rectangle([x, y, x + w - 1, y + h - 1], fill=(128, 128, 128))
+    return img
 
 
 # ── Lot 9.1 — Diff visuel pixel local ─────────────────────────────────────────
@@ -521,6 +605,20 @@ def comparer_pixel(args):
 
     largeur, hauteur = ref_img.size
 
+    # ── Zones d'exclusion (v1.7) ──────────────────────────────────────────────
+    try:
+        zones = _zones_depuis_args(args.exclure_zone)
+    except ValueError as e:
+        return _avec_meta({
+            "succes": False,
+            "type_comparaison": "pixel",
+            "erreur": "zone_invalide",
+            "message": str(e),
+        }), 3
+    if zones:
+        ref_img = _masquer_zones(ref_img, zones)
+        cap_img = _masquer_zones(cap_img, zones)
+
     # ── Calcul du delta ───────────────────────────────────────────────────────
     try:
         import numpy as np  # noqa: F401
@@ -616,12 +714,22 @@ def main():
         sys.exit(exit_code)
 
     if args.liste:
+        try:
+            zones = _zones_depuis_args(args.exclure_zone)
+        except ValueError as e:
+            print(json.dumps({
+                "succes": False,
+                "erreur": "zone_invalide",
+                "message": str(e),
+            }))
+            sys.exit(1)
         with open(args.liste, encoding="utf-8") as f:
             urls = [l.strip() for l in f if l.strip() and not l.startswith("#")]
         resultats = []
         for url in urls:
             try:
-                r = comparer(url, args.prompt, args.llm, args.ntfy_url, args.timeout)
+                r = comparer(url, args.prompt, args.llm, args.ntfy_url, args.timeout,
+                             zones=zones, nom=args.nom)
             except Exception as e:
                 r = {"succes": False, "url": url, "erreur": str(e)}
             _journaliser_run_watch(r, url, mutatif=False, intention=args.intention)
@@ -638,11 +746,28 @@ def main():
         sys.exit(1)
 
     if args.sauver_reference:
-        result = sauver_reference(args.url, args.timeout)
+        result = sauver_reference(
+            args.url, args.timeout,
+            capture_path=args.capture,
+            nom=args.nom,
+        )
         _journaliser_run_watch(result, args.url, mutatif=True,
                                intention=args.intention)
     elif args.comparer:
-        result = comparer(args.url, args.prompt, args.llm, args.ntfy_url, args.timeout)
+        try:
+            zones = _zones_depuis_args(args.exclure_zone)
+        except ValueError as e:
+            print(json.dumps({
+                "succes": False,
+                "erreur": "zone_invalide",
+                "message": str(e),
+            }))
+            sys.exit(1)
+        result = comparer(
+            args.url, args.prompt, args.llm, args.ntfy_url, args.timeout,
+            zones=zones,
+            nom=args.nom,
+        )
         _journaliser_run_watch(result, args.url, mutatif=False,
                                intention=args.intention)
     else:
