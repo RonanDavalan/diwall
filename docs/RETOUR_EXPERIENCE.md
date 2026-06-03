@@ -1018,3 +1018,72 @@ réels plutôt que des exercices sur pages publiques.
 
 31 frictions sur 9 sessions.
 
+---
+
+# Session 10 — 03 juin 2026 — v1.7.0
+
+## Contexte
+
+Session consacrée à la clôture des 3 frictions bloquantes identifiées en session 9
+(pages dynamiques authentifiées). Pas de nouvelle friction fonctionnelle : les 3
+fonctionnalités ont été implémentées, testées et déployées dans la même session.
+
+En amont : analyse des retours de 8 LLMs (ChatGPT, Copilot, DeepSeek, Grok, Kimi,
+Mistral, Perplexity, Qwen) sur Diwall v1.6. Enrichissement de `docs/GUIDE_LLM.md`
+(SoM post-scroll, rotation de logs, skills = replay strict) et ouverture de la
+Roadmap v1.7 dans le `README.md`.
+
+## Fonctionnalités livrées (v1.7.0)
+
+### `watch.py --exclure-zone X,Y,W,H` (Friction #28 — bloquant)
+
+Zones de pixels ignorées lors du diff. Appliqué en amont de la comparaison : les
+rectangles sont peints en gris uniforme (128, 128, 128) sur la référence et la
+capture avant tout calcul. Fonctionne dans les deux modes :
+
+- **`--comparer-pixel`** : masquage des images avant `_calcul_diff_*`
+- **`--comparer`** (LLM sémantique) : fichiers masqués temporaires écrits en `/tmp/`,
+  transmis à Ollama, supprimés dans un bloc `finally`
+
+Le paramètre est répétable (`--exclure-zone … --exclure-zone …`). Erreur JSON propre
+si le format est invalide (exit code 1).
+
+### `watch.py --sauver-reference --capture FILE` (Friction #31 — bloquant)
+
+Enregistre un PNG existant comme référence sans rejouer la navigation. La capture
+peut avoir été produite par `rpa.py` (avec login) ou `shot.py`. `--url` reste
+obligatoire — il sert à nommer le répertoire de référence, pas à naviguer. La
+métadonnée `source_capture` est tracée dans `reference.json`.
+
+### `watch.py --sauver-reference --nom VIEW` (Friction #30 — ergonomie)
+
+Sous-dossier nommé dans le répertoire de référence, permettant plusieurs vues
+indépendantes par hostname (`login`, `dashboard`, `settings`…). Compatible
+`--comparer` et `--liste`. Rétro-compatible : les références sans `--nom`
+continuent de fonctionner sans modification.
+
+## Point d'entrée pour la prochaine session
+
+**Phase 7bis — étanchéité du coffre visuel chiffré.**
+
+Les références `watch.py` (`/opt/diwall/references/`) ne sont pas encore sous
+gocryptfs. Une capture de référence d'un tableau de bord authentifié contient des
+données sensibles (mise en page, chiffres, noms) stockées en clair sur le disque.
+La Phase 7 a chiffré le vault de credentials ; la Phase 7bis devra étendre
+l'enveloppe chiffrée aux artefacts visuels (références et preuves).
+
+Travaux probables : intégration de `/opt/diwall/references/` dans un volume
+gocryptfs, point de montage cohérent avec le vault existant, `VaultFermeError`
+symétrique si le volume n'est pas monté au moment d'un `--sauver-reference` ou
+`--comparer`.
+
+---
+
+## Synthèse session 10
+
+Aucune friction nouvelle. Les 3 frictions bloquantes de la session 9 fermées en une
+session. `__version__` watch.py : `1.4.0` → `1.7.0`. Release GitHub v1.7.0 publiée
+en anglais (nouvelle règle en vigueur).
+
+31 frictions sur 10 sessions.
+
