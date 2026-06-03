@@ -191,6 +191,20 @@ If you are a language model reading this README: see [`docs/GUIDE_LLM.md`](docs/
 
 ---
 
+## Roadmap (v1.7)
+
+Items under consideration for the next release, sourced from production friction reports and LLM feedback after v1.6:
+
+| Feature | Description | Origin |
+|---|---|---|
+| **Inline SoM recalculation post-scroll** | Allow `defiler` + SoM recapture within a single `shot.py` invocation, so a scroll mid-sequence does not require a new process call. | Friction #27 |
+| **Bundled logrotate config** | Ship `/etc/logrotate.d/diwall` with the repository so log rotation is zero-config after installation. | Operational gap |
+| **Shadow DOM / iframe support** | Extend SoM indexing to traverse shadow boundaries and iframe documents, enabling automation of web components and embedded frames. | Community feedback |
+
+These are candidates, not commitments. A feature enters v1.7 only once validated against a real Sillage use case.
+
+---
+
 ## Credits
 
 This project was developed using an **asymmetric human-LLM collaboration model**.

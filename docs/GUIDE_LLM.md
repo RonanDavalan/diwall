@@ -679,6 +679,31 @@ with `depuis_vault` is recorded as `remplir_som#1=<vault:password>`. Any other
 fill value is recorded as `<saisie>` (defence in depth — `rpa.py` no longer
 resolves the vault before `shot.py`, but the log masking is unconditional).
 
+### Log rotation and disk management
+
+`operations.jsonl` grows indefinitely. Configure `logrotate` to rotate it:
+
+```
+# /etc/logrotate.d/diwall
+/var/log/diwall/operations.jsonl {
+    daily
+    rotate 30
+    compress
+    missingok
+    notifempty
+    copytruncate
+}
+```
+
+`journal.py` reads rotated files automatically (`.1`, `.2.gz`, …) — no loss of history after rotation.
+
+The `/var/log/diwall/preuves/` directory stores archived captures from mutating runs and grows with every mutating run. There is no auto-cleanup. Review and prune manually, or add a `find`-based cron:
+
+```bash
+# Keep proofs for 90 days
+find /var/log/diwall/preuves/ -mtime +90 -delete
+```
+
 ### Procedural memory — skills (v1.6)
 
 Every successful run stores its raw actions (vault-safe) in an `actions_raw`
@@ -696,6 +721,8 @@ field in the log. After a successful session, promote it to a replayable skill:
 ```
 
 Skills are plain scenario files in `/opt/diwall/skills/` — replay with `rpa.py --scenario`.
+
+**Skills are strict replays**, not adaptive templates. They replay the exact sequence of actions recorded (SoM IDs, selectors, values). If the target page changes structure — new layout, different SoM numbering, renamed selectors — the skill will fail silently or act on a wrong element. Re-record by running a new session on the updated page and exporting the new `operation_id`.
 
 ---
 
@@ -733,6 +760,19 @@ were not numbered. Before using `cliquer_som` on one of them, scroll to it first
 ```
 
 When all elements are visible, these keys are absent from the JSON.
+
+### SoM IDs after a scroll — always recapture
+
+SoM IDs are computed from the viewport state **at the moment of the `--som` capture**. After a `defiler` action, the viewport has shifted: elements that were off-screen are now visible, elements that were visible may have scrolled out. The previous IDs are **invalidated**.
+
+**Rule:** any time you use `defiler`, follow it with a new `shot.py --som` invocation before using `cliquer_som` or `remplir_som`. The new capture returns a fresh `elements_som` list with recalculated IDs reflecting the current viewport.
+
+```json
+{"type": "defiler", "selecteur": "#deep-section"},
+{"type": "capturer", "nom": "after_scroll"}
+```
+
+`capturer` alone does **not** recalculate SoM IDs — it produces a PNG without a new `elements_som`. For a fresh index, run a new `shot.py --som` call. Alternatively, use `defiler` with `selecteur` pointing at the exact element and skip SoM entirely, relying on a structural CSS selector (`cliquer` / `remplir`) for the interaction.
 
 ---
 
