@@ -203,6 +203,14 @@ Items under consideration for the next release, sourced from production friction
 
 These are candidates, not commitments. A feature enters v1.7 only once validated against a real Sillage use case.
 
+**Blocking for authenticated dashboard monitoring (from session 9 field report):**
+
+| Feature | Description | Origin |
+|---|---|---|
+| **`watch.py --exclure-zone`** | Pixel exclusion zones (coordinates or mask image) to ignore dynamic content areas (counters, timestamps, status badges) during comparison. Without this, semantic regressions on live dashboards fall below the noise threshold. | Friction #28 — blocking |
+| **`watch.py --sauver-reference --capture FILE`** | Accept an existing capture (produced by `rpa.py` or `shot.py`) as a reference, without replaying navigation. Required for authenticated pages where `--sauver-reference` alone cannot reach the target. | Friction #31 — blocking |
+| **`watch.py --sauver-reference --nom VIEW`** | Name the reference view to support multiple views per hostname (login, dashboard, settings). Currently requires manual directory creation. | Friction #30 — ergonomics |
+
 ---
 
 ## Credits
