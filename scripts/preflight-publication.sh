@@ -162,9 +162,62 @@ if [[ $NB_YAMLS -gt 0 ]]; then
 fi
 
 echo
+
+# ── Smoke test installation vierge ────────────────────────────────────────────
+# Vérifie que le code déployé dans /opt/diwall/ est fonctionnel avant push.
+# Requis à chaque fin de session, avant tout git push ou création de release.
+# Pour un test depuis un clone GitHub propre : bash scripts/install.sh
+echo "--- Smoke test /opt/diwall/ ---"
+DEST="/opt/diwall"
+PYTHON="$DEST/venv/bin/python3"
+URL_SMOKE="https://example.com"
+NB_ECHECS=0
+
+if [ ! -f "$PYTHON" ]; then
+    echo "SKIP — $DEST/venv absent (installation non déployée)"
+else
+    # shot.py
+    RESULT=$("$PYTHON" "$DEST/shot.py" --url "$URL_SMOKE" --som 2>&1)
+    if echo "$RESULT" | grep -q '"succes": true'; then
+        echo "OK   — shot.py --som"
+    else
+        echo "FAIL — shot.py --som"
+        NB_ECHECS=$((NB_ECHECS + 1))
+    fi
+
+    # watch.py --sauver-reference
+    RESULT=$("$PYTHON" "$DEST/watch.py" --url "$URL_SMOKE" --sauver-reference 2>&1)
+    if echo "$RESULT" | grep -q '"succes": true'; then
+        echo "OK   — watch.py --sauver-reference"
+    else
+        echo "FAIL — watch.py --sauver-reference"
+        NB_ECHECS=$((NB_ECHECS + 1))
+    fi
+
+    # watch.py --comparer-pixel
+    REF="$DEST/references/example.com/reference.png"
+    if [ -f "$REF" ]; then
+        RESULT=$("$PYTHON" "$DEST/watch.py" --url "$URL_SMOKE" --comparer-pixel "$REF" 2>&1)
+        if echo "$RESULT" | grep -q '"succes": true'; then
+            echo "OK   — watch.py --comparer-pixel"
+        else
+            echo "FAIL — watch.py --comparer-pixel"
+            NB_ECHECS=$((NB_ECHECS + 1))
+        fi
+    else
+        echo "SKIP — watch.py --comparer-pixel (référence absente, lancez --sauver-reference d'abord)"
+    fi
+
+    if [ "$NB_ECHECS" -gt 0 ]; then
+        echo "$NB_ECHECS smoke test(s) échoué(s) — publication BLOQUÉE."
+        NB_FUITES=$((NB_FUITES + NB_ECHECS))
+    fi
+fi
+
+echo
 echo "=== Résumé ==="
 if [[ $NB_FUITES -eq 0 ]]; then
-    echo "OK — aucune fuite détectée. Publication possible."
+    echo "OK — aucune fuite, smoke test réussi. Publication possible."
     exit 0
 fi
 
@@ -173,5 +226,5 @@ for label in "${!FUITES_PAR_PATTERN[@]}"; do
     printf "  %-30s %s occurrences\n" "$label" "${FUITES_PAR_PATTERN[$label]}"
 done
 echo
-echo "Total : $NB_FUITES occurrence(s) sur $NB_FICHIERS fichier(s) — publication BLOQUÉE."
+echo "Total : $NB_FUITES occurrence(s) — publication BLOQUÉE."
 exit 1

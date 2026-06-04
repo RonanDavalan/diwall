@@ -22,10 +22,14 @@ CODE_FILES=(
     lib/vault.py
 )
 
-# Répertoires /opt/diwall à créer avec sudo (appartiennent à root:diwall)
-DIRS_SUDO=(
+# Répertoires lecture seule pour le groupe (code, scénarios)
+DIRS_RO=(
     "$DEST/lib"
     "$DEST/scenarios"
+)
+
+# Répertoires lecture+écriture pour le groupe (données générées à l'exécution)
+DIRS_RW=(
     "$DEST/references"
     "$DEST/skills"
 )
@@ -40,9 +44,15 @@ echo "    Source : $REPO"
 echo ""
 
 # ── Créer les répertoires /opt manquants (sudo) ───────────────────────────────
-for d in "${DIRS_SUDO[@]}"; do
+for d in "${DIRS_RO[@]}"; do
     if [ ! -d "$d" ]; then
-        sudo install -d -m 700 "$d"
+        sudo install -d -m 750 -o root -g "$GROUPE" "$d"
+        echo "  Créé    : $d"
+    fi
+done
+for d in "${DIRS_RW[@]}"; do
+    if [ ! -d "$d" ]; then
+        sudo install -d -m 770 -o root -g "$GROUPE" "$d"
         echo "  Créé    : $d"
     fi
 done
@@ -57,8 +67,8 @@ if [ ! -d "/var/log/diwall/preuves" ]; then
     echo "  Créé    : /var/log/diwall/preuves"
 fi
 
-# ── /tmp/diwall : répertoire de ron, jamais sudo ──────────────────────────────
-# Captures éphémères lues/écrites par ron directement — pas besoin de root.
+# ── /tmp/diwall : répertoire de l'opérateur, jamais sudo ─────────────────────
+# Captures éphémères lues/écrites par l'utilisateur courant — pas besoin de root.
 if [ ! -d "/tmp/diwall" ]; then
     install -d -m 700 "/tmp/diwall"
     echo "  Créé    : /tmp/diwall"
