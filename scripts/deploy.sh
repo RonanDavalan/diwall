@@ -22,13 +22,17 @@ CODE_FILES=(
     lib/vault.py
 )
 
-# Répertoires lecture seule pour le groupe (code, scénarios)
-DIRS_RO=(
+# Répertoires de code — mode 755 (lisibles par tous)
+# Justification : lib/*.py et scenarios/*.json sont publics sur GitHub, aucun secret.
+# Restreindre à 750 root:diwall bloquerait l'opérateur hors session active du groupe.
+DIRS_CODE=(
     "$DEST/lib"
     "$DEST/scenarios"
 )
 
-# Répertoires lecture+écriture pour le groupe (données générées à l'exécution)
+# Répertoires de données générées à l'exécution — mode 770 (groupe diwall en écriture)
+# references/ : captures de dashboards authentifiés (sensibles)
+# skills/ : skills versionnés (spécifiques à l'instance)
 DIRS_RW=(
     "$DEST/references"
     "$DEST/skills"
@@ -44,9 +48,9 @@ echo "    Source : $REPO"
 echo ""
 
 # ── Créer les répertoires /opt manquants (sudo) ───────────────────────────────
-for d in "${DIRS_RO[@]}"; do
+for d in "${DIRS_CODE[@]}"; do
     if [ ! -d "$d" ]; then
-        sudo install -d -m 750 -o root -g "$GROUPE" "$d"
+        sudo install -d -m 755 -o root -g "$GROUPE" "$d"
         echo "  Créé    : $d"
     fi
 done
@@ -131,6 +135,15 @@ if [ ! -f "$CONF" ]; then
 }
 CONF_EOF
     echo "  Créé    : diwall.conf (config par défaut)"
+    echo ""
+    echo "  ┌─ DIWALL.CONF — À ADAPTER À VOTRE MACHINE ──────────────────────────────┐"
+    echo "  │  vault_dir créé avec la valeur générique : ~/Vaults/Diwall           │"
+    echo "  │  Pour pointer vers votre vault, remplacez le contenu :              │"
+    echo "  │                                                                      │"
+    echo "  │    sudo tee $CONF <<'EOF'     │"
+    echo "  │    {\"vault_dir\": \"~/Vaults/<PROJET>\"}                               │"
+    echo "  │    EOF                                                               │"
+    echo "  └──────────────────────────────────────────────────────────────────────┘"
 else
     echo "  Préservé: diwall.conf (config machine existante)"
 fi

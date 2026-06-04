@@ -176,7 +176,7 @@ NB_ECHECS=0
 if [ ! -f "$PYTHON" ]; then
     echo "SKIP — $DEST/venv absent (installation non déployée)"
 else
-    # shot.py
+    # shot.py (écrit dans /tmp/diwall/ — pas de groupe requis)
     RESULT=$("$PYTHON" "$DEST/shot.py" --url "$URL_SMOKE" --som 2>&1)
     if echo "$RESULT" | grep -q '"succes": true'; then
         echo "OK   — shot.py --som"
@@ -185,8 +185,20 @@ else
         NB_ECHECS=$((NB_ECHECS + 1))
     fi
 
+    # watch.py écrit dans references/ (770 root:diwall).
+    # Si le groupe diwall n'est pas actif dans la session courante (cas typique
+    # après usermod -aG diwall dans la même session sans reconnexion), on utilise
+    # sg diwall pour activer le groupe le temps de la commande.
+    if id -Gn 2>/dev/null | tr ' ' '\n' | grep -qx "diwall"; then
+        RUN_WATCH_REF="$PYTHON $DEST/watch.py --url $URL_SMOKE --sauver-reference"
+        RUN_WATCH_CMP="$PYTHON $DEST/watch.py --url $URL_SMOKE --comparer-pixel $DEST/references/example.com/reference.png"
+    else
+        RUN_WATCH_REF="sg diwall -c \"$PYTHON $DEST/watch.py --url $URL_SMOKE --sauver-reference\""
+        RUN_WATCH_CMP="sg diwall -c \"$PYTHON $DEST/watch.py --url $URL_SMOKE --comparer-pixel $DEST/references/example.com/reference.png\""
+    fi
+
     # watch.py --sauver-reference
-    RESULT=$("$PYTHON" "$DEST/watch.py" --url "$URL_SMOKE" --sauver-reference 2>&1)
+    RESULT=$(eval "$RUN_WATCH_REF" 2>&1)
     if echo "$RESULT" | grep -q '"succes": true'; then
         echo "OK   — watch.py --sauver-reference"
     else
@@ -195,9 +207,11 @@ else
     fi
 
     # watch.py --comparer-pixel
+    # sudo test -f : references/ est en 770 root:diwall — le shell courant
+    # ne peut pas traverser le répertoire si le groupe diwall n'est pas actif.
     REF="$DEST/references/example.com/reference.png"
-    if [ -f "$REF" ]; then
-        RESULT=$("$PYTHON" "$DEST/watch.py" --url "$URL_SMOKE" --comparer-pixel "$REF" 2>&1)
+    if sudo test -f "$REF"; then
+        RESULT=$(eval "$RUN_WATCH_CMP" 2>&1)
         if echo "$RESULT" | grep -q '"succes": true'; then
             echo "OK   — watch.py --comparer-pixel"
         else
