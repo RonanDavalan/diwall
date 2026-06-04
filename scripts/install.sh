@@ -26,12 +26,22 @@ done
 echo "=== Diwall — installation depuis $REPO ==="
 echo ""
 
-# ── Étape 1 — Utilisateur système ────────────────────────────────────────────
-if id "$GROUPE" &>/dev/null; then
-    echo "  Existant : utilisateur système '$GROUPE'"
+# ── Étape 1 — Utilisateur et groupe système ──────────────────────────────────
+# Le groupe est créé séparément car userdel ne supprime pas le groupe primaire
+# sous Debian (il peut rester orphelin après désinstallation). useradd échoue
+# avec exit 9 si le groupe existe déjà — d'où la vérification préalable.
+if ! getent group "$GROUPE" &>/dev/null; then
+    sudo groupadd --system "$GROUPE"
+    echo "  Créé     : groupe système '$GROUPE'"
 else
-    sudo useradd --system --no-create-home --shell /bin/false "$GROUPE"
+    echo "  Existant : groupe système '$GROUPE'"
+fi
+
+if ! id "$GROUPE" &>/dev/null; then
+    sudo useradd --system --no-create-home --shell /bin/false -g "$GROUPE" "$GROUPE"
     echo "  Créé     : utilisateur système '$GROUPE'"
+else
+    echo "  Existant : utilisateur système '$GROUPE'"
 fi
 
 # ── Étape 2 — Répertoire principal ───────────────────────────────────────────
@@ -48,7 +58,7 @@ fi
 if [ ! -f "$DEST/venv/bin/python3" ]; then
     echo "  Création du venv Python..."
     sudo /usr/bin/python3 -m venv "$DEST/venv"
-    sudo "$DEST/venv/bin/pip" install --quiet -r "$REPO/requirements.txt"
+    sudo -H "$DEST/venv/bin/pip" install --quiet -r "$REPO/requirements.txt"
     echo "  Venv     : OK ($(sudo $DEST/venv/bin/python3 --version))"
 else
     echo "  Existant : venv ($($DEST/venv/bin/python3 --version 2>/dev/null || echo inconnu))"
@@ -90,8 +100,8 @@ check_dir() {
 }
 
 check_dir "$DEST"             "755" "root:$GROUPE"
-check_dir "$DEST/lib"         "750" "root:$GROUPE"
-check_dir "$DEST/scenarios"   "750" "root:$GROUPE"
+check_dir "$DEST/lib"         "755" "root:$GROUPE"
+check_dir "$DEST/scenarios"   "755" "root:$GROUPE"
 check_dir "$DEST/references"  "770" "root:$GROUPE"
 check_dir "$DEST/skills"      "770" "root:$GROUPE"
 
@@ -100,6 +110,16 @@ if [ "$ERRORS" -eq 0 ]; then
 else
     echo "  $ERRORS erreur(s) de permission détectée(s)"
     exit 1
+fi
+
+# Ajouter l'opérateur courant au groupe diwall si absent
+if ! id -Gn "$USER" 2>/dev/null | tr ' ' '\n' | grep -qx "$GROUPE"; then
+    sudo usermod -aG "$GROUPE" "$USER"
+    echo ""
+    echo "  IMPORTANT : $USER ajouté au groupe $GROUPE."
+    echo "  Le groupe ne sera actif qu'à la prochaine reconnexion."
+    echo "  Pour activer immédiatement sans reconnexion : newgrp $GROUPE"
+    echo "  (ou utiliser : sg $GROUPE -c \"commande\")"
 fi
 
 # ── Étape 7 — Smoke test ─────────────────────────────────────────────────────

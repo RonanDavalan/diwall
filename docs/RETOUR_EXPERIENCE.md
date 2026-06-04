@@ -1087,3 +1087,45 @@ en anglais (nouvelle règle en vigueur).
 
 31 frictions sur 10 sessions.
 
+---
+
+## Session 11 — 4 juin 2026
+
+Objectif : réinstallation complète de Diwall depuis le dépôt GitHub distant
+(`https://github.com/RonanDavalan/diwall`) + validation du mot de passe Sillage
+nouvellement initialisé.
+
+### Friction #32 — Groupe système `diwall` orphelin après `userdel`
+
+`sudo userdel diwall` supprime l'utilisateur mais laisse le groupe `diwall` intact.
+Le script `install.sh` échoue ensuite avec `useradd : le groupe diwall existe (si vous
+voulez rajouter cet utilisateur à ce groupe, utilisez -g)` (exit code 9).
+
+**Cause** : `userdel` sans `--remove` ne supprime pas le groupe primaire si d'autres
+membres pourraient en dépendre (comportement Debian).
+
+**Solution** : désinstallation complète = `sudo userdel diwall && sudo groupdel diwall`.
+
+### Friction #33 — Permissions `750` sur `lib/` bloquent `ron` hors groupe `diwall`
+
+Après réinstallation, `lib/`, `scenarios/` et `skills/` sont créés en `750 root:diwall`.
+`ron` n'est pas dans le groupe `diwall` au moment de l'installation, ni dans la session
+shell active après `usermod -aG diwall ron` (les groupes sont lus au login).
+
+**Symptôme** : `ModuleNotFoundError: No module named 'lib.vault'` — Python ne peut pas
+traverser `lib/` pour trouver `vault.py`.
+
+**Contournement appliqué** : `sudo chmod 755 /opt/diwall/lib /opt/diwall/scenarios /opt/diwall/skills`
+et `sudo chmod 644 /opt/diwall/scenarios/sillage_login.json`.
+
+**Solution structurelle suggérée** : `install.sh` devrait soit ajouter l'utilisateur courant
+au groupe `diwall` (via `sudo usermod -aG diwall $USER`), soit créer `lib/` en `755`
+(le code Python ne contient pas de secrets — seul le vault est sensible).
+
+### Résultat final
+
+Réinstallation complète réussie. Diwall v1.7.1 opérationnel. Login Sillage validé via
+`sillage_login.json` — tableau de bord tenant visible, authentification fonctionnelle.
+
+2 frictions nouvelles sur cette session. Total : **33 frictions sur 11 sessions**.
+
