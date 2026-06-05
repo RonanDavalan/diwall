@@ -449,8 +449,11 @@ SoM is your exploration map. CSS selectors are your execution GPS.
 ]
 ```
 
-`#dialog-action button[type=submit]` is not visible in the first SoM capture, but it exists in the
-rendered HTML (the `<dialog>` is just hidden by default). Its structure is invariant — safe to target.
+`#dialog-action button[type=submit]` is not visible in the first SoM capture because, as of v1.7.3,
+**SoM excludes all elements inside a closed `<dialog>` (no `open` attribute)**. This is intentional:
+a closed dialog is not interactable, and indexing its buttons caused silent mis-clicks when several
+dialogs were present in the DOM simultaneously (REX friction #34). The CSS selector approach is still
+correct and recommended — it targets the button by its structural identity regardless of SoM indexing.
 
 **Using `capturer` to inspect intermediate state without breaking Mode A:**
 `{"type": "capturer", "nom": "modal_open"}` generates a PNG in `output-dir` without interrupting
@@ -604,6 +607,36 @@ the ground truth for the model that actually answered.
 tracabilite_modeles:
   active: false
 ```
+
+---
+
+## Execution context (`boussole`) — v1.7.3
+
+Every JSON response from `shot.py` and `rpa.py` now includes a `boussole` field:
+
+```json
+"boussole": {
+  "utilisateur": "ron",
+  "ip_locale": "__IP_LAN__",
+  "repertoire": "~/git/Diwall/Diwall"
+}
+```
+
+`boussole` is always present — including on error responses. Use it to passively verify
+the execution context at every chained call, without running separate shell commands.
+
+**Expected values on neo:**
+
+| Field | Expected |
+|---|---|
+| `utilisateur` | `ron` |
+| `ip_locale` | `192.168.1.x` |
+| `repertoire` | `~/git/Diwall/Diwall` (dev) or `/opt/diwall` (production) |
+
+**Why this matters in chaining:** if a mid-chain call returns an unexpected `ip_locale`
+or `repertoire`, it signals an execution context drift before it causes silent failures.
+Check `boussole` the same way you check `succes` — it costs nothing and prevents a class
+of hard-to-diagnose environment bugs.
 
 This omits the `modeles_utilises` key from `diwall_meta`. Other
 keys (version, timestamp, profile) stay.

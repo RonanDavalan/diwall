@@ -9,10 +9,25 @@ import sys
 import time
 from datetime import datetime, timezone
 
-__version__ = "1.6.0"
+__version__ = "1.7.3"
 
 # Permet d'importer lib/ depuis le même répertoire que shot.py
 sys.path.insert(0, os.path.dirname(os.path.abspath(__file__)))
+
+
+def _boussole():
+    try:
+        s = socket.socket(socket.AF_INET, socket.SOCK_DGRAM)
+        s.connect(("8.8.8.8", 80))
+        ip = s.getsockname()[0]
+        s.close()
+    except Exception:
+        ip = ""
+    return {
+        "utilisateur": os.getenv("USER", ""),
+        "ip_locale": ip,
+        "repertoire": os.getcwd(),
+    }
 
 # ── Set-of-Mark ───────────────────────────────────────────────────────────────
 _SOM_INJECTER_JS = """() => {
@@ -31,6 +46,7 @@ _SOM_INJECTER_JS = """() => {
     const items = [];
     let num = 1;
     document.querySelectorAll(SELECTORS).forEach(el => {
+        let p = el.parentElement; while (p) { if (p.tagName === 'DIALOG' && !p.hasAttribute('open')) return; p = p.parentElement; }
         const s = window.getComputedStyle(el);
         if (s.display === 'none' || s.visibility === 'hidden' || s.opacity === '0') return;
         const r = el.getBoundingClientRect();
@@ -78,6 +94,7 @@ _SOM_COMPTER_HORS_VIEWPORT_JS = """() => {
     const vw = window.innerWidth, vh = window.innerHeight;
     let n = 0;
     document.querySelectorAll(SELECTORS).forEach(el => {
+        let p = el.parentElement; while (p) { if (p.tagName === 'DIALOG' && !p.hasAttribute('open')) return; p = p.parentElement; }
         const s = window.getComputedStyle(el);
         if (s.display === 'none' || s.visibility === 'hidden' || s.opacity === '0') return;
         const r = el.getBoundingClientRect();
@@ -100,6 +117,7 @@ _SOM_TROUVER_JS = """(id) => {
     const vw = window.innerWidth, vh = window.innerHeight;
     const items = [];
     document.querySelectorAll(SELECTORS).forEach(el => {
+        let p = el.parentElement; while (p) { if (p.tagName === 'DIALOG' && !p.hasAttribute('open')) return; p = p.parentElement; }
         const s = window.getComputedStyle(el);
         if (s.display === 'none' || s.visibility === 'hidden' || s.opacity === '0') return;
         const r = el.getBoundingClientRect();
@@ -538,6 +556,7 @@ def executer_actions(page, actions, output_dir, timeout, mode_llm="local",
                     const vw = window.innerWidth, vh = window.innerHeight;
                     const items = [];
                     document.querySelectorAll(SELECTORS).forEach(el => {
+                        let p = el.parentElement; while (p) { if (p.tagName === 'DIALOG' && !p.hasAttribute('open')) return; p = p.parentElement; }
                         const s = window.getComputedStyle(el);
                         if (s.display==='none'||s.visibility==='hidden'||s.opacity==='0') return;
                         const r = el.getBoundingClientRect();
@@ -666,6 +685,7 @@ def main():
             "succes": False, "erreur": "argument_manquant",
             "message": "--url ou --reprendre-session est requis",
             "horodatage": horodatage,
+            "boussole": _boussole(),
         }))
         sys.exit(1)
 
@@ -682,6 +702,7 @@ def main():
             print(json.dumps({
                 "succes": False, "erreur": "action_invalide",
                 "message": str(e), "horodatage": horodatage,
+                "boussole": _boussole(),
             }))
             sys.exit(1)
     else:
@@ -691,6 +712,7 @@ def main():
             print(json.dumps({
                 "succes": False, "erreur": "actions_invalides",
                 "message": str(e), "horodatage": horodatage,
+                "boussole": _boussole(),
             }))
             sys.exit(1)
 
@@ -811,6 +833,7 @@ def main():
             result["session_file"] = session_file
         if derive_session:
             result["derive_session"] = derive_session
+        result["boussole"] = _boussole()
         print(json.dumps(result, ensure_ascii=False))
         _journaliser_run(result, actions, args.intention, url_finale, "succes")
         _nettoyer_session_ephemere(
@@ -834,6 +857,7 @@ def main():
                 "diwall_meta": _construire_diwall_meta(
                     profil, horodatage, modeles_appeles, url_cible,
                 ),
+                "boussole": _boussole(),
             }
             print(json.dumps(result, ensure_ascii=False))
             _journaliser_run(result, actions, args.intention, url_cible, "echec",
@@ -867,6 +891,7 @@ def main():
         }
         if capture_echec:
             result["capture_echec"] = capture_echec
+        result["boussole"] = _boussole()
         print(json.dumps(result, ensure_ascii=False))
         _journaliser_run(result, actions, args.intention, url_cible, "echec",
                          erreur=f"{type(e).__name__}: {e}")
