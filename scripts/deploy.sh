@@ -20,6 +20,13 @@ CODE_FILES=(
     lib/profil_operateur.py
     lib/vision.py
     lib/vault.py
+    lib/vector.py
+)
+
+# Scripts Python utilitaires (non lancés directement par les agents)
+SCRIPTS_PY=(
+    scripts/build-index.py
+    scripts/search-index.py
 )
 
 # Répertoires de code — mode 755 (lisibles par tous)
@@ -61,6 +68,20 @@ for d in "${DIRS_RW[@]}"; do
     fi
 done
 
+# ── /opt/diwall/scripts : scripts utilitaires déployés ───────────────────────
+if [ ! -d "$DEST/scripts" ]; then
+    sudo install -d -m 755 -o root -g "$GROUPE" "$DEST/scripts"
+    echo "  Créé    : $DEST/scripts"
+fi
+
+# ── /opt/diwall/vector_db : base vectorielle mémoire v1.8 ────────────────────
+# Propriétaire diwall (pas root) car chromadb crée des fichiers SQLite à l'exécution.
+# Mode 775 : l'opérateur (groupe diwall) peut lancer build-index.py sans sudo.
+if [ ! -d "$DEST/vector_db" ]; then
+    sudo install -d -m 775 -o "$GROUPE" -g "$GROUPE" "$DEST/vector_db"
+    echo "  Créé    : $DEST/vector_db"
+fi
+
 # ── /var/log/diwall : journal d'opérations v1.4 ───────────────────────────────
 if [ ! -d "/var/log/diwall" ]; then
     sudo install -d -m 2770 -o root -g diwall /var/log/diwall
@@ -83,6 +104,23 @@ fi
 # ── Copier les fichiers de code ───────────────────────────────────────────────
 changed=0
 for f in "${CODE_FILES[@]}"; do
+    src="$REPO/$f"
+    dst="$DEST/$f"
+    if [ ! -f "$src" ]; then
+        echo "  ABSENT  : $src (ignoré)"
+        continue
+    fi
+    if diff -q "$src" "$dst" > /dev/null 2>&1; then
+        echo "  Inchangé: $f"
+    else
+        sudo cp "$src" "$dst"
+        echo "  Déployé : $f"
+        changed=$((changed + 1))
+    fi
+done
+
+# ── Déployer les scripts Python utilitaires ──────────────────────────────────
+for f in "${SCRIPTS_PY[@]}"; do
     src="$REPO/$f"
     dst="$DEST/$f"
     if [ ! -f "$src" ]; then
@@ -168,6 +206,10 @@ sudo chmod 755 "$DEST"/scripts/setup-vault.sh \
      "$DEST"/scripts/migrate-vault.sh \
      "$DEST"/scripts/mount-vault.sh \
      "$DEST"/scripts/umount-vault.sh 2>/dev/null || true
+sudo chown root:"$GROUPE" "$DEST"/scripts/build-index.py \
+     "$DEST"/scripts/search-index.py 2>/dev/null || true
+sudo chmod 755 "$DEST"/scripts/build-index.py \
+     "$DEST"/scripts/search-index.py 2>/dev/null || true
 
 echo ""
 if [ "$changed" -gt 0 ]; then
