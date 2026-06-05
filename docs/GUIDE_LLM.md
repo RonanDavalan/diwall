@@ -618,7 +618,7 @@ Every JSON response from `shot.py` and `rpa.py` now includes a `boussole` field:
 "boussole": {
   "utilisateur": "ron",
   "ip_locale": "__IP_LAN__",
-  "repertoire": "~/git/Diwall/Diwall"
+  "repertoire": "/opt/diwall"
 }
 ```
 
