@@ -3,11 +3,16 @@ Mémoire vectorielle Diwall — module partagé.
 Stack : ChromaDB (local, persistant) + Ollama nomic-embed-text (souverain).
 """
 
+import os
 import requests
 import chromadb
 from chromadb import EmbeddingFunction, Documents, Embeddings
 
-DB_PATH = "/opt/diwall/vector_db"
+_REPO_DIR = os.path.dirname(os.path.dirname(os.path.abspath(__file__)))
+DB_PATH = os.environ.get(
+    "DIWALL_DB_PATH",
+    os.path.normpath(os.path.join(_REPO_DIR, "..", "_CADRE", "MEMOIRE", "chroma_db"))
+)
 COLLECTION_DEFAULT = "diwall"
 OLLAMA_URL = "http://localhost:11434/api/embed"
 EMBED_MODEL = "nomic-embed-text"
@@ -45,10 +50,12 @@ def search(
     n: int = 3,
     collection_name: str = COLLECTION_DEFAULT,
     db_path: str = DB_PATH,
+    type_filter: str | None = None,
 ) -> list[dict]:
     """Interroge la base vectorielle et retourne les passages les plus proches."""
     col = get_collection(collection_name, db_path)
-    results = col.query(query_texts=[query], n_results=n)
+    where = {"type": type_filter} if type_filter else None
+    results = col.query(query_texts=[query], n_results=n, where=where)
     out = []
     for doc, meta, dist in zip(
         results["documents"][0],
@@ -59,6 +66,7 @@ def search(
             "score": round(1 - dist, 3),
             "source": meta.get("source", "?"),
             "section": meta.get("section", ""),
+            "type": meta.get("type", ""),
             "extrait": doc[:500],
         })
     return out
