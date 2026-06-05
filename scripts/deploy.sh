@@ -20,7 +20,6 @@ CODE_FILES=(
     lib/profil_operateur.py
     lib/vision.py
     lib/vault.py
-    lib/vector.py
 )
 
 # Répertoires de code — mode 755 (lisibles par tous)
