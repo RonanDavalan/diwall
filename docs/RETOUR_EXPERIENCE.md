@@ -1129,3 +1129,35 @@ Réinstallation complète réussie. Diwall v1.7.1 opérationnel. Login Sillage v
 
 2 frictions nouvelles sur cette session. Total : **33 frictions sur 11 sessions**.
 
+---
+
+# Session 12 — 5 juin 2026 — validation D1 (onglet Destinations)
+
+Contexte : validation de D1 dans Sillage — parcours ajout/suppression de destinations
+de push via le nouvel onglet Destinations dans les réglages client.
+
+### Friction #34 — SoM : boutons dans `<dialog>` fermés occupent des slots invisibles
+
+> **RÉSOLU le 5 juin 2026 (session 12 bis).** Les trois fonctions SoM
+> (`_SOM_INJECTER_JS`, `_SOM_COMPTER_HORS_VIEWPORT_JS`, `_SOM_TROUVER_JS`) et le
+> bloc inline `remplir_som SELECT` ont été corrigés dans `shot.py` : chaque élément
+> est filtré par une traversée ascendante des ancêtres — si un ancêtre est un
+> `<dialog>` sans attribut `open`, l'élément est ignoré. Les IDs SoM des quatre
+> fonctions restent cohérents car le même filtre est appliqué partout.
+
+Quand plusieurs `<dialog>` sont présents dans le DOM mais fermés, le SoM les numérote
+dans sa liste globale de boutons. Le LLM cherche à cliquer "Supprimer" (confirm) dans la
+dialog ouverte, mais le SoM pointe sur le bouton de la dialog suivante (fermée).
+
+**Symptôme** : clic sur bouton "Supprimer" sans effet visible, ou ouverture de la
+mauvaise dialog.
+
+**Cause** : le SoM ne distingue pas les éléments dans un `<dialog>` ouvert de ceux dans
+un `<dialog>` fermé — il les indexe tous. Un `<dialog>` fermé est visuellement absent
+mais présent dans l'arbre d'accessibilité.
+
+**Contournement appliqué** (obsolète depuis la correction) : cibler par l'attribut `id`
+de la dialog ouverte plutôt que par le numéro SoM.
+
+1 friction nouvelle sur cette session. Total : **34 frictions sur 12 sessions**.
+

@@ -20,7 +20,7 @@ Format du scénario :
 Le vault est résolu par lib/vault.py (DIWALL_VAULT_DIR > diwall.conf > ~/Vaults/Diwall/).
 Jamais de mot de passe dans les fichiers de scénario.
 """
-__version__ = "1.6.0"
+__version__ = "1.7.3"
 
 import argparse
 import json
@@ -29,6 +29,20 @@ import subprocess
 import sys
 
 sys.path.insert(0, os.path.dirname(os.path.abspath(__file__)))
+
+
+def _boussole():
+    try:
+        ip = subprocess.check_output(
+            "hostname -I | cut -d' ' -f1", shell=True, text=True
+        ).strip()
+    except Exception:
+        ip = ""
+    return {
+        "utilisateur": os.getenv("USER", ""),
+        "ip_locale": ip,
+        "repertoire": os.getcwd(),
+    }
 from lib.vault import domaine_depuis_url, verifier_cles, VaultFermeError
 
 _SCHEMA_PATH = os.path.join(os.path.dirname(os.path.abspath(__file__)),
@@ -119,7 +133,8 @@ def charger_scenario(chemin: str) -> dict:
                 print(json.dumps({
                     "succes": False, "erreur": "dependance_manquante",
                     "message": "PyYAML requis pour les scénarios .yaml : "
-                               "pip install pyyaml  (dans /opt/diwall/venv/)"
+                               "pip install pyyaml  (dans /opt/diwall/venv/)",
+                    "boussole": _boussole(),
                 }))
                 sys.exit(1)
         else:
@@ -145,6 +160,7 @@ def main():
             "succes": False, "erreur": "fichier_introuvable",
             "message": f"Scénario introuvable : {args.scenario}",
             "chemins_testes": essais,
+            "boussole": _boussole(),
         }))
         sys.exit(1)
 
@@ -153,6 +169,7 @@ def main():
     except Exception as e:
         print(json.dumps({
             "succes": False, "erreur": "scenario_invalide", "message": str(e),
+            "boussole": _boussole(),
         }))
         sys.exit(1)
 
@@ -165,6 +182,7 @@ def main():
         print(json.dumps({
             "succes": False, "erreur": "scenario_invalide",
             "message": "Champ 'url' manquant dans le scénario",
+            "boussole": _boussole(),
         }))
         sys.exit(1)
 
@@ -193,11 +211,13 @@ def main():
             "succes": False, "erreur": "vault_ferme",
             "message": str(e),
             "code_sortie_recommande": VaultFermeError.CODE_SORTIE,
+            "boussole": _boussole(),
         }))
         sys.exit(VaultFermeError.CODE_SORTIE)
     except (FileNotFoundError, KeyError, ValueError) as e:
         print(json.dumps({
             "succes": False, "erreur": "vault_erreur", "message": str(e),
+            "boussole": _boussole(),
         }))
         sys.exit(1)
 
