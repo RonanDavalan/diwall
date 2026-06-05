@@ -33,6 +33,10 @@ numpy>=2.0
 # v1.6.0: TOTP generation for 2FA (Google Authenticator / Authy)
 pyotp>=2.9
 
+# v1.8: mémoire vectorielle locale (ChromaDB + Ollama nomic-embed-text)
+# nomic-embed-text doit être tiré séparément : ollama pull nomic-embed-text
+chromadb>=1.5
+
 # Optional: Anthropic API for --llm claude in vision.py / watch.py
 # Not required for the default Ollama-only deployment
 # anthropic>=0.40
