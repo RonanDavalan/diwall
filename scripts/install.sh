@@ -104,7 +104,6 @@ check_dir "$DEST/lib"         "755" "root:$GROUPE"
 check_dir "$DEST/scenarios"   "755" "root:$GROUPE"
 check_dir "$DEST/references"  "770" "root:$GROUPE"
 check_dir "$DEST/skills"      "770" "root:$GROUPE"
-check_dir "$DEST/vector_db"   "775" "$GROUPE:$GROUPE"
 
 if [ "$ERRORS" -eq 0 ]; then
     echo "  Permissions : OK"
