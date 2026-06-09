@@ -48,7 +48,7 @@ FR-58 (DIWALL_VAULT_DIR), auto-corrigée. Validation de la doctrine perception/a
 
 ## 2026-06-09 — Session 18 (FR-47 à FR-53, v1.9)
 
-**Contexte d'entrée :** PHASE_EXECUTION validée par Ronan après co-planification
+**Contexte d'entrée :** PHASE_EXECUTION validée par l'opérateur après co-planification
 avec Gemini. 6 frictions à implémenter (FR-47, FR-48, FR-49, FR-50, FR-53 ;
 FR-52 annulée). Schéma JSON incomplet (refs sans définitions).
 

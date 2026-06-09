@@ -1062,11 +1062,11 @@ the directory that *contains* the `.conf` file — this is wrong. `DIWALL_VAULT_
 the conf file entirely and expects credential JSON files at that path directly.
 
 ```bash
-# WRONG — /home/ron/Vaults/Sillage/Diwall/ contains diwall.conf, not hostname.json files
-DIWALL_VAULT_DIR=/home/ron/Vaults/Sillage/Diwall/ python3 shot.py …
+# WRONG — ~/Vaults/ProjectX/ contains diwall.conf, not hostname.json files
+DIWALL_VAULT_DIR=~/Vaults/ProjectX/ python3 shot.py …
 
 # CORRECT — points to the .conf file which resolves vault_dir internally
-DIWALL_CONF=/home/ron/Vaults/Sillage/Diwall/diwall.conf python3 shot.py …
+DIWALL_CONF=~/Vaults/ProjectX/diwall.conf python3 shot.py …
 ```
 
 **Rule:** for any project that uses a `.diwall.conf` file for per-project vault configuration,
