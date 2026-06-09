@@ -4,6 +4,48 @@ Historique des décisions et découvertes par session, dans l'ordre chronologiqu
 
 ---
 
+## 2026-06-09/10 — Sessions 19–20 (FR-54 à FR-58, v1.8.0 publiée)
+
+**Contexte d'entrée :** errata session 18 — venv recréé, `docs/` absent de
+`deploy.sh`, `__version__` bloqué à 1.7.3. Correction avant toute validation.
+
+**Travail effectué :**
+
+- `shot.py` (FR-54) — `--actions` fichier désormais supporté en mode
+  `--reprendre-session` (Mode B). Les deux modes sont symétriques.
+- `shot.py` (FR-55) — `attendre_url` gagne le paramètre `attendre_changement: true` :
+  attend une navigation sortante avant d'appliquer le motif (évite le faux positif
+  sur URL sous-chaîne).
+- `scripts/deploy.sh` — `docs/` ajouté à la liste des déploiements.
+- `scripts/install.sh` — check permission répertoires log corrigé `770` → `2770`.
+- `CLAUDE.md` créé à la racine — pré-vol automatique Claude Code : 5 règles non
+  négociables dont interdiction credentials en shell et pré-lecture `GUIDE_LLM.md`.
+- `docs/GUIDE_LLM.md` v1.8 — bloc sécurité en tête + 4 pitfalls (FR-54, FR-55,
+  FR-56, FR-58 DIWALL_VAULT_DIR vs DIWALL_CONF).
+- `docs/RETOUR_EXPERIENCE.md` — frictions #52–#56, synthèse session 19.
+- `docs/RADAR_MODELES.md` créé — registre d'observations brutes sur le comportement
+  des LLM face à Diwall (2 entrées : Claude Sonnet pré-corrections / Gemini Flash).
+
+**Décision clé :** `RADAR_MODELES.md` public, sans filtre éditorial. La doctrine
+de visibilité dit silence sur la *promotion*, pas sur la réalité. Les faux positifs
+sont inclus — ils sont le signal.
+
+**Benchmark Gemini Flash :** même exercice multi-cibles, post-corrections. Résultats
+corrects, `depuis_vault` utilisé systématiquement, piège curl ignoré. Dérive unique :
+FR-58 (DIWALL_VAULT_DIR), auto-corrigée. Validation de la doctrine perception/action.
+
+**Commits :**
+- `84100a1` — feat(v1.8): wait primitives, nettoyer_overlay, vault symlink fix, deploy docs
+- `6982639` — fix(v1.8): FR-54 --actions file in Mode B, FR-55 attendre_url attendre_changement
+- `7c84e01` — fix: neutraliser nom client dans synthèse session 19
+- `9ca4d85` — docs(v1.8): FR-58 DIWALL_VAULT_DIR vs DIWALL_CONF, fix mentions obsolètes
+
+**Release :** `v1.8.0` — tag créé, poussé, release GitHub publiée en anglais.
+
+**État en sortie :** production `/opt/diwall/` synchronisée. 56 frictions / 19 sessions.
+
+---
+
 ## 2026-06-09 — Session 18 (FR-47 à FR-53, v1.9)
 
 **Contexte d'entrée :** PHASE_EXECUTION validée par Ronan après co-planification
