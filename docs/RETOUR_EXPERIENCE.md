@@ -1683,7 +1683,7 @@ Claude Code à chaque session) et dans `PROTOCOLE_DEMARRAGE.md` instruction n°1
 ## Synthèse session 19
 
 4 frictions nouvelles (#52–#55), toutes découvertes lors de la PHASE_VALIDATION
-multi-cibles (Pretix + Château de Kériolet + Sillage).
+multi-cibles (Pretix + `__HOST_DEMO__` + Sillage).
 
 Frictions #52 et #53 sont des bugs d'API de shot.py (comportement silencieux
 inattendu). Friction #54 est une règle d'usage SoM (extension de la règle scroll
