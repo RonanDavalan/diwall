@@ -1680,18 +1680,39 @@ Claude Code à chaque session) et dans `PROTOCOLE_DEMARRAGE.md` instruction n°1
 
 ---
 
+## 56. `DIWALL_VAULT_DIR` et `DIWALL_CONF` ont des sémantiques distinctes
+
+**Contexte** : benchmark Gemini Flash (09/06/2026) — connexion à `__TENANT_SERVICE__` +
+`__HOST_DEMO__` + Sillage. Gemini a positionné `DIWALL_VAULT_DIR` vers le répertoire
+contenant le fichier `.diwall.conf` de Sillage. Vault introuvable → erreur silencieuse.
+
+**Cause** : les deux variables existent dans vault.py mais ne pointent pas vers le même objet.
+`DIWALL_VAULT_DIR` attend un répertoire contenant directement des fichiers `<hostname>.json`.
+`DIWALL_CONF` attend un chemin vers un fichier `.diwall.conf` (JSON) dont la clé `vault_dir`
+résout le répertoire vault. Pointer `DIWALL_VAULT_DIR` vers un répertoire qui contient un
+`.conf` ne fonctionne pas — le `.conf` n'est pas lu.
+
+**Règle** : pour tout projet utilisant un fichier `.diwall.conf` (configuration per-projet),
+toujours utiliser `DIWALL_CONF=/chemin/vers/fichier.diwall.conf`. Réserver `DIWALL_VAULT_DIR`
+aux coffres plats où les fichiers `<hostname>.json` se trouvent directement dans le répertoire pointé.
+
+**Lien** : documenté dans `GUIDE_LLM.md` section "Known CLI pitfalls" (FR-58).
+
+---
+
 ## Synthèse session 19
 
-4 frictions nouvelles (#52–#55), toutes découvertes lors de la PHASE_VALIDATION
-multi-cibles (Pretix + `__HOST_DEMO__` + Sillage).
+5 frictions nouvelles (#52–#56), toutes découvertes lors de la PHASE_VALIDATION
+multi-cibles (Pretix + `__HOST_DEMO__` + Sillage), et lors du benchmark Gemini Flash.
 
-Frictions #52 et #53 sont des bugs d'API de shot.py (comportement silencieux
-inattendu). Friction #54 est une règle d'usage SoM (extension de la règle scroll
-existante). Friction #55 est un défaut de protocole de démarrage.
+Frictions #52 et #53 sont des bugs d'API de shot.py (comportement silencieux inattendu).
+Friction #54 est une règle d'usage SoM (extension de la règle scroll existante). Friction
+#55 est un défaut de protocole de démarrage. Friction #56 est une confusion sémantique
+entre deux variables d'environnement vault.
 
-PHASE_DOCUMENTATION : 4 frictions documentées, `CLAUDE.md` créé, `PROTOCOLE_DEMARRAGE.md`
-mis à jour (instruction n°1ter), `GUIDE_LLM.md` mis à jour (version 1.8, bloc sécurité
-en tête + 3 nouvelles pitfalls). PHASE_EXECUTION prévue : FR-54 (fix shot.py Mode B),
-FR-55 (améliorer `attendre_url`).
+PHASE_DOCUMENTATION : 5 frictions documentées, `CLAUDE.md` créé, `PROTOCOLE_DEMARRAGE.md`
+mis à jour (instructions n°1bis/1ter/1quater), `GUIDE_LLM.md` mis à jour (v1.8.0, bloc
+sécurité en tête + 4 pitfalls). PHASE_EXECUTION : FR-54 et FR-55 corrigés dans shot.py
+(commit `6982639`). Benchmark Gemini Flash : exercice multi-cibles réussi sans fuite de données.
 
-**55 frictions sur 19 sessions.**
+**56 frictions sur 19 sessions.**
