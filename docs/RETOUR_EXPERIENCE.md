@@ -1092,7 +1092,7 @@ en anglais (nouvelle règle en vigueur).
 ## Session 11 — 4 juin 2026
 
 Objectif : réinstallation complète de Diwall depuis le dépôt GitHub distant
-(`https://github.com/RonanDavalan/diwall`) + validation du mot de passe Sillage
+(dépôt GitHub public) + validation du mot de passe Sillage
 nouvellement initialisé.
 
 ### Friction #32 — Groupe système `diwall` orphelin après `userdel`
@@ -1161,3 +1161,450 @@ de la dialog ouverte plutôt que par le numéro SoM.
 
 1 friction nouvelle sur cette session. Total : **34 frictions sur 12 sessions**.
 
+---
+
+# Session 13 — 8 juin 2026 — première connexion à un service cloud multi-ports
+
+Première connexion à `__HOST_SERVICE__` (service Pretix hébergé sur plateforme
+cloud). Vault configuré à `~/Vaults/Diwall/` avec des fichiers organisés en
+sous-répertoires par service. Trois frictions vault découvertes lors de la
+première tentative d'authentification via `depuis_vault`.
+
+## 35. Structure plate uniquement dans vault.py — sous-dossiers ignorés silencieusement
+
+**Contexte** : credentials rangés dans
+`~/Vaults/Diwall/__HOST_SERVICE_SLUG__/__HOST_SERVICE_SLUG__.json`.
+`vault.py` cherche uniquement `<vault_dir>/<hostname>.json` — aucune descente
+dans les sous-répertoires.
+
+**Symptôme** : `FileNotFoundError` sans message expliquant que les sous-dossiers
+ne sont pas supportés. La convention de rangement par projet est une habitude
+naturelle ignorée silencieusement.
+
+**Workaround** : structure plate obligatoire — tous les fichiers JSON directement
+dans `<vault_dir>/`.
+
+**Piste de correction** : option `vault_lookup: recursive` dans `diwall.conf`,
+ou recherche récursive par défaut avec avertissement si plusieurs candidats
+correspondent.
+
+---
+
+## 36. Nommage hostname complet obligatoire, sans message d'erreur explicite
+
+**Contexte** : fichier nommé `__HOST_SERVICE_SLUG__.json` (partie courte du
+FQDN). `vault.py` attend exactement le résultat de `urlparse(url).hostname`,
+soit `__HOST_SERVICE__.json`.
+
+**Symptôme** : `FileNotFoundError` — aucune indication dans le message que
+le nom de fichier doit correspondre au hostname *complet*. Le message existant
+montre le chemin attendu, mais pas pourquoi le hostname est ce qu'il est.
+
+**Workaround** : nommer le fichier avec le FQDN complet retourné par
+`urlparse(url).hostname`. En cas de doute, vérifier en Python :
+```python
+from urllib.parse import urlparse
+print(urlparse("https://__HOST_SERVICE__").hostname)
+# → __HOST_SERVICE__
+```
+
+**Piste de correction** : enrichir le message `FileNotFoundError` avec la
+ligne explicite :
+```
+Nom attendu (d'après urlparse(url).hostname) : __HOST_SERVICE__.json
+```
+
+---
+
+## 37. Collision hostname multi-services (port différent, même hôte)
+
+**Contexte** : deux services distincts — le service principal (`/`) et un
+service d'administration (`:__PORT_SERVICE__`) — partagent le même hostname
+`__HOST_SERVICE__`. Le schéma `<hostname>.json` ne permet pas deux fichiers
+de credentials séparés.
+
+**Impact** : fusion forcée des credentials des deux services dans un seul
+fichier JSON — compromet la lisibilité et la segmentation des accès. Si les
+credentials sont différents, il est impossible de les stocker indépendamment
+avec le schéma actuel.
+
+**Workaround** : fusionner les credentials dans un seul JSON avec des clés
+distinctes par service (ex. `username`, `password` pour le service principal,
+`pgadmin_username`, `pgadmin_password` pour le service secondaire).
+
+**Piste de correction** : résolution port-aware avec fallback — vault.py
+cherche d'abord `<hostname>_<port>.json` (spécifique), puis `<hostname>.json`
+(générique). Permet d'avoir un fichier par service sans collision.
+
+---
+
+## Synthèse session 13
+
+3 frictions nouvelles (#35–#37), toutes liées au système de résolution vault.
+Cas d'usage déclencheur : hébergeur cloud avec FQDN long et plusieurs services
+sur des ports non standard partageant le même hostname.
+
+**Candidats prioritaires pour le prochain incrément :**
+1. Recherche récursive optionnelle (#35) — ergonomie, organisation du vault
+2. Message d'erreur explicite avec hostname attendu (#36) — diagnostic immédiat
+3. Résolution port-aware (#37) — segmentation des credentials multi-services
+
+37 frictions sur 13 sessions.
+
+---
+
+# Session 14 — 9 juin 2026 — usage réel Pretix (authentification + navigation RGPD)
+
+Session d'usage réel sur `__HOST_SERVICE__` (service Pretix hébergé sur
+plateforme cloud). Objectif : accéder aux paramètres RGPD globaux via
+l'interface d'administration. Deux tentatives nécessaires, trois obstacles
+avant d'atteindre le tunnel d'authentification.
+
+## 38. `--navigate` documenté dans GUIDE_LLM.md mais absent de la version déployée
+
+**Contexte** : le guide mentionne un flag CLI `--navigate` pour naviguer vers
+une URL dans un appel `rpa.py`. La tentative d'utilisation retourne une erreur
+de type « action inconnue » ou flag non reconnu.
+
+**Symptôme** : l'opérateur suit la documentation officielle, l'outil rejette
+le flag. Aucun message ne signale que le flag est prévu mais non encore
+implémenté.
+
+**Cause probable** : décalage entre une documentation prospective (ou rédigée
+pour une version future) et la version déployée sur la machine.
+
+**Workaround** : utiliser l'action JSON `{"type":"naviguer","url":"…"}` dans
+un tableau `--actions`, qui est fonctionnelle (confirmée depuis session 3,
+friction #13).
+
+**Piste de correction** : soit retirer `--navigate` du guide jusqu'à
+implémentation, soit l'implémenter. Le guide ne doit pas documenter des
+fonctionnalités absentes de la version de référence déployée.
+
+---
+
+## 39. `diwall.conf` unique par machine — conflit multi-projets sans résolution per-projet
+
+**Contexte** : `diwall.conf` est stocké dans `/opt/diwall/diwall.conf` — un
+seul fichier pour toute la machine. La clé `vault_dir` pointait sur le vault
+du projet en cours (`~/Vaults/<PROJET>/`). Pour un second projet, il a fallu
+contourner via la variable d'environnement `DIWALL_VAULT_DIR=~/Vaults/Diwall`
+à chaque invocation.
+
+**Symptôme** : sans le contournement, `depuis_vault` charge les credentials
+du mauvais projet — erreur `FileNotFoundError` ou, pire, credentials incorrects
+silencieusement injectés.
+
+**Impact** : sur une machine hébergeant plusieurs projets Diwall (Sillage,
+Pretix, client X…), la conf globale devient un point de friction permanent.
+Le contournement `DIWALL_VAULT_DIR=` est fonctionnel mais doit être rappelé
+à chaque invocation ou scriptés — source d'oubli.
+
+**Workaround** : préfixer chaque invocation avec
+`DIWALL_VAULT_DIR=~/Vaults/<Projet>` ou l'exporter en début de session shell.
+
+**Piste de correction** : résolution per-projet — lire un fichier
+`.diwall.conf` à la racine du répertoire courant (ou d'un répertoire parent)
+en priorité sur `/opt/diwall/diwall.conf`. Compatible avec la cascade actuelle
+(env var > conf local > conf global > défaut).
+
+**Lien avec friction #12** : même famille (vault path non trouvé), cause
+distincte (multi-projets vs chemin de vault inconnu de l'utilisateur).
+
+---
+
+## 40. `/var/log/diwall/preuves` — avertissement permission refusée à chaque run
+
+**Contexte** : à chaque invocation de `shot.py` ou `rpa.py`, un avertissement
+apparaît :
+
+```
+⚠ journal : preuves non archivées ([Errno 13] Permission denied: '/var/log/diwall/preuves')
+```
+
+Le run continue normalement, les captures vont dans `/tmp/diwall/`. L'opérateur
+ne peut pas écrire dans `/var/log/diwall/preuves` car ce répertoire appartient
+à `root:diwall` en mode `770` — et l'utilisateur `ron` n'a pas les droits
+d'écriture directe.
+
+**Impact** : l'avertissement est non-bloquant mais pollue toutes les sorties,
+crée de la confusion sur l'état du système, et masque les vraies erreurs dans
+le flux de logs.
+
+**Cause** : `/var/log/diwall/preuves` est créé par `install.sh` avec des
+permissions restrictives. L'utilisateur courant n'est pas dans le groupe
+`diwall` au moment de la création, ou les permissions ne sont pas accordées
+à l'utilisateur opérateur.
+
+**Workaround** : `sudo chmod 775 /var/log/diwall/preuves` ou
+`sudo chown ron:diwall /var/log/diwall/preuves` selon la politique locale.
+
+**Piste de correction** : `install.sh` devrait accorder l'accès en écriture
+à l'utilisateur opérateur sur ce répertoire (via `usermod -aG diwall $USER`
+ou propriété `$USER:diwall 775`). À aligner avec la correction structurelle
+suggérée en friction #33 (`lib/` en 755).
+
+---
+
+## Synthèse session 14
+
+3 frictions nouvelles (#38–#40). Aucune n'est bloquante sur le fond —
+la connexion Pretix a finalement réussi en 2,4 s une fois les prérequis
+réglés — mais leur cumul (guide décalé, conf multi-projets, warning
+permission) représente une friction d'onboarding significative pour un
+nouvel opérateur.
+
+**Candidats prioritaires pour le prochain incrément :**
+1. Résolution per-projet de `diwall.conf` (#39) — impact direct multi-projets
+2. Permissions `/var/log/diwall/preuves` dans `install.sh` (#40) — à aligner avec #33
+3. Alignement guide/version déployée pour `--navigate` (#38) — cohérence doc
+
+40 frictions sur 14 sessions.
+
+---
+
+# Session 15 — 9 juin 2026 — authentification sudo et navigation Pretix
+
+Suite de la session 14 sur `__HOST_SERVICE__`. Frictions liées au mécanisme
+d'authentification sudo de Pretix et aux comportements Playwright lors de
+navigations avec redirections enchaînées.
+
+## 41. Perte du fichier session entre deux appels rapides
+
+**Contexte** : `/tmp/diwall/pretix-session.json` disparaît ou devient invalide
+si `--sauver-session` et `--reprendre-session` ciblent le même fichier en
+succession rapide (moins de 10 s).
+
+**Cause probable** : écriture partielle lors du `--sauver-session` — le fichier
+est tronqué avant que `--reprendre-session` ne le lise.
+
+**Symptôme** : `JSONDecodeError` ou session vide à la reprise, blocage
+systématique si on tente de chaîner des appels.
+
+**Workaround** : ne pas réutiliser le même fichier session entre deux appels
+rapides. Utiliser un nom horodaté, ou refaire la séquence complète depuis
+le login.
+
+**Piste de correction** : écriture atomique dans `shot.py` pour
+`--sauver-session` — écrire dans un fichier temporaire puis renommer
+(`write temp + rename`), garantissant que le fichier cible est toujours
+complet ou absent.
+
+---
+
+## 42. `remplir` (sélecteur CSS) inopérant sur `<select>` — alternative `evaluer`
+
+**Contexte** : tentative de `{"type":"remplir","selecteur":"select[name=X]","valeur":"Y"}`.
+`page.fill()` ne fonctionne que sur `<input>` et `<textarea>` — lève une erreur
+sur un `<select>`.
+
+**Note** : la friction #15 (résolue) couvrait `remplir_som` sur un `<select>`
+via SoM ID — ce cas est distinct : `remplir` avec sélecteur CSS reste bloquant.
+
+**Workaround via `evaluer`** :
+```json
+{
+  "type": "evaluer",
+  "script": "const s=document.querySelector('select[name=X]'); s.value='Y'; s.dispatchEvent(new Event('change',{bubbles:true})); s.value"
+}
+```
+
+**Solution recommandée** : préférer `remplir_som` avec l'ID SoM du `<select>`
+(correction #15 déjà en production). `remplir` (CSS) sur `<select>` reste un
+piège non documenté.
+
+**Piste de correction** : documenter l'alternative `evaluer` dans `GUIDE_LLM.md`,
+ou ajouter un message d'erreur explicite dans `remplir` quand l'élément cible
+est un `<select>`.
+
+---
+
+## 43. Sélecteur `button[type=submit]` ambigu sur la page sudo
+
+**Contexte** : page `/control/sudo/` de Pretix contenant deux éléments
+`button[type=submit]`. Le sélecteur Playwright `button[type=submit]` lève
+une `strict mode violation`.
+
+**Workaround** : `button:has-text("Démarrer la session")` — précis et stable.
+
+**Leçon** : les pages d'authentification ont souvent plusieurs boutons submit
+(formulaire principal + formulaire caché de déconnexion). Toujours qualifier
+par le texte du bouton ou un attribut unique.
+
+---
+
+## 44. `naviguer` ERR_ABORTED vers URL déclenchant une chaîne de redirections sudo
+
+**Contexte** : `{"type":"naviguer","url":"/control/global/settings/"}` échoue
+avec `net::ERR_ABORTED` lorsque l'URL cible déclenche une chaîne de redirections
+(`settings` → `sudo` → `reauth`). Playwright abandonne la navigation avant la
+résolution finale.
+
+**Workaround** : naviguer directement vers l'URL de reauth avec le paramètre
+`next` correctement encodé, puis dérouler la séquence reauth + sudo en Mode A
+unique depuis le login.
+
+**Leçon** : Pretix (et probablement d'autres apps Django avec middleware sudo)
+ne supportent pas la navigation directe vers les zones protégées depuis une
+session normale. La séquence complète `login → reauth → cible` doit tenir dans
+un seul appel Mode A.
+
+---
+
+## 45. URL organisateur : slash final → 404 (inconsistance)
+
+**Contexte** : `/control/organizer/__TENANT__/edit/` (avec slash final) → 404.
+URL correcte : `/control/organizer/__TENANT__/edit` (sans slash final).
+Inconsistance avec `/control/global/settings/` qui accepte le slash final.
+
+**Impact** : mineur — découvrable à la première tentative, message d'erreur
+lisible. À noter dans un scénario RPA pour éviter une double tentative.
+
+---
+
+## Synthèse session 15
+
+5 frictions nouvelles (#41–#45), toutes liées à l'usage réel de Pretix avec
+son mécanisme sudo Django et ses conventions d'URL.
+
+**Candidats pour le prochain incrément :**
+1. Écriture atomique `--sauver-session` (#41) — fiabilité critique
+2. Message d'erreur `remplir` sur `<select>` + documentation (#42) — ergonomie
+3. Frictions #43–#44 → à documenter dans `GUIDE_LLM.md` section "parcours sudo"
+
+45 frictions sur 15 sessions.
+
+
+---
+
+## Session 16 — 9 juin 2026 — Vault multi-projet
+
+**Contexte** : `diwall.conf` global contient un `vault_dir` en dur
+(`~/Vaults/<PROJET>/`) — tous les projets utilisent le même coffre.
+Demande : chaque projet doit pouvoir utiliser son propre coffre.
+
+**Décision architecturale :** nouvelle cascade de configuration (planifiée avec
+co-planification LLM, validée par l'opérateur) — voir `_CADRE/SPECIFICATIONS/25_PHASE6_RPA_VAULT.md`
+section "Résolution du chemin vault" v1.1.
+
+**Frictions adressées :** #39 (résolution per-projet) + #35/#37 (récursion + port-aware)
+intégrées dans un algorithme cohérent à 4 niveaux.
+
+**À implémenter :** `lib/vault.py` (cascade DIWALL_CONF, algorithme 4 niveaux),
+`/opt/diwall/diwall.conf` (remise à défaut), tests T_CONF_A–D.
+
+**47 frictions sur 16 sessions** (frictions #39b et #39c ajoutées).
+
+---
+
+# Session 17 — 9 juin 2026 — PHASE_VALIDATION multi-cibles + planification ergonomie
+
+PHASE_VALIDATION : connexion à `__HOST_SERVICE__`, `__HOST_DEMO__` et Sillage
+pour récolter des données factuelles. Frictions #48–#51 toutes découvertes lors de
+cette session.
+
+## 48. Journal warning sur stdout — casse le parsing JSON en pipe
+
+**Contexte** : invocation `shot.py … | python3 -c "import json…"` — le message
+`⚠ journal : log principal inaccessible` apparaît sur stdout avant le JSON, cassant
+le parsing.
+
+**Cause** : certains cas d'erreur du journal émettent leur avertissement sur stdout
+au lieu de stderr.
+
+**Workaround** :
+```bash
+result=$(/opt/diwall/venv/bin/python3 /opt/diwall/shot.py --url … 2>/dev/null | tail -1)
+```
+`tail -1` récupère uniquement la dernière ligne (le JSON). `2>/dev/null` élimine le stderr.
+
+**Piste de correction** : rediriger systématiquement tous les avertissements non-JSON
+vers stderr.
+
+---
+
+## 49. `--action` inline avec JS complexe — casse sur les guillemets shell
+
+**Contexte** : `--action '{"type":"evaluer","script":"document.querySelector(\"#id\").value"}'`
+— l'imbrication de guillemets est interprétée par le shell avant d'atteindre shot.py.
+Résultat : JSON invalide, erreur silencieuse ou évaluation vide.
+
+**Cause** : le shell interprète les guillemets et les caractères spéciaux avant la
+transmission à Python.
+
+**Règle absolue** : pour tout script JS contenant des guillemets ou des caractères
+spéciaux, utiliser `--actions /tmp/actions.json` avec le tableau dans un fichier.
+```bash
+cat > /tmp/actions.json << 'EOF'
+[{"type":"evaluer","script":"document.querySelector('#field').value"}]
+EOF
+/opt/diwall/venv/bin/python3 /opt/diwall/shot.py --url … --actions /tmp/actions.json
+```
+
+**Lien** : documenté dans `GUIDE_LLM.md` comme règle absolue.
+
+---
+
+## 50. `naviguer` dans une session reprise Django redirige vers le dashboard
+
+**Contexte** : session `__HOST_SERVICE__` reprise avec `--reprendre-session`, puis
+`{"type":"naviguer","url":"/control/organizer/__TENANT__/"}` → redirection silencieuse
+vers `/control/` (dashboard), sans message d'erreur.
+
+**Cause** : Django redirige vers le dashboard pour une navigation initiée depuis un
+contexte de session reprise (le middleware session détecte un contexte inhabituel).
+
+**Workaround** : passer l'URL cible directement comme `--url` à l'invocation shot.py,
+plutôt que via l'action `naviguer` dans une session reprise.
+```bash
+/opt/diwall/venv/bin/python3 /opt/diwall/shot.py \
+  --url https://__HOST_SERVICE__/control/organizer/__TENANT__/ \
+  --reprendre-session session.json --som
+```
+
+**Lien** : documenté dans `GUIDE_LLM.md` section "Known CLI pitfalls".
+
+---
+
+## 51. Session sauvegardée avant fin de la redirection auth
+
+**Contexte** : `--sauver-session` appelé immédiatement après le clic login sur
+`__HOST_SERVICE__`. À la reprise, les cookies d'authentification ne sont pas encore
+établis — session invalide.
+
+**Cause** : même cause racine que friction #5 (session_regenerate_id, ou redirection
+multi-étapes côté serveur). `attendre_navigation` ne garantit pas la propagation des
+cookies de session côté serveur.
+
+**Règle** : login + navigation post-login = séquence atomique unique. Ne jamais
+insérer `--sauver-session` entre le submit du formulaire de login et la première
+page authentifiée chargée.
+
+```json
+[
+  {"type": "remplir_som", "id": 1, "valeur": "depuis_vault", "vault_cle": "username"},
+  {"type": "remplir_som", "id": 2, "valeur": "depuis_vault", "vault_cle": "password"},
+  {"type": "cliquer_som", "id": 3},
+  {"type": "pause",        "ms": 2000},
+  {"type": "naviguer",     "url": "https://__HOST_SERVICE__/control/"},
+  {"type": "capturer",     "nom": "post-login"}
+]
+```
+
+**Lien** : renforce friction #5 et #16.
+
+---
+
+## Synthèse session 17
+
+4 frictions nouvelles (#48–#51), toutes découvertes lors de la PHASE_VALIDATION
+multi-cibles. Frictions #48 et #49 sont des frictions d'ergonomie CLI (stdout pollution,
+shell escaping) ; frictions #50 et #51 sont des comportements Django lors des sessions
+reprises.
+
+PHASE_PLANIFICATION co-Claude+Gemini a produit 6 chantiers (FR-47 à FR-53, FR-52
+annulé) : sécurité symlinks vault, 4 primitives d'attente modernes, `nettoyer_overlay`,
+mémoire sémantique ChromaDB/scénarios, fallback `vector.py`. Deux nouveaux documents
+créés : `GUIDE_EXPLORATION.md` et `GUIDE_HUMAIN.md`.
+
+**51 frictions sur 17 sessions.**

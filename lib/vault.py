@@ -3,11 +3,16 @@ vault.py — Phase 6 + 7 : lecture de credentials depuis le vault Diwall.
 
 Résolution du chemin vault (par ordre de priorité) :
   1. Variable d'environnement DIWALL_VAULT_DIR
-  2. Clé "vault_dir" dans /opt/diwall/diwall.conf (JSON)
-  3. Défaut : ~/Vaults/Diwall/
+  2. Variable d'environnement DIWALL_CONF → fichier .diwall.conf → clé "vault_dir"
+  3. Clé "vault_dir" dans /opt/diwall/diwall.conf (JSON)
+  4. Défaut : ~/Vaults/Diwall/
 
-Format d'un fichier vault : <vault_dir>/<hostname>.json
-  {"password": "...", "username": "admin", ...}
+Algorithme de résolution du fichier de credentials dans vault_dir :
+  1. <hostname>_<port>.json  (racine, port-aware)
+  2. <hostname>.json          (racine)
+  3. **/<hostname>_<port>.json (récursif, profondeur arbitraire, port-aware)
+  4. **/<hostname>.json        (récursif, profondeur arbitraire)
+  → ambiguïté (>1 match) : FileNotFoundError avec liste des candidats
 
 Phase 7 (gocryptfs) : VaultFermeError levée si le coffre est initialisé
 mais non monté. Détection via /proc/mounts — agnostique du mode d'ouverture
@@ -41,6 +46,17 @@ def _lire_conf() -> dict:
 def _chemin_vault() -> str:
     if "DIWALL_VAULT_DIR" in os.environ:
         return os.path.expanduser(os.environ["DIWALL_VAULT_DIR"])
+    if "DIWALL_CONF" in os.environ:
+        conf_path = os.path.expanduser(os.environ["DIWALL_CONF"])
+        if os.path.isfile(conf_path):
+            with open(conf_path, encoding="utf-8") as f:
+                conf_proj = json.load(f)
+            if "vault_dir" in conf_proj:
+                vault_dir = conf_proj["vault_dir"]
+                # chemin relatif résolu par rapport au répertoire du .diwall.conf
+                if not os.path.isabs(os.path.expanduser(vault_dir)):
+                    vault_dir = os.path.join(os.path.dirname(conf_path), vault_dir)
+                return os.path.realpath(os.path.expanduser(vault_dir))
     conf = _lire_conf()
     if "vault_dir" in conf:
         return os.path.expanduser(conf["vault_dir"])
@@ -53,7 +69,7 @@ def _chemin_vault_crypt() -> str:
     Résolution :
     1. Variable DIWALL_VAULT_CRYPT_DIR
     2. Clé "vault_crypt_dir" dans diwall.conf
-    3. Défaut : vault_dir + ".crypt"  (ex. ~/Vaults/Sillage/Diwall.crypt)
+    3. Défaut : vault_dir + ".crypt"
     """
     if "DIWALL_VAULT_CRYPT_DIR" in os.environ:
         return os.path.expanduser(os.environ["DIWALL_VAULT_CRYPT_DIR"])
@@ -85,33 +101,16 @@ def _coffre_initialise(crypt_dir: str) -> bool:
     )
 
 
-def domaine_depuis_url(url: str) -> str:
-    hostname = urlparse(url).hostname or ""
-    return hostname.lower()
-
-
-def lire_credential(domaine: str, cle: str) -> str:
-    """Lit un credential depuis le vault.
-
-    Cascade de détection (Phase 7) :
-    1. vault_dir inexistant → FileNotFoundError (vault jamais créé)
-    2. coffre initialisé + non monté → VaultFermeError(42)
-    3. vault_dir existe + fichier .json absent → FileNotFoundError
-    4. clé absente → KeyError
-    """
-    vault_dir = _chemin_vault()
-
-    # Phase 7 : détecter un coffre fermé avant d'essayer de lire
+def _verifier_coffre(vault_dir: str) -> None:
+    """Lève VaultFermeError si le coffre gocryptfs est initialisé mais non monté."""
     if not os.path.isdir(vault_dir):
         crypt_dir = _chemin_vault_crypt()
         if _coffre_initialise(crypt_dir):
             raise VaultFermeError(
                 f"Le coffre Diwall est initialisé mais non monté.\n"
                 f"  Chiffré : {crypt_dir}\n"
-                f"  Monter  : bash scripts/mount-vault.sh  "
-                f"(ou via Plasma Vault)"
+                f"  Monter  : bash scripts/mount-vault.sh  (ou via Plasma Vault)"
             )
-
     if os.path.isdir(vault_dir) and not _coffre_est_monte(vault_dir):
         crypt_dir = _chemin_vault_crypt()
         if _coffre_initialise(crypt_dir):
@@ -121,12 +120,74 @@ def lire_credential(domaine: str, cle: str) -> str:
                 f"  Monter : bash scripts/mount-vault.sh  (ou via Plasma Vault)"
             )
 
+
+def _trouver_fichier_vault(vault_dir: str, domaine: str, port: int | None = None) -> str:
+    """Résout le chemin du fichier JSON de credentials dans vault_dir.
+
+    Ordre : plat port-aware → plat → récursif port-aware → récursif.
+    Ambiguïté (>1 match récursif) → FileNotFoundError avec liste des candidats.
+    """
+    # Recherche plate (prioritaire, sans parcours disque)
+    if port is not None:
+        chemin = os.path.join(vault_dir, f"{domaine}_{port}.json")
+        if os.path.isfile(chemin):
+            return chemin
     chemin = os.path.join(vault_dir, f"{domaine}.json")
-    if not os.path.isfile(chemin):
+    if os.path.isfile(chemin):
+        return chemin
+
+    # Recherche récursive (followlinks=False pour confiner le parcours au coffre)
+    cible_port = f"{domaine}_{port}.json" if port is not None else None
+    cible_base = f"{domaine}.json"
+    par_port: list[str] = []
+    par_base: list[str] = []
+    for racine, _, fichiers in os.walk(vault_dir, followlinks=False):
+        if cible_port and cible_port in fichiers:
+            par_port.append(os.path.join(racine, cible_port))
+        if cible_base in fichiers:
+            par_base.append(os.path.join(racine, cible_base))
+    candidats = par_port if par_port else par_base
+
+    if len(candidats) == 1:
+        return candidats[0]
+    if len(candidats) > 1:
+        liste = "\n  ".join(sorted(candidats))
         raise FileNotFoundError(
-            f"Vault introuvable pour le domaine '{domaine}' : {chemin}\n"
-            f"Créez ce fichier avec les credentials JSON correspondants."
+            f"Ambiguïté vault pour '{domaine}' : {len(candidats)} fichiers trouvés.\n"
+            f"  {liste}\n"
+            f"Affinez vault_dir pour éliminer l'ambiguïté."
         )
+
+    nom_attendu = f"{domaine}_{port}.json ou {domaine}.json" if port else f"{domaine}.json"
+    raise FileNotFoundError(
+        f"Vault introuvable pour '{domaine}' dans {vault_dir}\n"
+        f"  Nom attendu (urlparse(url).hostname) : {nom_attendu}\n"
+        f"Créez ce fichier avec les credentials JSON correspondants."
+    )
+
+
+def domaine_depuis_url(url: str) -> str:
+    hostname = urlparse(url).hostname or ""
+    return hostname.lower()
+
+
+def port_depuis_url(url: str) -> int | None:
+    """Extrait le port explicite de l'URL (absent → None)."""
+    return urlparse(url).port
+
+
+def lire_credential(domaine: str, cle: str, port: int | None = None) -> str:
+    """Lit un credential depuis le vault.
+
+    Cascade de détection (Phase 7) :
+    1. vault_dir inexistant → FileNotFoundError (vault jamais créé)
+    2. coffre initialisé + non monté → VaultFermeError(42)
+    3. fichier .json absent → FileNotFoundError
+    4. clé absente → KeyError
+    """
+    vault_dir = _chemin_vault()
+    _verifier_coffre(vault_dir)
+    chemin = _trouver_fichier_vault(vault_dir, domaine, port)
     with open(chemin, encoding="utf-8") as f:
         data = json.load(f)
     if cle not in data:
@@ -137,36 +198,15 @@ def lire_credential(domaine: str, cle: str) -> str:
     return data[cle]
 
 
-def verifier_cles(domaine: str, cles) -> None:
+def verifier_cles(domaine: str, cles, port: int | None = None) -> None:
     """Pré-validation fail-fast : vérifie coffre + clés SANS lire les valeurs.
 
     Cascade identique à lire_credential :
     VaultFermeError(42) → FileNotFoundError → KeyError
     """
     vault_dir = _chemin_vault()
-
-    if not os.path.isdir(vault_dir):
-        crypt_dir = _chemin_vault_crypt()
-        if _coffre_initialise(crypt_dir):
-            raise VaultFermeError(
-                f"Le coffre Diwall est initialisé mais non monté.\n"
-                f"  Monter : bash scripts/mount-vault.sh  (ou via Plasma Vault)"
-            )
-
-    if os.path.isdir(vault_dir) and not _coffre_est_monte(vault_dir):
-        crypt_dir = _chemin_vault_crypt()
-        if _coffre_initialise(crypt_dir):
-            raise VaultFermeError(
-                f"Le coffre Diwall est initialisé mais non monté.\n"
-                f"  Monter : bash scripts/mount-vault.sh  (ou via Plasma Vault)"
-            )
-
-    chemin = os.path.join(vault_dir, f"{domaine}.json")
-    if not os.path.isfile(chemin):
-        raise FileNotFoundError(
-            f"Vault introuvable pour le domaine '{domaine}' : {chemin}\n"
-            f"Créez ce fichier avec les credentials JSON correspondants."
-        )
+    _verifier_coffre(vault_dir)
+    chemin = _trouver_fichier_vault(vault_dir, domaine, port)
     with open(chemin, encoding="utf-8") as f:
         data = json.load(f)
     manquantes = [c for c in cles if c not in data]

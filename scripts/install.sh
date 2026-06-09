@@ -83,7 +83,12 @@ echo ""
 bash "$REPO/scripts/deploy.sh"
 echo ""
 
-# ── Étape 6 — Vérification des permissions ───────────────────────────────────
+# ── Étape 6 — Répertoire de preuves ──────────────────────────────────────────
+sudo mkdir -p "/var/log/diwall/preuves"
+sudo chown root:"$GROUPE" "/var/log/diwall" "/var/log/diwall/preuves"
+echo "  Preuves  : /var/log/diwall/preuves (2770 root:$GROUPE — setgid posé par deploy.sh)"
+
+# ── Étape 7 — Vérification des permissions ───────────────────────────────────
 echo "  Vérification des permissions..."
 ERRORS=0
 
@@ -103,7 +108,9 @@ check_dir "$DEST"             "755" "root:$GROUPE"
 check_dir "$DEST/lib"         "755" "root:$GROUPE"
 check_dir "$DEST/scenarios"   "755" "root:$GROUPE"
 check_dir "$DEST/references"  "770" "root:$GROUPE"
-check_dir "$DEST/skills"      "770" "root:$GROUPE"
+check_dir "$DEST/skills"               "770" "root:$GROUPE"
+check_dir "/var/log/diwall"            "2770" "root:$GROUPE"
+check_dir "/var/log/diwall/preuves"    "2770" "root:$GROUPE"
 
 if [ "$ERRORS" -eq 0 ]; then
     echo "  Permissions : OK"
@@ -122,7 +129,7 @@ if ! id -Gn "$USER" 2>/dev/null | tr ' ' '\n' | grep -qx "$GROUPE"; then
     echo "  (ou utiliser : sg $GROUPE -c \"commande\")"
 fi
 
-# ── Étape 7 — Smoke test ─────────────────────────────────────────────────────
+# ── Étape 8 — Smoke test ─────────────────────────────────────────────────────
 if [ "$SKIP_TEST" = false ]; then
     echo ""
     echo "  Smoke test sur $URL_TEST..."

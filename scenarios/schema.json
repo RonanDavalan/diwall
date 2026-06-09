@@ -33,7 +33,12 @@
         { "$ref": "#/definitions/Capturer" },
         { "$ref": "#/definitions/Evaluer" },
         { "$ref": "#/definitions/Defiler" },
-        { "$ref": "#/definitions/AttendreNtfy" }
+        { "$ref": "#/definitions/AttendreNtfy" },
+        { "$ref": "#/definitions/AttendreUrl" },
+        { "$ref": "#/definitions/AttendreSelecteurPresent" },
+        { "$ref": "#/definitions/AttendreAbsence" },
+        { "$ref": "#/definitions/AttendreReseauCalme" },
+        { "$ref": "#/definitions/NettoyerOverlay" }
       ]
     },
 
@@ -196,6 +201,61 @@
         "type":    { "const": "attendre_mfa_ntfy" },
         "id_som":  { "type": "integer", "minimum": 1 },
         "timeout": { "type": "integer", "minimum": 10, "default": 120 }
+      }
+    },
+
+    "AttendreUrl": {
+      "type": "object",
+      "required": ["type", "motif"],
+      "additionalProperties": false,
+      "properties": {
+        "type":  { "const": "attendre_url" },
+        "motif": { "type": "string", "minLength": 1,
+                   "description": "Sub-string to match in the current URL (wrapped in ** glob pattern)" }
+      }
+    },
+
+    "AttendreSelecteurPresent": {
+      "type": "object",
+      "required": ["type", "selecteur"],
+      "additionalProperties": false,
+      "properties": {
+        "type":      { "const": "attendre_selecteur_present" },
+        "selecteur": { "type": "string", "minLength": 1,
+                       "description": "CSS selector — waits until element is visible (state=visible)" }
+      }
+    },
+
+    "AttendreAbsence": {
+      "type": "object",
+      "required": ["type", "selecteur"],
+      "additionalProperties": false,
+      "properties": {
+        "type":      { "const": "attendre_absence" },
+        "selecteur": { "type": "string", "minLength": 1,
+                       "description": "CSS selector — waits until element is removed from DOM (state=detached)" }
+      }
+    },
+
+    "AttendreReseauCalme": {
+      "type": "object",
+      "required": ["type"],
+      "additionalProperties": false,
+      "properties": {
+        "type":       { "const": "attendre_reseau_calme" },
+        "timeout_ms": { "type": "integer", "minimum": 0,
+                        "description": "Max wait in ms before abort (distinct from the 500ms internal silence threshold)" }
+      }
+    },
+
+    "NettoyerOverlay": {
+      "type": "object",
+      "required": ["type", "selecteur"],
+      "additionalProperties": false,
+      "properties": {
+        "type":      { "const": "nettoyer_overlay" },
+        "selecteur": { "type": "string", "minLength": 1,
+                       "description": "CSS selector of overlays to hide (visibility:hidden). Must be explicit — no auto-detection. Execute before SoM generation." }
       }
     }
   }

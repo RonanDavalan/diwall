@@ -20,6 +20,7 @@ CODE_FILES=(
     lib/profil_operateur.py
     lib/vision.py
     lib/vault.py
+    lib/vector.py
 )
 
 # Répertoires de code — mode 755 (lisibles par tous)
@@ -132,6 +133,24 @@ for f in "$REPO"/skills/*.json "$REPO"/skills/*.md; do
     fi
 done
 
+# ── Déployer docs/ (guides LLM, journal, retour d'expérience) ───────────────
+if [ ! -d "$DEST/docs" ]; then
+    sudo install -d -m 755 -o root -g "$GROUPE" "$DEST/docs"
+    echo "  Créé    : $DEST/docs"
+fi
+for f in "$REPO"/docs/*.md; do
+    [ -f "$f" ] || continue
+    base="$(basename "$f")"
+    dst="$DEST/docs/$base"
+    if diff -q "$f" "$dst" > /dev/null 2>&1; then
+        echo "  Inchangé: docs/$base"
+    else
+        sudo cp "$f" "$dst"
+        echo "  Déployé : docs/$base"
+        changed=$((changed + 1))
+    fi
+done
+
 # ── Créer diwall.conf si absent (ne jamais l'écraser) ────────────────────────
 CONF="$DEST/diwall.conf"
 if [ ! -f "$CONF" ]; then
@@ -164,10 +183,12 @@ sudo chown root:"$GROUPE" "$DEST"/scenarios/*.json "$DEST"/scenarios/*.yaml \
      2>/dev/null || true
 sudo chown root:"$GROUPE" "$DEST"/skills/*.json "$DEST"/skills/*.md \
      2>/dev/null || true
+sudo chown root:"$GROUPE" "$DEST"/docs/*.md 2>/dev/null || true
 
 sudo chmod 644 "$DEST"/*.py "$DEST"/lib/*.py "$DEST"/diwall.conf 2>/dev/null || true
 sudo chmod 644 "$DEST"/scenarios/*.json "$DEST"/scenarios/*.yaml 2>/dev/null || true
 sudo chmod 644 "$DEST"/skills/*.json "$DEST"/skills/*.md 2>/dev/null || true
+sudo chmod 644 "$DEST"/docs/*.md 2>/dev/null || true
 sudo chmod 755 "$DEST"/shot.py "$DEST"/watch.py "$DEST"/rpa.py \
      "$DEST"/journal.py 2>/dev/null || true
 sudo chmod 755 "$DEST"/scripts/setup-vault.sh \
