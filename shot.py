@@ -664,7 +664,18 @@ def executer_actions(page, actions, output_dir, timeout, mode_llm="local",
             if not motif:
                 raise ValueError(
                     "attendre_url requiert un champ 'motif' (sous-chaîne de l'URL attendue). "
-                    "Exemple : {\"type\":\"attendre_url\",\"motif\":\"/dashboard\"}"
+                    "Exemple : {\"type\":\"attendre_url\",\"motif\":\"/dashboard\"}. "
+                    "Attention : correspondance partielle — si l'URL courante contient déjà "
+                    "le motif, l'action retourne immédiatement. Utiliser 'attendre_changement':true "
+                    "pour attendre une navigation effective avant de tester le motif (FR-55)."
+                )
+            # FR-55 : si attendre_changement=true, attendre que l'URL quitte l'URL courante
+            if a.get("attendre_changement", False):
+                url_avant = page.url
+                page.wait_for_function(
+                    "url => window.location.href !== url",
+                    arg=url_avant,
+                    timeout=timeout,
                 )
             page.wait_for_url(f"**{motif}**", timeout=timeout)
 
@@ -746,9 +757,12 @@ def main():
                 parsed = json.loads(args.action)
                 # Accepte un objet unique {"type":...} OU un tableau [{...},{...}]
                 actions = parsed if isinstance(parsed, list) else [parsed]
+            elif args.actions:
+                # FR-54 : --actions (fichier) désormais supporté en Mode B
+                actions = charger_actions(args.actions)
             else:
                 actions = []
-        except json.JSONDecodeError as e:
+        except (json.JSONDecodeError, Exception) as e:
             print(json.dumps({
                 "succes": False, "erreur": "action_invalide",
                 "message": str(e), "horodatage": horodatage,

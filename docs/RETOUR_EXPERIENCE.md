@@ -1608,3 +1608,90 @@ mémoire sémantique ChromaDB/scénarios, fallback `vector.py`. Deux nouveaux do
 créés : `GUIDE_EXPLORATION.md` et `GUIDE_HUMAIN.md`.
 
 **51 frictions sur 17 sessions.**
+
+---
+
+## 52. `--actions` (fichier) ignoré silencieusement en mode `--reprendre-session`
+
+**Contexte** : login `__HOST_SERVICE__` via `--reprendre-session` + `--actions /tmp/fichier.json`.
+Les champs restent vides, le login échoue, `succes: true` est retourné sans erreur.
+
+**Cause** : dans `shot.py` lignes 743–751, la branche `reprendre_session` ne lit que
+`args.action` (inline). `args.actions` (fichier) est ignoré sans avertissement.
+
+**Règle** : en mode `--reprendre-session`, toujours utiliser `--action '[{...}]'` (JSON
+inline). `--actions /fichier.json` est réservé au mode `--url` (Mode A).
+
+**Fix** : v1.8 unifiera les deux modes (FR-54).
+
+**Lien** : documenté dans `GUIDE_LLM.md` section "Known CLI pitfalls" et dans `CLAUDE.md`.
+
+---
+
+## 53. `attendre_url` faux positif immédiat sur motif partiel
+
+**Contexte** : après submit du formulaire de login Pretix, `attendre_url "/control/"`
+retourne instantanément — la redirection post-login n'est jamais attendue.
+
+**Cause** : `page.wait_for_url("**/control/**")` est une correspondance partielle.
+L'URL courante `/control/login/` contient déjà la sous-chaîne `/control/`.
+
+**Règle** : ne jamais utiliser un motif qui est sous-chaîne de l'URL courante.
+Après un submit de formulaire, préférer `attendre_selecteur_present` sur un élément
+structurel présent uniquement sur la page post-login.
+
+**Lien** : documenté dans `GUIDE_LLM.md` section "Known CLI pitfalls" (FR-55).
+
+---
+
+## 54. IDs SoM invalidés après mutation DOM (bandeau cookies, modals)
+
+**Contexte** : acceptation du bandeau cookies sur `__HOST_DEMO__` → `cliquer_som 13`
+échoue : "élément SoM 13 non trouvé". Le DOM a été modifié et les IDs ont été
+renumérotés.
+
+**Cause** : le SoM ré-indexe les éléments interactifs visibles dans le viewport à
+chaque capture. Toute action qui supprime ou ajoute des éléments DOM visibles
+(disparition du bandeau, ouverture/fermeture d'une modal) invalide tous les IDs
+précédents.
+
+**Règle** : après toute action modifiant le DOM visible (dismiss cookie banner, fermeture
+modal, overlay disparu), toujours exécuter un nouveau `shot.py --som` avant tout
+`cliquer_som` ou `remplir_som`. Ne jamais réutiliser des IDs SoM entre deux états DOM.
+
+**Lien** : documenté dans `GUIDE_LLM.md` section "Known CLI pitfalls" (FR-56).
+
+---
+
+## 55. Absence de pré-vol GUIDE_LLM.md en début de session
+
+**Contexte** : en session 19, faute de lire GUIDE_LLM.md avant de commencer,
+le LLM a improvisé du scraping curl + extraction jq des credentials — violation
+de sécurité documentée.
+
+**Cause** : Diwall n'est pas dans le corpus d'entraînement du modèle. Sans lecture
+explicite du guide, le comportement par défaut est l'improvisation.
+
+**Règle** : lire `/opt/diwall/docs/GUIDE_LLM.md` en entier avant toute manipulation
+Diwall. Ce pré-vol est maintenant inscrit dans `CLAUDE.md` (lu automatiquement par
+Claude Code à chaque session) et dans `PROTOCOLE_DEMARRAGE.md` instruction n°1ter.
+
+**Lien** : `CLAUDE.md` règles n°1–3, `PROTOCOLE_DEMARRAGE.md` instruction n°1ter (FR-57).
+
+---
+
+## Synthèse session 19
+
+4 frictions nouvelles (#52–#55), toutes découvertes lors de la PHASE_VALIDATION
+multi-cibles (Pretix + Château de Kériolet + Sillage).
+
+Frictions #52 et #53 sont des bugs d'API de shot.py (comportement silencieux
+inattendu). Friction #54 est une règle d'usage SoM (extension de la règle scroll
+existante). Friction #55 est un défaut de protocole de démarrage.
+
+PHASE_DOCUMENTATION : 4 frictions documentées, `CLAUDE.md` créé, `PROTOCOLE_DEMARRAGE.md`
+mis à jour (instruction n°1ter), `GUIDE_LLM.md` mis à jour (version 1.8, bloc sécurité
+en tête + 3 nouvelles pitfalls). PHASE_EXECUTION prévue : FR-54 (fix shot.py Mode B),
+FR-55 (améliorer `attendre_url`).
+
+**55 frictions sur 19 sessions.**
