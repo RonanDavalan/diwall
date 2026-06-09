@@ -191,7 +191,7 @@ Scenario format:
 | `defiler` | `px` or `selecteur` | Scroll viewport: relative pixels or `scrollIntoView` (v1.6) |
 | `attendre_mfa_ntfy` | `id_som`, [`timeout`] | Wait for 2FA code via ntfy, type into SoM element (v1.6) |
 | `nettoyer_overlay` | `selecteur` | Mask fixed/sticky overlays before SoM injection. Explicit CSS selector required — no auto-detection. Forbidden in `watch.py` QA scenarios (would hide layout regressions). Execute **before** SoM generation. (v1.9) |
-| `attendre_url` | `motif`, [`attendre_changement`] | Wait until current URL contains `motif`. **Partial match** — resolves immediately if current URL already contains `motif`. Set `"attendre_changement":true` to wait for a navigation away from the current URL first (FR-55, v1.8.1). |
+| `attendre_url` | `motif`, [`attendre_changement`] | Wait until current URL contains `motif`. **Partial match** — resolves immediately if current URL already contains `motif`. Set `"attendre_changement":true` to wait for a navigation away from the current URL first (FR-55, v1.8.0). |
 | `attendre_selecteur_present` | `selecteur` | Wait for element to become visible. Uses `page.wait_for_selector(state="visible")`. Use to confirm a successful login before continuing. (v1.9) |
 | `attendre_absence` | `selecteur` | Wait for element to disappear (spinner, loading veil). Uses `page.wait_for_selector(state="detached")`. (v1.9) |
 | `attendre_reseau_calme` | [`timeout_ms`] | Wait for 500ms network silence. Uses `page.wait_for_load_state("networkidle")`. `timeout_ms` = max wait before abort (distinct from the 500ms silence threshold). (v1.9) |
@@ -974,7 +974,7 @@ the fields stay empty, the login appears to succeed but does nothing (REX sessio
 
 **In Mode A (`--url`)**, `--actions /tmp/file.json` works correctly.
 
-Fix in progress: v1.8 will unify both modes (FR-54).
+**Fixed in v1.8.0:** `--actions` file is now supported in Mode B (FR-54). Both modes are symmetric.
 
 ---
 
@@ -1047,6 +1047,31 @@ cookies are not yet established (REX friction #51). Same root cause as friction 
   {"type": "capturer",     "nom": "post-login"}
 ]
 ```
+
+### `DIWALL_VAULT_DIR` vs `DIWALL_CONF` — different semantics (FR-58)
+
+Both env vars are supported by `vault.py`, but they point to **different things**:
+
+| Env var | Points to | When to use |
+|---|---|---|
+| `DIWALL_VAULT_DIR` | A **directory** containing `<hostname>.json` files directly | Simple vault with flat structure, no conf indirection |
+| `DIWALL_CONF` | A **`.diwall.conf` file** (JSON) with a `vault_dir` key | Per-project vault with conf indirection (recommended) |
+
+**Common mistake (FR-58, REX Gemini benchmark 09/06/2026):** setting `DIWALL_VAULT_DIR` to
+the directory that *contains* the `.conf` file — this is wrong. `DIWALL_VAULT_DIR` bypasses
+the conf file entirely and expects credential JSON files at that path directly.
+
+```bash
+# WRONG — /home/ron/Vaults/Sillage/Diwall/ contains diwall.conf, not hostname.json files
+DIWALL_VAULT_DIR=/home/ron/Vaults/Sillage/Diwall/ python3 shot.py …
+
+# CORRECT — points to the .conf file which resolves vault_dir internally
+DIWALL_CONF=/home/ron/Vaults/Sillage/Diwall/diwall.conf python3 shot.py …
+```
+
+**Rule:** for any project that uses a `.diwall.conf` file for per-project vault configuration,
+always use `DIWALL_CONF`. Reserve `DIWALL_VAULT_DIR` for simple flat vaults where `<hostname>.json`
+files sit directly in the pointed directory.
 
 ---
 

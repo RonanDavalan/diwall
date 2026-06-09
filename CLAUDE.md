@@ -79,12 +79,11 @@ sans attendre la navigation post-login.
 
 ---
 
-## Règle n°5 — `--actions` (fichier) incompatible avec `--reprendre-session` (FR-54)
+## Règle n°5 — `--actions` (fichier) et `--reprendre-session` (FR-54)
 
-En mode `--reprendre-session`, seul `--action` (JSON inline) est supporté.
-`--actions` (fichier) est **silencieusement ignoré** — les champs restent vides.
+**Corrigé en v1.8.0** — les deux modes sont désormais symétriques.
 
-**En mode `--reprendre-session` :** utiliser `--action '[{...}]'` (inline).  
-**En mode `--url` (Mode A) :** `--actions /tmp/fichier.json` fonctionne.
+En mode `--reprendre-session`, `--actions /fichier.json` **et** `--action '[{...}]'` (inline)
+sont tous les deux supportés. Avant v1.8.0, `--actions` était silencieusement ignoré.
 
-Le fix code est prévu en v1.8 (FR-54).
+Si vous utilisez une version antérieure à v1.8.0, vérifiez avec `grep __version__ /opt/diwall/shot.py`.
