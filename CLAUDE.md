@@ -1,0 +1,90 @@
+# Diwall — Règles de démarrage pour Claude Code
+
+Ce fichier est lu automatiquement à chaque ouverture de session Claude Code
+dans ce répertoire. Ces règles sont **non négociables**.
+
+---
+
+## Règle n°1 — Pré-vol obligatoire avant toute manipulation Diwall
+
+**Avant d'exécuter la moindre commande impliquant shot.py, rpa.py, watch.py,
+vault.py, ou tout fichier sous `/opt/diwall/` ou `~/git/Diwall/` :**
+
+```bash
+cat /opt/diwall/docs/GUIDE_LLM.md
+```
+
+Lire ce fichier en entier. Ne pas résumer, ne pas sauter de section.
+
+**Pourquoi c'est non négociable :**
+Diwall n'est pas dans le corpus d'entraînement du modèle. Sans cette lecture,
+le LLM improvise : il réinvente du scraping curl, il extrait des credentials
+en clair dans le shell, il utilise les mauvaises primitives. Cela a eu lieu en
+session 19 (09/06/2026) et a causé une violation de sécurité documentée.
+
+---
+
+## Règle n°2 — Interdiction absolue d'extraction de credentials en shell
+
+Les formes suivantes sont **interdites** :
+
+```bash
+# INTERDIT — expose le mot de passe dans l'environnement shell et /proc
+PASS=$(jq -r '.password' ~/Vaults/.../fichier.json)
+USER=$(jq -r '.username' ~/Vaults/.../fichier.json)
+
+# INTERDIT — le mot de passe transite en clair dans la ligne de commande
+curl -d "password=$PASS" https://...
+```
+
+**Forme correcte — vault résolu par shot.py à l'intérieur de Playwright :**
+
+```json
+[
+  {"type": "remplir_som", "id": 2, "valeur": "depuis_vault", "vault_cle": "username"},
+  {"type": "remplir_som", "id": 3, "valeur": "depuis_vault", "vault_cle": "password"},
+  {"type": "cliquer_som", "id": 5},
+  {"type": "attendre_selecteur_present", "selecteur": ".user-logged-in"}
+]
+```
+
+Le vault est lu par `lib/vault.py` à l'intérieur du processus Playwright.
+Les valeurs ne transitent jamais dans le shell, dans les logs de processus,
+ni dans l'historique bash.
+
+---
+
+## Règle n°3 — Utiliser Diwall, pas curl
+
+Toute tâche d'authentification, de navigation, de lecture de page web
+**doit passer par shot.py ou rpa.py**. Jamais par curl, wget, lynx, ou
+un script d'extraction HTML maison.
+
+Diwall donne des yeux (captures PNG + SoM + a11y) et des mains (actions
+Playwright) au LLM. L'utiliser comme prévu, pas l'ignorer.
+
+---
+
+## Règle n°4 — Piège `attendre_url` (FR-55)
+
+`attendre_url` utilise une correspondance partielle (`contains`).
+Le motif `/control/` correspond **immédiatement** à l'URL `/control/login/`
+sans attendre la navigation post-login.
+
+**Toujours utiliser `attendre_selecteur_present` après un submit de formulaire :**
+
+```json
+{"type": "attendre_selecteur_present", "selecteur": ".element-present-apres-login"}
+```
+
+---
+
+## Règle n°5 — `--actions` (fichier) incompatible avec `--reprendre-session` (FR-54)
+
+En mode `--reprendre-session`, seul `--action` (JSON inline) est supporté.
+`--actions` (fichier) est **silencieusement ignoré** — les champs restent vides.
+
+**En mode `--reprendre-session` :** utiliser `--action '[{...}]'` (inline).  
+**En mode `--url` (Mode A) :** `--actions /tmp/fichier.json` fonctionne.
+
+Le fix code est prévu en v1.8 (FR-54).

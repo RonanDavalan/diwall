@@ -1,8 +1,32 @@
 # Diwall — LLM Session Guide
 
-Version 1.4 — June 2026
+Version 1.8 — June 2026
 
 **You are a language model. This document tells you everything you need to operate Diwall.**
+
+---
+
+## ⚠ Security rules — read before anything else
+
+These rules are non-negotiable. Violating them exposes credentials in clear text.
+
+**FORBIDDEN — extracts password into shell environment and process table:**
+```bash
+PASS=$(jq -r '.password' ~/Vaults/.../file.json)   # NEVER DO THIS
+USER=$(jq -r '.username' ~/Vaults/.../file.json)    # NEVER DO THIS
+```
+
+**CORRECT — vault resolved inside Playwright by shot.py, never in the shell:**
+```json
+{"type": "remplir_som", "id": 2, "valeur": "depuis_vault", "vault_cle": "username"}
+{"type": "remplir_som", "id": 3, "valeur": "depuis_vault", "vault_cle": "password"}
+```
+
+The vault is read by `lib/vault.py` inside the Playwright process. Values never
+appear in the shell, bash history, process list, or any log.
+
+**Also forbidden:** using `curl`, `wget`, or any HTTP client other than shot.py/rpa.py
+for authentication or page scraping. Diwall exists precisely to avoid this pattern.
 
 ---
 
@@ -167,7 +191,7 @@ Scenario format:
 | `defiler` | `px` or `selecteur` | Scroll viewport: relative pixels or `scrollIntoView` (v1.6) |
 | `attendre_mfa_ntfy` | `id_som`, [`timeout`] | Wait for 2FA code via ntfy, type into SoM element (v1.6) |
 | `nettoyer_overlay` | `selecteur` | Mask fixed/sticky overlays before SoM injection. Explicit CSS selector required — no auto-detection. Forbidden in `watch.py` QA scenarios (would hide layout regressions). Execute **before** SoM generation. (v1.9) |
-| `attendre_url` | `motif` | Wait until current URL contains `motif`. Uses `page.wait_for_url()`. (v1.9) |
+| `attendre_url` | `motif`, [`attendre_changement`] | Wait until current URL contains `motif`. **Partial match** — resolves immediately if current URL already contains `motif`. Set `"attendre_changement":true` to wait for a navigation away from the current URL first (FR-55, v1.8.1). |
 | `attendre_selecteur_present` | `selecteur` | Wait for element to become visible. Uses `page.wait_for_selector(state="visible")`. Use to confirm a successful login before continuing. (v1.9) |
 | `attendre_absence` | `selecteur` | Wait for element to disappear (spinner, loading veil). Uses `page.wait_for_selector(state="detached")`. (v1.9) |
 | `attendre_reseau_calme` | [`timeout_ms`] | Wait for 500ms network silence. Uses `page.wait_for_load_state("networkidle")`. `timeout_ms` = max wait before abort (distinct from the 500ms silence threshold). (v1.9) |
@@ -933,6 +957,78 @@ on a Django application (Pretix, etc.) silently redirects to the dashboard (REX 
   --url https://host/control/some-page/ \
   --reprendre-session session.json --som
 ```
+
+### `--actions` (file) silently ignored with `--reprendre-session` (FR-54)
+
+In `--reprendre-session` mode (Mode B), only `--action` (inline JSON) is loaded.
+`--actions /path/to/file.json` is **silently ignored** — the actions file is never read,
+the fields stay empty, the login appears to succeed but does nothing (REX session 19).
+
+**Rule:** in Mode B, always use `--action` (inline):
+```bash
+/opt/diwall/venv/bin/python3 /opt/diwall/shot.py \
+  --reprendre-session session.json \
+  --action '[{"type":"remplir_som","id":2,"valeur":"depuis_vault","vault_cle":"username"}]' \
+  --sauver-session session.json --som
+```
+
+**In Mode A (`--url`)**, `--actions /tmp/file.json` works correctly.
+
+Fix in progress: v1.8 will unify both modes (FR-54).
+
+---
+
+### `attendre_url` partial-match false positive (FR-55)
+
+`attendre_url` uses `page.wait_for_url("**motif**")` which is a **substring match**.
+The motif `/control/` matches the current URL `/control/login/` **immediately**, before
+any navigation occurs. The action returns instantly with no post-login redirect.
+
+**Never use a motif that is a substring of the current URL.**
+
+```json
+// BAD — /control/ matches /control/login/ immediately
+{"type": "attendre_url", "motif": "/control/"}
+
+// GOOD — use attendre_selecteur_present on an element that only exists post-login
+{"type": "attendre_selecteur_present", "selecteur": ".context-name"}
+
+// GOOD — use a motif that does NOT appear in the login URL
+{"type": "attendre_url", "motif": "/control/dashboard"}
+```
+
+**Rule after any form submit:** always use `attendre_selecteur_present` on a
+structural element that is only present on the post-login page. This is unambiguous
+regardless of URL structure.
+
+---
+
+### SoM IDs invalidated after any DOM mutation (FR-56)
+
+The "SoM IDs after a scroll" rule (see below) applies to **any** DOM mutation, not
+only scrolls. Cookie consent banners, modals, overlays, flash messages — all of these
+modify the interactive element count and **invalidate all previous SoM IDs**.
+
+**Pattern:** accept cookie banner → DOM changes → SoM IDs shift → `cliquer_som 13` crashes.
+
+**Rule:** after any action that adds or removes visible DOM elements (cookie banner
+dismissal, modal open/close, overlay disappearance), always run a fresh `shot.py --som`
+before using `cliquer_som` or `remplir_som`. Never reuse IDs across DOM mutations.
+
+```bash
+# Step 1: dismiss the cookie banner
+/opt/diwall/venv/bin/python3 /opt/diwall/shot.py \
+  --reprendre-session session.json \
+  --action '[{"type":"cliquer_som","id":2},{"type":"attendre_reseau_calme"}]' \
+  --sauver-session session.json
+
+# Step 2: re-capture SoM — IDs have changed
+/opt/diwall/venv/bin/python3 /opt/diwall/shot.py \
+  --reprendre-session session.json --som
+# → Read the new capture, use the new IDs
+```
+
+---
 
 ### Save session only after full auth redirect completes
 
