@@ -9,7 +9,7 @@ import sys
 import time
 from datetime import datetime, timezone
 
-__version__ = "1.7.3"
+__version__ = "1.8.0"
 
 # Permet d'importer lib/ depuis le même répertoire que shot.py
 sys.path.insert(0, os.path.dirname(os.path.abspath(__file__)))
@@ -269,8 +269,11 @@ def _sauver_session(ctx, page, chemin, viewport):
             "version_shot": __version__,
         },
     }
-    with open(chemin, "w", encoding="utf-8") as f:
+    # Écriture atomique : évite la corruption du fichier lors d'appels rapides successifs
+    chemin_tmp = chemin + ".tmp"
+    with open(chemin_tmp, "w", encoding="utf-8") as f:
         json.dump(session, f, ensure_ascii=False, indent=2)
+    os.replace(chemin_tmp, chemin)
 
 
 def _charger_session(chemin):
@@ -655,6 +658,53 @@ def executer_actions(page, actions, output_dir, timeout, mode_llm="local",
             page.mouse.click(coord["x"], coord["y"])
             page.keyboard.press("Control+a")
             page.keyboard.type(str(code))
+
+        elif t == "attendre_url":
+            motif = a.get("motif", "")
+            if not motif:
+                raise ValueError(
+                    "attendre_url requiert un champ 'motif' (sous-chaîne de l'URL attendue). "
+                    "Exemple : {\"type\":\"attendre_url\",\"motif\":\"/dashboard\"}"
+                )
+            page.wait_for_url(f"**{motif}**", timeout=timeout)
+
+        elif t == "attendre_selecteur_present":
+            if "selecteur" not in a:
+                raise ValueError(
+                    "attendre_selecteur_present requiert un champ 'selecteur' (CSS). "
+                    "Attend que l'élément devienne visible (state=visible)."
+                )
+            page.wait_for_selector(a["selecteur"], state="visible", timeout=timeout)
+
+        elif t == "attendre_absence":
+            if "selecteur" not in a:
+                raise ValueError(
+                    "attendre_absence requiert un champ 'selecteur' (CSS). "
+                    "Attend que l'élément disparaisse du DOM (state=detached)."
+                )
+            page.wait_for_selector(a["selecteur"], state="detached", timeout=timeout)
+
+        elif t == "attendre_reseau_calme":
+            # timeout_ms = durée max avant abandon (distinct des 500ms de silence interne networkidle)
+            timeout_ms_local = int(a.get("timeout_ms", timeout))
+            page.wait_for_load_state("networkidle", timeout=timeout_ms_local)
+
+        elif t == "nettoyer_overlay":
+            selecteur = a.get("selecteur")
+            if not selecteur:
+                raise ValueError(
+                    "nettoyer_overlay requiert un champ 'selecteur' (CSS). "
+                    "Pas d'auto-détection — déclarer explicitement les éléments à masquer. "
+                    "Exemple : {\"type\":\"nettoyer_overlay\",\"selecteur\":\".cookie-banner\"}"
+                )
+            page.evaluate(
+                """(sel) => {
+                    document.querySelectorAll(sel).forEach(el => {
+                        el.style.setProperty('visibility', 'hidden', 'important');
+                    });
+                }""",
+                selecteur,
+            )
 
         else:
             raise ValueError(f"Type d'action inconnu : {t!r}")

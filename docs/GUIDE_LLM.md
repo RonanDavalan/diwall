@@ -89,7 +89,7 @@ JSON output:
 **Step 1 — Initial navigation:**
 ```bash
 /opt/diwall/venv/bin/python3 /opt/diwall/shot.py \
-  --navigate https://target.local/ \
+  --url https://target.local/ \
   --sauver-session /tmp/diwall/session.json \
   --som --a11y
 ```
@@ -107,6 +107,16 @@ JSON output:
 ```bash
 --action '[{"type":"remplir_som","id":1,"valeur":"password"},{"type":"cliquer_som","id":2}]'
 ```
+
+> **Shell escaping rule (REX friction #49):** for any `--action` containing JavaScript quotes,
+> backslashes, or special characters, **always use `--actions /tmp/file.json`** — never inline.
+> Shell interpretation silently corrupts the JSON before it reaches shot.py.
+> ```bash
+> cat > /tmp/actions.json << 'EOF'
+> [{"type":"evaluer","script":"document.querySelector('#field').value"}]
+> EOF
+> /opt/diwall/venv/bin/python3 /opt/diwall/shot.py --url … --actions /tmp/actions.json
+> ```
 
 **With vault credentials:**
 ```bash
@@ -145,7 +155,7 @@ Scenario format:
 |---|---|---|
 | `naviguer` | `url` | Full HTTP reload — avoid in SPAs |
 | `cliquer` | `selecteur` (CSS) | Mode A only |
-| `remplir` | `selecteur`, `valeur` | `valeur` can be `"depuis_vault"` or `"depuis_vault_totp"` |
+| `remplir` | `selecteur`, `valeur` | `valeur` can be `"depuis_vault"` or `"depuis_vault_totp"`. **Does not work on `<select>` elements** — use `evaluer` with `HTMLSelectElement.value` or `remplir_som` instead. |
 | `cliquer_som` | `id` | Exact DOM click via SoM |
 | `remplir_som` | `id`, `valeur`, [`vault_cle`] | Exact DOM fill; `valeur` can be `"depuis_vault_totp"` |
 | `cliquer_visuel` | `description` | LLM vision fallback (~32s, avoid if SoM works) |
@@ -156,6 +166,11 @@ Scenario format:
 | `evaluer` | `script` | Runs `page.evaluate(script)`; result returned in `evaluations[]` (v1.1) |
 | `defiler` | `px` or `selecteur` | Scroll viewport: relative pixels or `scrollIntoView` (v1.6) |
 | `attendre_mfa_ntfy` | `id_som`, [`timeout`] | Wait for 2FA code via ntfy, type into SoM element (v1.6) |
+| `nettoyer_overlay` | `selecteur` | Mask fixed/sticky overlays before SoM injection. Explicit CSS selector required — no auto-detection. Forbidden in `watch.py` QA scenarios (would hide layout regressions). Execute **before** SoM generation. (v1.9) |
+| `attendre_url` | `motif` | Wait until current URL contains `motif`. Uses `page.wait_for_url()`. (v1.9) |
+| `attendre_selecteur_present` | `selecteur` | Wait for element to become visible. Uses `page.wait_for_selector(state="visible")`. Use to confirm a successful login before continuing. (v1.9) |
+| `attendre_absence` | `selecteur` | Wait for element to disappear (spinner, loading veil). Uses `page.wait_for_selector(state="detached")`. (v1.9) |
+| `attendre_reseau_calme` | [`timeout_ms`] | Wait for 500ms network silence. Uses `page.wait_for_load_state("networkidle")`. `timeout_ms` = max wait before abort (distinct from the 500ms silence threshold). (v1.9) |
 
 ### `evaluer` — DOM/JS introspection (v1.1)
 
@@ -377,16 +392,20 @@ pass that ID to `cliquer_som` or `remplir_som`.
 {"password": "value", "username": "admin"}
 ```
 
-**Resolution cascade:**
-1. `DIWALL_VAULT_DIR` environment variable
-2. `vault_dir` key in `/opt/diwall/diwall.conf`
-3. Default: `~/Vaults/Diwall/`
+**Resolution cascade (v1.8):**
+1. `DIWALL_VAULT_DIR` env var — direct path override
+2. `DIWALL_CONF` env var → reads the JSON file it points to → `vault_dir` key (relative path resolved from the conf file's directory)
+3. `vault_dir` key in `/opt/diwall/diwall.conf` — machine-wide default
+4. `~/Vaults/Diwall/` — universal fallback
 
-**Per-project usage** — prefix your invocation to override the vault for a specific project:
+**Per-project usage** — place a `.diwall.conf` at your project root, then point `DIWALL_CONF` to it:
 ```bash
-DIWALL_VAULT_DIR=~/Vaults/MyProject/Diwall /opt/diwall/venv/bin/python3 /opt/diwall/shot.py …
+echo '{"vault_dir": "../MyProject-vault"}' > ~/git/MyProject/.diwall.conf
+DIWALL_CONF=~/git/MyProject/.diwall.conf /opt/diwall/venv/bin/python3 /opt/diwall/shot.py …
+# vault_dir resolved relative to the .diwall.conf file's directory
 ```
-For a permanent machine-wide default, set `vault_dir` in `/opt/diwall/diwall.conf`.
+For a one-shot override without a project conf, use `DIWALL_VAULT_DIR` directly.
+For a machine-wide default, set `vault_dir` in `/opt/diwall/diwall.conf`.
 
 **Encrypted vault (v1.5.0+):** the vault directory can be a `gocryptfs` mountpoint.
 Use `scripts/setup-vault.sh --gocryptfs` to initialise, `scripts/mount-vault.sh` to mount
@@ -540,7 +559,7 @@ exact set of models that were called during the run.
 "diwall_meta": {
   "version_shot": "1.4.0",
   "horodatage_iso": "2026-06-02T14:23:11+02:00",
-  "hostname_executant": "neo",
+  "hostname_executant": "__HOSTNAME__",
   "utilisateur_executant": "ron",
   "profil_actif": "operateur.exemple.yaml",
   "url_au_moment_capture": "https://target.local/",
@@ -625,7 +644,7 @@ Every JSON response from `shot.py` and `rpa.py` now includes a `boussole` field:
 `boussole` is always present — including on error responses. Use it to passively verify
 the execution context at every chained call, without running separate shell commands.
 
-**Expected values on neo:**
+**Expected values on your machine (`__HOSTNAME__`):**
 
 | Field | Expected |
 |---|---|
@@ -886,6 +905,52 @@ Choose `--comparer` when you need a verbal explanation of what changed
 (stable / drift / regression) that scales to dozens of targets per night
 — cost ~200 ms per call with NumPy. Both can be combined with
 `--llm-en-complement`.
+
+---
+
+## Known CLI pitfalls
+
+### Journal warning on stdout — always parse with `| tail -1`
+
+`shot.py` may emit `⚠ journal : log principal inaccessible` to **stdout** before the JSON
+when the log directory is inaccessible. This breaks piped JSON parsing (REX friction #48).
+
+**Always parse output this way:**
+```bash
+result=$(/opt/diwall/venv/bin/python3 /opt/diwall/shot.py --url … 2>/dev/null | tail -1)
+python3 -c "import json,sys; print(json.loads(sys.stdin.read()))" <<< "$result"
+```
+`2>/dev/null` suppresses stderr; `tail -1` ensures you capture only the JSON line.
+
+### `naviguer` in a resumed Django session redirects to dashboard
+
+Using `{"type":"naviguer","url":"/control/some-page/"}` inside a `--reprendre-session` call
+on a Django application (Pretix, etc.) silently redirects to the dashboard (REX friction #50).
+
+**Workaround:** pass the target URL as `--url` directly to `shot.py`, not as a `naviguer` action.
+```bash
+/opt/diwall/venv/bin/python3 /opt/diwall/shot.py \
+  --url https://host/control/some-page/ \
+  --reprendre-session session.json --som
+```
+
+### Save session only after full auth redirect completes
+
+Saving the session immediately after the login submit captures an incomplete state — auth
+cookies are not yet established (REX friction #51). Same root cause as friction #5.
+
+**Rule:** login + post-login navigation must be a single atomic action list. Never insert
+`--sauver-session` between the form submit and the first authenticated page load.
+```json
+[
+  {"type": "remplir_som", "id": 1, "valeur": "depuis_vault", "vault_cle": "username"},
+  {"type": "remplir_som", "id": 2, "valeur": "depuis_vault", "vault_cle": "password"},
+  {"type": "cliquer_som", "id": 3},
+  {"type": "pause",        "ms": 2000},
+  {"type": "naviguer",     "url": "https://host/dashboard/"},
+  {"type": "capturer",     "nom": "post-login"}
+]
+```
 
 ---
 
