@@ -4,6 +4,39 @@ Historique des décisions et découvertes par session, dans l'ordre chronologiqu
 
 ---
 
+## 2026-06-10 — Session 23 (documentation stratégique post-v1.9.2)
+
+**Contexte d'entrée :** v1.9.2 en production. Backlog vide. Terrain à venir.
+
+**Travail effectué :**
+
+- `_CADRE/SPECIFICATIONS/RADAR_USAGES.md` — parking lot d'usages potentiels :
+  horizons A (RPA admin/souverain), B (contenus/ticketing), C (synergies
+  Sillage+Sentinelle), D (signaux techniques armés). Décision : pas de roadmap
+  spéculative, idées capturées avec déclencheurs explicites.
+- `docs/FAQ_LLM.md` — FAQ publique pour les modèles : 5 Q&A techniques issus
+  des retours de 9 LLMs (PDF/images natifs, `--no-capture` garanties, Shadow DOM,
+  dry-run/linter SoM, `declencher_scenario`, carte des versions v1.9.x).
+- `docs/GUIDE_LLM.md` — pointeur "See also" vers `FAQ_LLM.md` ajouté.
+- `_CADRE/MEMOIRE/MESSAGE_LLM_REPONSE_GLOBALE_2026_06_10.md` — réponse globale
+  aux 9 LLMs : corrections version, stats, Vosk, réponses techniques Qwen/DeepSeek/Z.ai.
+- `_CADRE/MEMOIRE/CONSENTEMENTS_LLM_2026_06_10.md` — 9/9 consentements pour FAQ.
+  Note gouvernance Perplexity/S3. Comportement Z.ai (GLM) documenté.
+- `_CADRE/MEMOIRE/SIGNAUX_POST_V192.md` — 5 signaux extraits (A: sélection capteur,
+  B: mode fast/full, C: diff DOM, D: auth_status_confidence, E: auth_indicator_negative)
+  + 3 observations méta. Signal A+B convergent (2/9 modèles indépendants).
+- `_CADRE/INDEX.md` — mise à jour (RADAR_USAGES, SIGNAUX_POST_V192, CONSENTEMENTS).
+- Push public GitHub : `FAQ_LLM.md` + `GUIDE_LLM.md`. Pas de release (documentation
+  seule — une release masquerait le travail stratégique).
+
+**Stratégie de la session :** consultation de 9 LLMs indépendants conçue pour
+produire simultanément signal (SIGNAUX_POST_V192), FAQ, consentements et RADAR_USAGES.
+Méthode identique à la campagne du 03 juin 2026 (SIGNAUX_V18.md).
+
+**État en sortie :** v1.9.2 inchangée. Documentation enrichie. Terrain prévu. 56 frictions / 23 sessions.
+
+---
+
 ## 2026-06-10 — Session 22 suite (v1.9.2 — scénarios modulaires, linter SoM, hook pre-push)
 
 **Contexte d'entrée :** v1.9.1 en production. Spec 41_ validée en PHASE_DOCUMENTATION.
