@@ -10,7 +10,9 @@
     "$schema":     { "type": "string" },
     "nom":         { "type": "string" },
     "description": { "type": "string" },
-    "intention":   { "type": "string" },
+    "intention":      { "type": "string" },
+    "auth_indicator": { "type": "string", "minLength": 1,
+                        "description": "CSS selector visible only when authenticated — adds auth_status to shot.py JSON output (v1.9)" },
     "url":         { "type": "string", "format": "uri" },
     "actions": {
       "type": "array",

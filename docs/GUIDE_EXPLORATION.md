@@ -141,25 +141,32 @@ vers le dashboard (REX friction #50). Passer l'URL directement via `--url`.
 
 ## Mémoire sémantique — Lier scénario et documentation
 
-Pour chaque scénario validé, créer une fiche markdown associée dans
-`_CADRE/SPECIFICATIONS/PROCEDURES_LLM/` :
+**Séparation des responsabilités :**
+Diwall fournit la **mécanique** (`/opt/diwall/skills/`, `journal.py --exporter-skill`).
+La **mémoire sémantique** des scénarios validés appartient au projet qui utilise Diwall,
+dans son propre `_CADRE/SPECIFICATIONS/PROCEDURES_LLM/`.
 
-**`SKILL_pretix_login.md`** :
+Pour chaque scénario validé, créer une fiche `SKILL_<nom>.md` dans le `_CADRE/`
+du **projet utilisateur** (pas dans le `_CADRE/` de Diwall) :
+
+**`SKILL_pretix_login.md`** (dans le _CADRE de votre projet) :
 ```markdown
 ---
-nom: pretix-login
-description: Login administrateur sur Pretix via vault credentials
+skill: pretix-login
 scenario: pretix_login.json
+cible: __HOST_SERVICE__
+type: skill-rejoue
+derniere-validation: AAAA-MM-JJ
 ---
 
+Login administrateur Pretix via vault credentials.
 Prérequis : vault monté, fichier `__HOST_SERVICE__.json` présent.
-URL de login : `https://__HOST_SERVICE__/control/login/`
-Champs : username (id SoM stable), password (id SoM stable), bouton submit.
-Post-login : attendre 2s, vérifier URL contient `/control/`.
 ```
 
-La fiche est indexée par ChromaDB. L'agent qui cherche "login pretix" retrouve
-la fiche via `search-index.py`, lit le chemin du scénario JSON, l'exécute.
+La fiche est indexée par le RAG du projet. L'agent retrouve le skill par
+recherche sémantique, lit la clé `scenario:`, exécute avec `rpa.py --scenario`.
+
+Le gabarit de référence est `SKILL_TEMPLATE.md` dans `_CADRE/SPECIFICATIONS/PROCEDURES_LLM/`.
 
 ---
 
@@ -174,4 +181,4 @@ Avant de rédiger un scénario :
 - [ ] Comportement SPA ou full-HTTP déterminé (`url_finale` vs `a11y_tree` heading)
 - [ ] Credentials vérifiés dans le vault pour ce domaine (`urlparse(url).hostname`)
 - [ ] Scénario JSON rédigé et sauvegardé dans `scenarios/`
-- [ ] Fiche `SKILL_<nom>.md` créée dans `_CADRE/SPECIFICATIONS/PROCEDURES_LLM/`
+- [ ] Fiche `SKILL_<nom>.md` créée dans le `_CADRE/` du projet utilisateur (pas dans le `_CADRE/` de Diwall)

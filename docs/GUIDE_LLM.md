@@ -88,14 +88,17 @@ bash ~/git/Diwall/Diwall/scripts/deploy.sh
 ```bash
 /opt/diwall/venv/bin/python3 /opt/diwall/shot.py \
   --url https://target.local/ \
-  [--som]    # annotated capture + elements_som list
-  [--a11y]   # accessibility snapshot (YAML-like text)
+  [--som]                          # annotated capture + elements_som list
+  [--a11y]                         # accessibility snapshot (YAML-like text)
+  [--auth-indicator "<css>"]       # passive auth state check (v1.9)
+  [--no-capture]                   # skip PNG — semantic probe only (v1.9)
 ```
 
 JSON output:
 ```json
 {
   "succes": true,
+  "auth_status": "active",
   "capture": "/tmp/diwall/capture_<ts>.png",
   "capture_som": "/tmp/diwall/state_som_<ts>.png",
   "elements_som": [{"id": 1, "tag": "INPUT", "role": "textbox", "texte": "Password"}],
@@ -105,6 +108,9 @@ JSON output:
   "duree_ms": 1240
 }
 ```
+
+`auth_status` is only present when `--auth-indicator` is provided.
+`capture`, `capture_som`, `elements_som` are absent when `--no-capture` is active.
 
 ---
 
@@ -929,6 +935,77 @@ Choose `--comparer` when you need a verbal explanation of what changed
 (stable / drift / regression) that scales to dozens of targets per night
 — cost ~200 ms per call with NumPy. Both can be combined with
 `--llm-en-complement`.
+
+---
+
+## `--auth-indicator` — passive authentication check (v1.9)
+
+Pass a CSS selector that is only visible when the user is authenticated.
+After all actions complete, Diwall checks `page.locator(selector).is_visible()`
+and adds `auth_status` at the root of the JSON output.
+
+```bash
+/opt/diwall/venv/bin/python3 /opt/diwall/shot.py \
+  --url https://target.local/ \
+  --reprendre-session session.json \
+  --auth-indicator ".user-menu"
+```
+
+| `auth_status` value | Meaning |
+|---|---|
+| `"active"` | Selector is visible — session likely authenticated |
+| `"inactive"` | Selector is absent or hidden |
+| key absent | `--auth-indicator` was not provided |
+
+**Semantic note:** `auth_status: "active"` means the selector is visible — not that
+the session is authenticated. The mapping between DOM visibility and auth state
+is the agent's responsibility. Diwall reports a DOM fact, not an interpretation.
+
+In scenario files (`rpa.py`), declare `auth_indicator` at the root:
+```json
+{
+  "nom": "pretix_login",
+  "url": "https://target.local/",
+  "auth_indicator": ".context-name",
+  "actions": [...]
+}
+```
+
+---
+
+## `--no-capture` — semantic probe without PNG (v1.9)
+
+Skips the final screenshot, SoM injection, and disk writes.
+Use for routine DOM checks where visual feedback is not needed.
+
+**Nominal pattern — pure semantic probe:**
+```bash
+/opt/diwall/venv/bin/python3 /opt/diwall/shot.py \
+  --url https://target.local/ \
+  --reprendre-session session.json \
+  --no-capture --a11y \
+  --auth-indicator ".user-menu" \
+  --actions '[
+    {"type": "evaluer", "script": "document.querySelectorAll(\".event-row\").length"},
+    {"type": "evaluer", "script": "document.title"}
+  ]'
+```
+
+Output: `evaluations[]`, `a11y_tree`, `auth_status` — no `capture`, no `elements_som`.
+
+**Compatible combinations:**
+
+| Combination | Result |
+|---|---|
+| `--no-capture` + `--a11y` | **Allowed** — nominal pattern |
+| `--no-capture` + `evaluer` actions | **Allowed** — data extracted without PNG |
+| `--no-capture` + `--sauver-session` | **Allowed** — session saving does not require PNG |
+| `--no-capture` + `--auth-indicator` | **Allowed** — DOM check, no PNG needed |
+| `--no-capture` + `--som` | **Blocking error** — SoM requires a PNG |
+| `--no-capture` + `{"type":"capturer"}` in actions | **Blocking error** — detected before Playwright starts |
+
+**Performance:** saves ~1–2s (screenshot + SoM injection + disk I/O).
+Total execution time remains ~2–3s (Chromium launch is incompressible at ~1–1.5s).
 
 ---
 

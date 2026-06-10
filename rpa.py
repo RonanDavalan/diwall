@@ -20,7 +20,7 @@ Format du scénario :
 Le vault est résolu par lib/vault.py (DIWALL_VAULT_DIR > diwall.conf > ~/Vaults/Diwall/).
 Jamais de mot de passe dans les fichiers de scénario.
 """
-__version__ = "1.7.3"
+__version__ = "1.9.0"
 
 import argparse
 import json
@@ -152,6 +152,9 @@ def main():
     p.add_argument("--intention", default=None,
                    help="Libellé métier du run pour le journal d'opérations (v1.4). "
                         "À défaut, le champ 'intention' du scénario est utilisé.")
+    p.add_argument("--no-capture", dest="no_capture", action="store_true",
+                   help="Skip la capture PNG finale et les écritures disque (v1.9). "
+                        "Transmis à shot.py.")
     args = p.parse_args()
 
     chemin_scenario, essais = resoudre_chemin_scenario(args.scenario)
@@ -234,6 +237,11 @@ def main():
         cmd.append("--som")
     if args.a11y:
         cmd.append("--a11y")
+    if args.no_capture:
+        cmd.append("--no-capture")
+    auth_indicator = scenario.get("auth_indicator")
+    if auth_indicator:
+        cmd += ["--auth-indicator", auth_indicator]
     # Journal d'opérations (v1.4) : transmettre l'intention à shot.py, qui
     # journalise le run. L'argument CLI prime sur le champ 'intention' du
     # scénario. rpa.py ne journalise pas lui-même (un seul run = celui de
