@@ -40,7 +40,8 @@
         { "$ref": "#/definitions/AttendreSelecteurPresent" },
         { "$ref": "#/definitions/AttendreAbsence" },
         { "$ref": "#/definitions/AttendreReseauCalme" },
-        { "$ref": "#/definitions/NettoyerOverlay" }
+        { "$ref": "#/definitions/NettoyerOverlay" },
+        { "$ref": "#/definitions/DeclencherScenario" }
       ]
     },
 
@@ -258,6 +259,17 @@
         "type":      { "const": "nettoyer_overlay" },
         "selecteur": { "type": "string", "minLength": 1,
                        "description": "CSS selector of overlays to hide (visibility:hidden). Must be explicit — no auto-detection. Execute before SoM generation." }
+      }
+    },
+
+    "DeclencherScenario": {
+      "type": "object",
+      "required": ["type", "scenario"],
+      "additionalProperties": false,
+      "properties": {
+        "type":     { "const": "declencher_scenario" },
+        "scenario": { "type": "string", "minLength": 1,
+                      "description": "Name or path of the sub-scenario to inline. Resolved via the same cascade as --scenario CLI (scenarios/<name>{.json,.yaml,.yml}). Max depth: 5." }
       }
     }
   }

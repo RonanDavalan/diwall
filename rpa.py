@@ -20,7 +20,7 @@ Format du scénario :
 Le vault est résolu par lib/vault.py (DIWALL_VAULT_DIR > diwall.conf > ~/Vaults/Diwall/).
 Jamais de mot de passe dans les fichiers de scénario.
 """
-__version__ = "1.9.0"
+__version__ = "1.9.2"
 
 import argparse
 import json
@@ -95,6 +95,79 @@ def _valider_schema(scenario: dict, chemin_scenario: str) -> None:
             file=sys.stderr,
         )
         sys.exit(1)
+
+
+def _linter_som(actions, chemin_scenario):
+    """Vérifie statiquement que les actions SoM référencent un id entier positif.
+
+    Bloque avant le lancement de Playwright — fail-fast sur les erreurs détectables
+    sans accès à la page (spec 41_ §B).
+    """
+    for i, a in enumerate(actions):
+        if not isinstance(a, dict):
+            continue
+        t = a.get("type")
+        if t not in ("cliquer_som", "remplir_som"):
+            continue
+        id_val = a.get("id")
+        if not isinstance(id_val, int) or id_val < 1:
+            print(json.dumps({
+                "succes": False,
+                "erreur": "linter_som",
+                "message": (
+                    f"Action #{i} ({t}) : 'id' doit être un entier positif, "
+                    f"reçu : {json.dumps(id_val)}."
+                ),
+                "scenario": chemin_scenario,
+                "boussole": _boussole(),
+            }))
+            sys.exit(1)
+
+
+def _aplatir_actions(actions, profondeur=0):
+    """Inline les sous-scénarios référencés par declencher_scenario (spec 41_ §A).
+
+    Résolution récursive : chaque declencher_scenario est remplacé par les
+    actions du sous-scénario correspondant. Profondeur max : 5 niveaux.
+    Le vault et le journal restent gérés par le run parent.
+    """
+    if profondeur > 5:
+        print(json.dumps({
+            "succes": False,
+            "erreur": "profondeur_max_chainages",
+            "message": "Profondeur maximale de chaînage (5) atteinte — vérifier les appels circulaires.",
+            "profondeur": profondeur,
+            "boussole": _boussole(),
+        }))
+        sys.exit(1)
+
+    resultat = []
+    for a in actions:
+        if not isinstance(a, dict) or a.get("type") != "declencher_scenario":
+            resultat.append(a)
+            continue
+        nom = a.get("scenario", "")
+        chemin, essais = resoudre_chemin_scenario(nom)
+        if not chemin:
+            print(json.dumps({
+                "succes": False,
+                "erreur": "fichier_introuvable",
+                "message": f"Sous-scénario introuvable : {nom}",
+                "chemins_testes": essais,
+                "boussole": _boussole(),
+            }))
+            sys.exit(1)
+        try:
+            sous = charger_scenario(chemin)
+        except Exception as e:
+            print(json.dumps({
+                "succes": False, "erreur": "scenario_invalide",
+                "message": f"Sous-scénario {nom!r} : {e}",
+                "boussole": _boussole(),
+            }))
+            sys.exit(1)
+        resultat.extend(_aplatir_actions(sous.get("actions", []), profondeur + 1))
+    return resultat
 
 
 def resoudre_chemin_scenario(arg: str) -> tuple:
@@ -180,6 +253,13 @@ def main():
     # est installé et le schéma rejette ; warning unique sinon.
     _valider_schema(scenario, chemin_scenario)
 
+    # Chaînage : inline les sous-scénarios avant toute autre opération (v1.9.2).
+    actions_brutes = scenario.get("actions", [])
+    actions = _aplatir_actions(actions_brutes)
+
+    # Linter SoM : vérifie les id entiers avant Playwright (v1.9.2).
+    _linter_som(actions, chemin_scenario)
+
     url = scenario.get("url")
     if not url:
         print(json.dumps({
@@ -188,8 +268,6 @@ def main():
             "boussole": _boussole(),
         }))
         sys.exit(1)
-
-    actions = scenario.get("actions", [])
 
     # Pré-validation du coffre (fail-fast) SANS résoudre les valeurs : on
     # vérifie l'existence du coffre et des clés référencées, puis on passe
