@@ -129,7 +129,16 @@ if ! id -Gn "$USER" 2>/dev/null | tr ' ' '\n' | grep -qx "$GROUPE"; then
     echo "  (ou utiliser : sg $GROUPE -c \"commande\")"
 fi
 
-# ── Étape 8 — Smoke test ─────────────────────────────────────────────────────
+# ── Étape 8 — Hook git pre-push ──────────────────────────────────────────────
+# Active le hook preflight via core.hooksPath (versionné dans scripts/hooks/).
+# Contournement explicite si nécessaire : git push --no-verify
+if git -C "$REPO" config core.hooksPath scripts/hooks 2>/dev/null; then
+    echo "  Hook     : pre-push activé (core.hooksPath → scripts/hooks/)"
+else
+    echo "  Hook     : non activé (répertoire non-git — ignoré)"
+fi
+
+# ── Étape 9 — Smoke test ─────────────────────────────────────────────────────
 if [ "$SKIP_TEST" = false ]; then
     echo ""
     echo "  Smoke test sur $URL_TEST..."

@@ -1,0 +1,7 @@
+#!/usr/bin/env bash
+# Hook git pre-push — bloque si preflight-publication.sh échoue.
+# Activé par : git config core.hooksPath scripts/hooks  (posé par install.sh)
+# Contournement explicite si nécessaire : git push --no-verify
+set -euo pipefail
+REPO_DIR="$(cd "$(dirname "$0")/../.." && pwd)"
+bash "$REPO_DIR/scripts/preflight-publication.sh"

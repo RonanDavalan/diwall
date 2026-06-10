@@ -4,6 +4,24 @@ Historique des décisions et découvertes par session, dans l'ordre chronologiqu
 
 ---
 
+## 2026-06-10 — Session 22 suite (v1.9.2 — scénarios modulaires, linter SoM, hook pre-push)
+
+**Contexte d'entrée :** v1.9.1 en production. Spec 41_ validée en PHASE_DOCUMENTATION.
+
+**Travail effectué :**
+
+- `rpa.py` (v1.9.2) — `_aplatir_actions()` : inline les sous-scénarios
+  `declencher_scenario` récursivement (max 5 niveaux, erreur explicite).
+- `rpa.py` — `_linter_som()` : vérifie que `cliquer_som`/`remplir_som` ont un `id`
+  entier positif avant tout appel Playwright. Fail-fast avec JSON structuré.
+- `scenarios/schema.json` — définition `DeclencherScenario` ajoutée au `oneOf` de `Action`.
+- `scripts/hooks/pre-push` — nouveau fichier (755), invoque `preflight-publication.sh`.
+- `scripts/install.sh` — étape 8 : `git config core.hooksPath scripts/hooks`.
+
+**État en sortie :** PHASE_VALIDATION en cours (test à froid). 56 frictions / 22 sessions.
+
+---
+
 ## 2026-06-10 — Session 22 (v1.9.1 — validation hardening sécurité)
 
 **Contexte d'entrée :** v1.9.0 en production. Backlog vide. Roadmap mise à jour.
