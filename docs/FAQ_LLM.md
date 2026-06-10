@@ -19,13 +19,13 @@ via Ollama). No external library, no cloud service.
 
 ```bash
 /opt/diwall/venv/bin/python3 /opt/diwall/shot.py \
-  --url file:///home/ron/documents/invoice.pdf \
+  --url file:///home/<user>/documents/invoice.pdf \
   --som --a11y
 ```
 
 For a JPEG:
 ```bash
---url file:///home/ron/photos/screenshot.jpg
+--url file:///home/<user>/photos/screenshot.jpg
 ```
 
 The browser renders it, `shot.py` captures it, the vision LLM reads it.
