@@ -4,6 +4,30 @@ Historique des décisions et découvertes par session, dans l'ordre chronologiqu
 
 ---
 
+## 2026-06-10 — Session 21 (S-1 auth_indicator, S-2 --no-capture, v1.9.0)
+
+**Contexte d'entrée :** v1.8.0 en production. Backlog réel : S-1 et S-2
+(signaux terrain Gemini). FR-51 doctrine, #36/#38/#41/#42 clos (sessions 18-19).
+
+**Travail effectué :**
+
+- `shot.py` (S-1) — `--auth-indicator "<css>"` : après actions, vérifie la
+  visibilité du sélecteur via `page.locator().is_visible()`. Ajoute
+  `auth_status: "active"|"inactive"` à la racine JSON. Clé absente si flag absent.
+- `shot.py` (S-2) — `--no-capture` : skip `page.screenshot()`, SoM,
+  écritures PNG. `--no-capture + --som` et `--no-capture + capturer` :
+  erreurs bloquantes avant lancement Playwright. Compatible `--a11y`,
+  `--sauver-session`, `--auth-indicator`.
+- `rpa.py` — `--no-capture` transmis à shot.py. `auth_indicator` lu depuis
+  la racine du scénario JSON, transmis via `--auth-indicator`.
+- `scenarios/schema.json` — `auth_indicator` optionnel ajouté aux propriétés racine.
+
+**Tests :** T_S1_A à T_S2_D — tous verts (8/8).
+
+**État en sortie :** `/opt/diwall/` synchronisé (deploy.sh). v1.9.0. 56 frictions / 21 sessions.
+
+---
+
 ## 2026-06-09/10 — Sessions 19–20 (FR-54 à FR-58, v1.8.0 publiée)
 
 **Contexte d'entrée :** errata session 18 — venv recréé, `docs/` absent de

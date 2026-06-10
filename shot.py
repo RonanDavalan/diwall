@@ -9,7 +9,7 @@ import sys
 import time
 from datetime import datetime, timezone
 
-__version__ = "1.8.0"
+__version__ = "1.9.0"
 
 # Permet d'importer lib/ depuis le même répertoire que shot.py
 sys.path.insert(0, os.path.dirname(os.path.abspath(__file__)))
@@ -350,6 +350,12 @@ def parse_args():
     p.add_argument("--intention", default=None,
                    help="Libellé métier du run, consigné dans le journal d'opérations "
                         "(v1.4). Ex. : \"Suppression clone allsys.online 2026-05-30\".")
+    p.add_argument("--auth-indicator", dest="auth_indicator", default=None,
+                   help="Sélecteur CSS visible uniquement en session authentifiée (v1.9). "
+                        "Ajoute auth_status (\"active\"|\"inactive\") à la racine du JSON.")
+    p.add_argument("--no-capture", dest="no_capture", action="store_true",
+                   help="Skip la capture PNG finale, l'injection SoM et les écritures disque (v1.9). "
+                        "Incompatible avec --som et l'action capturer.")
     return p.parse_args()
 
 
@@ -780,6 +786,22 @@ def main():
             }))
             sys.exit(1)
 
+    # ── Validation --no-capture ──────────────────────────────────────────────
+    if args.no_capture and args.som:
+        print(json.dumps({
+            "succes": False, "erreur": "arguments_incompatibles",
+            "message": "--no-capture est incompatible avec --som : SoM requiert un PNG",
+            "horodatage": horodatage, "boussole": _boussole(),
+        }))
+        sys.exit(1)
+    if args.no_capture and any(a.get("type") == "capturer" for a in actions):
+        print(json.dumps({
+            "succes": False, "erreur": "arguments_incompatibles",
+            "message": "--no-capture est incompatible avec l'action 'capturer' dans le scénario",
+            "horodatage": horodatage, "boussole": _boussole(),
+        }))
+        sys.exit(1)
+
     # ── Chemin de sortie ──────────────────────────────────────────────────────
     if args.output:
         sortie = args.output if os.path.splitext(args.output)[1] else args.output + ".png"
@@ -845,15 +867,25 @@ def main():
             url_finale = page.url  # mise à jour après actions
 
             # ── Capture finale ────────────────────────────────────────────────
-            page.screenshot(path=sortie, full_page=True)
+            if not args.no_capture:
+                page.screenshot(path=sortie, full_page=True)
 
             # ── SoM ───────────────────────────────────────────────────────────
             capture_som, elements_som, hors_vp_som = None, [], 0
-            if args.som:
+            if args.som and not args.no_capture:
                 capture_som, elements_som, hors_vp_som = _injecter_som(page, args.output_dir)
 
             # ── A11y ──────────────────────────────────────────────────────────
             a11y_tree = _snapshot_a11y(page) if args.a11y else None
+
+            # ── Auth status ───────────────────────────────────────────────────
+            auth_status = None
+            if args.auth_indicator:
+                try:
+                    visible = page.locator(args.auth_indicator).is_visible()
+                    auth_status = "active" if visible else "inactive"
+                except Exception:
+                    auth_status = "inactive"
 
             # ── Sauvegarde session ────────────────────────────────────────────
             session_file = None
@@ -866,7 +898,6 @@ def main():
 
         result = {
             "succes": True,
-            "capture": sortie,
             "http_status": http_status,
             "url_finale": url_finale,
             "erreurs_js": erreurs_js,
@@ -876,6 +907,10 @@ def main():
                 profil, horodatage, modeles_appeles, url_finale,
             ),
         }
+        if not args.no_capture:
+            result["capture"] = sortie
+        if auth_status is not None:
+            result["auth_status"] = auth_status
         if interm:
             result["captures_intermediaires"] = interm
         if stream_captures:
