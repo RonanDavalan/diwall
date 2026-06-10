@@ -4,6 +4,25 @@ Historique des décisions et découvertes par session, dans l'ordre chronologiqu
 
 ---
 
+## 2026-06-10 — Session 22 (v1.9.1 — validation hardening sécurité)
+
+**Contexte d'entrée :** v1.9.0 en production. Backlog vide. Roadmap mise à jour.
+
+**Travail effectué :**
+
+- Audit backlog : v1.4.1 (hardening journal & sécurité mémoire) identifiée comme
+  implémentée progressivement lors des sessions v1.6 → v1.9, jamais formellement validée.
+- Validation par les 4 tests de la spec `36_HARDENING_V141.md` : T-A ✓ T-B ✓ T-C ✓ T-D ✓.
+  Items vérifiés : fallback `/tmp/`, avertissement fallback dans `journal.py`,
+  `RLIMIT_CORE = (0,0)`, nettoyage sessions éphémères.
+- `shot.py` + `journal.py` : `__version__` bumped 1.9.0 / 1.6.0 → **1.9.1**.
+- `10_ROADMAP.md` : mis à jour v1.6.0 → v1.9.0 (entrées livrées), v1.9.1 ajouté.
+- `36_HARDENING_V141.md` : statut mis à jour LIVRÉE v1.9.1.
+
+**État en sortie :** `/opt/diwall/` à déployer (deploy.sh). 56 frictions / 22 sessions.
+
+---
+
 ## 2026-06-10 — Session 21 (S-1 auth_indicator, S-2 --no-capture, v1.9.0)
 
 **Contexte d'entrée :** v1.8.0 en production. Backlog réel : S-1 et S-2
