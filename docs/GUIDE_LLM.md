@@ -1152,6 +1152,15 @@ files sit directly in the pointed directory.
 
 ---
 
+## See also
+
+- `docs/FAQ_LLM.md` — answers to recurring LLM questions (Shadow DOM, `--no-capture` guarantees, dry-run, version map, PDF/image analysis)
+- `docs/GUIDE_EXPLORATION.md` — exploring an unknown interface
+- `docs/RETOUR_EXPERIENCE.md` — terrain frictions and resolutions
+- `docs/RADAR_MODELES.md` — observed LLM behaviour on real sessions
+
+---
+
 ## AgentIc loop — your basic gesture
 
 ```
