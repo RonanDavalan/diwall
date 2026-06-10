@@ -18,7 +18,7 @@ Historique des décisions et découvertes par session, dans l'ordre chronologiqu
 - `scripts/hooks/pre-push` — nouveau fichier (755), invoque `preflight-publication.sh`.
 - `scripts/install.sh` — étape 8 : `git config core.hooksPath scripts/hooks`.
 
-**État en sortie :** PHASE_VALIDATION en cours (test à froid). 56 frictions / 22 sessions.
+**État en sortie :** v1.9.2 livrée, release GitHub publiée. Terrain prévu session 23. 56 frictions / 22 sessions.
 
 ---
 
