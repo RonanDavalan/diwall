@@ -7,7 +7,7 @@ Historique des décisions et découvertes par session, dans l'ordre chronologiqu
 ## 2026-06-11 — Session 24 (REX terrain Sillage + canal inter-LLM)
 
 **Contexte d'entrée :** v1.9.2 en production. Backlog vide. REX de validation E2E
-Jalon C Sillage partagé par Ronan (PHASE_VALIDATION C2, 11/06/2026).
+Jalon C Sillage partagé par l'opérateur (PHASE_VALIDATION C2, 11/06/2026).
 
 **Travail effectué :**
 
@@ -17,7 +17,7 @@ Jalon C Sillage partagé par Ronan (PHASE_VALIDATION C2, 11/06/2026).
   - Piège FR-57 "CSS-only dialogs" : `cliquer`/`cliquer_som` timeout sur
     conteneurs CSS masqués sans `<dialog open>` — pattern `evaluer`+JS obligatoire.
 - `_CADRE/MEMOIRE/MESSAGERIE_PROJETS.md` — créé : canal entrant inter-LLM.
-  Tout projet utilisant Diwall écrit ici (via Ronan) pour communiquer avec
+  Tout projet utilisant Diwall écrit ici (via l'opérateur) pour communiquer avec
   Claude Diwall. Lecture conditionnelle au démarrage (`grep OUVERT`).
 - `_CADRE/GOUVERNANCE/PROTOCOLE_DEMARRAGE.md` — item 6 conditionnel (messagerie)
   ajouté à l'instruction n°2 et à la checklist de démarrage.

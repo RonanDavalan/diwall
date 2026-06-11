@@ -1716,3 +1716,68 @@ sécurité en tête + 4 pitfalls). PHASE_EXECUTION : FR-54 et FR-55 corrigés da
 (commit `6982639`). Benchmark Gemini Flash : exercice multi-cibles réussi sans fuite de données.
 
 **56 frictions sur 19 sessions.**
+
+---
+
+## 57. Dialogues CSS Sillage — boutons bloqués par Playwright actionability
+
+**Session :** 20 (11/06/2026) — PHASE_VALIDATION C2 Sillage 3.5.6.
+
+Sillage utilise des dialogues de confirmation CSS (propriété `display`/`visibility` modifiée
+via JS) plutôt que l'élément HTML `<dialog open>`. Playwright évalue l'interactabilité
+d'un bouton en vérifiant sa visibilité dans le layout — un bouton CSS masqué échoue avec
+`Locator.click: Timeout 10000ms exceeded`.
+
+**Éléments concernés :** "Lancer le clonage", "Supprimer définitivement", tout bouton
+dans un dialogue Sillage ouvert par CSS.
+
+**Contournement systématique :**
+```json
+{
+  "type": "evaluer",
+  "script": "Array.from(document.querySelectorAll('button')).find(b => b.textContent.trim() === 'Lancer le clonage')?.click()"
+}
+```
+`.find().click()` court-circuite les vérifications d'interactabilité Playwright — le click
+JS est direct et ne dépend pas de la visibilité CSS.
+
+**Règle d'usage :** pour tout bouton dans un dialogue Sillage, préférer `evaluer` + JS.
+Ne pas tenter `cliquer` / `cliquer_som` en premier.
+
+---
+
+## 58. `evaluer .value = ...` cible l'élément ambigu quand le placeholder est réutilisé
+
+**Session :** 20 (11/06/2026) — PHASE_VALIDATION C2 Sillage 3.5.6 (formulaire ajouter_domaine).
+
+`document.querySelector('input[placeholder="https://mon-site.fr"]')` retourne le **premier**
+élément correspondant dans le DOM. Sur la page Réglages/Domaines de Sillage, plusieurs
+champs URL (domaines existants + formulaire NOUVEAU DOMAINE) partagent le même attribut
+`placeholder`. Le querySelector a ciblé l'URL du premier domaine existant au lieu du champ
+du formulaire d'ajout.
+
+**Conséquence :** valeur `https://test-c2.__DOMAINE_OPERATEUR__` injectée dans le champ URL de
+`SILLAGE.DAVALAN.FR` (DOM uniquement). Aucune soumission serveur : validation HTML5
+`required` a bloqué l'envoi car le vrai champ cible restait vide.
+
+**Fix :** utiliser `remplir_som` après une recapture SoM pour cibler l'ID numéroté exact.
+En alternative JS : `Array.from(document.querySelectorAll('input[type="url"]')).pop()` —
+le dernier champ URL sur la page est le formulaire d'ajout.
+
+**Règle d'usage :** `evaluer .value =` sur un champ ambiguë → toujours utiliser `remplir_som`
+ou un sélecteur positionnel (`last`, `nth-of-type`) pour éviter le premier match.
+
+---
+
+## Synthèse session 20
+
+2 frictions nouvelles (#57–#58) — PHASE_VALIDATION C2 Sillage 3.5.6 (4 verbes base64 JSON).
+
+Friction #57 : pattern récurrent pour Sillage — dialogs CSS sont invisibles à Playwright,
+contournement JS systématique. Friction #58 : ambiguïté de sélecteur CSS quand le même
+placeholder est réutilisé — préférer `remplir_som` pour les champs non uniques.
+
+PHASE_VALIDATION C2 : 4 verbes validés (cloner, supprimer, calculer_metriques, ajouter_domaine).
+Unification base64 JSON Sillage 3.5.6 confirmée E2E.
+
+**58 frictions sur 20 sessions.**
