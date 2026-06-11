@@ -1009,6 +1009,24 @@ Total execution time remains ~2–3s (Chromium launch is incompressible at ~1–
 
 ---
 
+## Error recovery — Stop-and-Search rule (bloquant)
+
+Si une action retourne `succes: false` ou une erreur Playwright, il est **interdit** de
+soumettre immédiatement un script corrigé. Séquence obligatoire avant toute correction :
+
+1. Interroger le RAG local (`search-index.py`) sur le message d'erreur exact
+2. Relire la section de ce guide correspondant à l'erreur
+3. Déclarer l'analyse : cause identifiée, règle violée
+4. Proposer la correction
+
+**Aucun fichier `actions_v2.json` / `_v3.json` dans `/tmp/` sans cette étape.**
+
+Cette règle est bloquante — elle n'est pas implicite dans la doctrine ReAct. Trois cycles
+perdus en PHASE_VALIDATION C2 Sillage (11/06/2026) sur des erreurs explicitement documentées
+dans ce guide (navigation post-login, sélecteurs nth-match).
+
+---
+
 ## Known CLI pitfalls
 
 ### Journal warning on stdout — always parse with `| tail -1`
@@ -1149,6 +1167,28 @@ DIWALL_CONF=~/Vaults/ProjectX/diwall.conf python3 shot.py …
 **Rule:** for any project that uses a `.diwall.conf` file for per-project vault configuration,
 always use `DIWALL_CONF`. Reserve `DIWALL_VAULT_DIR` for simple flat vaults where `<hostname>.json`
 files sit directly in the pointed directory.
+
+### CSS-only dialogs — `cliquer` timeout on hidden containers (REX FR-57)
+
+Some interfaces use `<div>` elements with CSS visibility (`display: none → block`) for
+confirmation dialogs instead of the HTML `<dialog open>` attribute. Playwright evaluates
+interactability via CSS layout and **refuses to click a button inside a CSS-hidden
+container** → `Locator.click: Timeout 10000ms exceeded`.
+
+**Affected pattern (Sillage):** "Lancer le clonage", "Supprimer définitivement", any
+Sillage confirmation dialog.
+
+**Mandatory pattern — always use `evaluer` + JS, never `cliquer` or `cliquer_som`:**
+```json
+{
+  "type": "evaluer",
+  "script": "Array.from(document.querySelectorAll('button')).find(b => b.textContent.trim() === 'Exact button text')?.click()"
+}
+```
+
+**Diagnosis rule:** if a click on a confirmation button times out and the dialog has no
+`open` attribute in the a11y tree, suspect CSS-only visibility. Switch to `evaluer`
+immediately — do not retry `cliquer` with different selectors.
 
 ---
 
