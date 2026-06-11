@@ -4,6 +4,38 @@ Historique des décisions et découvertes par session, dans l'ordre chronologiqu
 
 ---
 
+## 2026-06-11 — Session 24 (REX terrain Sillage + canal inter-LLM)
+
+**Contexte d'entrée :** v1.9.2 en production. Backlog vide. REX de validation E2E
+Jalon C Sillage partagé par Ronan (PHASE_VALIDATION C2, 11/06/2026).
+
+**Travail effectué :**
+
+- `docs/GUIDE_LLM.md` — deux ajouts issus du REX terrain :
+  - Section "Error recovery — Stop-and-Search rule" (bloquante) : séquence
+    obligatoire RAG+GUIDE_LLM+analyse avant tout script corrigé après échec.
+  - Piège FR-57 "CSS-only dialogs" : `cliquer`/`cliquer_som` timeout sur
+    conteneurs CSS masqués sans `<dialog open>` — pattern `evaluer`+JS obligatoire.
+- `_CADRE/MEMOIRE/MESSAGERIE_PROJETS.md` — créé : canal entrant inter-LLM.
+  Tout projet utilisant Diwall écrit ici (via Ronan) pour communiquer avec
+  Claude Diwall. Lecture conditionnelle au démarrage (`grep OUVERT`).
+- `_CADRE/GOUVERNANCE/PROTOCOLE_DEMARRAGE.md` — item 6 conditionnel (messagerie)
+  ajouté à l'instruction n°2 et à la checklist de démarrage.
+- `_CADRE/INDEX.md` — référence MESSAGERIE_PROJETS ajoutée.
+
+**Décision architecturale :** le canal inter-LLM est centralisé dans `_CADRE Diwall`
+(Diwall est l'instrument commun). Les projets partenaires n'ont pas à accéder au
+`_CADRE` des autres projets.
+
+**REX reçu de Claude Sillage :** deux bons réflexes documentés (FD1 CSS dialogs,
+FD2 ambiguïté placeholder/ID). Frictions évitables : violation règle modales Mode B,
+ERR_ABORTED post-login (règles documentées dans ce guide non relues avant exécution).
+
+**État en sortie :** v1.9.2 inchangée. GUIDE_LLM enrichi. Canal messagerie opérationnel.
+56 frictions / 24 sessions.
+
+---
+
 ## 2026-06-10 — Session 23 (documentation stratégique post-v1.9.2)
 
 **Contexte d'entrée :** v1.9.2 en production. Backlog vide. Terrain à venir.
