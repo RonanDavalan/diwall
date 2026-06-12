@@ -24,7 +24,6 @@ import os
 from urllib.parse import urlparse
 
 _CONF_PATH = "/opt/diwall/diwall.conf"
-_VAULT_DEFAULT = os.path.expanduser("~/Vaults/Diwall")
 
 
 class VaultFermeError(Exception):
@@ -34,6 +33,17 @@ class VaultFermeError(Exception):
     L'opérateur doit monter le coffre via scripts/mount-vault.sh ou Plasma Vault.
     """
     CODE_SORTIE = 42
+
+
+class VaultNonConfigureError(Exception):
+    """diwall.conf absent ou sans clé vault_dir — aucune configuration vault active.
+
+    Code de sortie recommandé : 43.
+    Créer diwall.conf depuis le modèle :
+      sudo cp /opt/diwall/diwall-sample.conf /opt/diwall/diwall.conf
+      sudo nano /opt/diwall/diwall.conf  # → {"vault_dir": "~/Vaults/<PROJET>/Diwall"}
+    """
+    CODE_SORTIE = 43
 
 
 def _lire_conf() -> dict:
@@ -60,7 +70,13 @@ def _chemin_vault() -> str:
     conf = _lire_conf()
     if "vault_dir" in conf:
         return os.path.expanduser(conf["vault_dir"])
-    return _VAULT_DEFAULT
+    raise VaultNonConfigureError(
+        f"Aucune configuration vault active.\n"
+        f"  {_CONF_PATH} est absent ou ne contient pas de clé 'vault_dir'.\n"
+        f"  Créez-le depuis le modèle :\n"
+        f"    sudo cp /opt/diwall/diwall-sample.conf {_CONF_PATH}\n"
+        f"    sudo nano {_CONF_PATH}  # → {{\"vault_dir\": \"~/Vaults/<PROJET>/Diwall\"}}"
+    )
 
 
 def _chemin_vault_crypt() -> str:

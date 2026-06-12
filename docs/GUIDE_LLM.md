@@ -100,8 +100,8 @@ getent group diwall
 
 The group becomes active at the next login or immediately via `sg diwall -c "command"`.
 
-**Architecture note:** Diwall runs on `neo` only. Target machines (IKE4, Davalan-vps) are
-visited over HTTPS — no Diwall process, no `diwall` user, no Playwright runs on those machines.
+**Architecture note:** Diwall runs on the operator's machine only. Target machines are
+visited over HTTPS — no Diwall process, no `diwall` user, no Playwright runs on remote targets.
 
 ---
 
