@@ -1,6 +1,6 @@
 # Diwall — LLM Session Guide
 
-Version 1.8 — June 2026
+Version 1.9 — June 2026
 
 **You are a language model. This document tells you everything you need to operate Diwall.**
 
@@ -293,6 +293,15 @@ to see the progression instead of just the final frame.
 > `:has-text("…")`, `:visible`, `:nth-match(N)` work reliably.
 > Avoid relational pseudo-selectors (`:left-of`, `:right-of`, `:near`) — version-sensitive and fail with silent timeout.
 > Prefer intrinsic attributes (`[title*=…]`, `[aria-label=…]`) over positional selectors.
+>
+> **`:nth-match` chaining rule (FN6):** `:nth-match()` is a top-level engine — it cannot be chained as a suffix.
+> ```
+> // WRONG — Playwright error: "nth-match engine expects non-empty selector list and an index argument"
+> button:has-text("Texte"):nth-match(2)
+>
+> // CORRECT — :nth-match() wraps the full selector expression
+> :nth-match(button:has-text("Texte"), 2)
+> ```
 
 ### `derive_session` — session drift warning (v1.2)
 
@@ -516,6 +525,13 @@ SoM is your exploration map. CSS selectors are your execution GPS.
 1. `#id` — most stable (avoid if generated randomly by framework)
 2. `[name=…]`, `[aria-label=…]`, `[title*=…]`, `[data-*=…]` — semantic attributes, survive DOM mutations
 3. `:has-text("…")` — last resort, breaks on i18n changes
+
+**Domain names in link selectors — strict mode violation (FN5):** a domain like `example.fr` typically
+appears in multiple `<a>` elements on the same page (header badge, clone link, breadcrumb).
+`a:has-text("example.fr")` hits all of them and Playwright strict mode refuses.
+Never use domain names as link text selectors. Prefer:
+- Navigate by direct URL (`naviguer` or `--url`) when the target page is known
+- Use a stable CSS class, `[data-domain]`, or structural context (`table tr:nth-child(N) a`) to disambiguate
 
 **Example — multi-step sequence with a modal that appears mid-sequence:**
 ```json
@@ -850,6 +866,18 @@ Skills are plain scenario files in `/opt/diwall/skills/` — replay with `rpa.py
 
 `px` is relative (positive = down, negative = up). `selecteur` scrolls the element
 into the center of the viewport. Exactly one parameter is required.
+
+**Common mistake (FN9):** the fields `direction` and `pixels` do not exist — `additionalProperties: false`
+rejects them with a schema validation error. Use `px` (integer) or `selecteur` (string).
+
+```json
+// WRONG — schema rejection
+{"type": "defiler", "direction": "bas", "pixels": 800}
+
+// CORRECT
+{"type": "defiler", "px": 800}    // scroll down 800px
+{"type": "defiler", "px": -800}   // scroll up 800px
+```
 
 `defiler` is **not mutating** — it does not change state on the server and is not
 classified as `mutatif` in the log.
@@ -1197,6 +1225,52 @@ DIWALL_CONF=~/Vaults/ProjectX/diwall.conf python3 shot.py …
 **Rule:** for any project that uses a `.diwall.conf` file for per-project vault configuration,
 always use `DIWALL_CONF`. Reserve `DIWALL_VAULT_DIR` for simple flat vaults where `<hostname>.json`
 files sit directly in the pointed directory.
+
+### Long server-side operations — `attendre_reseau_calme` and screenshot timeout (FN7)
+
+`Page.screenshot` has a **30-second hard timeout** inside Playwright that cannot be controlled
+by `rpa.py`'s `--timeout` flag. When `attendre_reseau_calme` waits for network silence and the
+server is processing a synchronous long operation (~1 min PHP clone, heavy export, etc.), the
+screenshot fires before the operation completes and the scenario aborts.
+
+**Rule:** never chain `attendre_reseau_calme` on a trigger whose server-side duration may exceed ~20s.
+Use a fixed `pause` instead — it hands timing control to the scenario author:
+
+```json
+// WRONG — Playwright screenshot timeout (30s) fires before PHP clone finishes (~60s)
+{"type": "evaluer", "script": "...click clone button..."},
+{"type": "attendre_reseau_calme"}
+
+// CORRECT — wait long enough for the server operation, then capture
+{"type": "evaluer", "script": "...click clone button..."},
+{"type": "pause", "ms": 150000},
+{"type": "capturer", "nom": "after_clone"}
+```
+
+Tune `pause` to match the expected server duration + margin. `capturer` does not trigger a
+screenshot timeout — it is compatible with long waits.
+
+### Mutating `evaluer` and server state after a failed scenario (FN8)
+
+`evaluer` sends a JS instruction to the page **immediately** — before any subsequent `attendre_*`
+action. If the scenario fails after a mutating `evaluer` (clone trigger, delete button, form
+submit), the server-side operation may have already started or completed.
+
+**Diwall cannot cancel an action that has already been dispatched to the server.**
+If you relaunch the scenario after a failure, you may create duplicate server-side artefacts
+(clones, records, jobs).
+
+**Rule:** after any failed scenario containing a mutating `evaluer`, verify the server state
+before relaunching:
+
+1. Capture the target page (Mode A, no actions) and inspect the result
+2. Confirm whether the server-side operation completed, is in progress, or did not start
+3. Only relaunch the scenario from the point after the successful mutation
+
+This rule applies to all `evaluer` scripts that trigger side effects (click on submit/confirm
+buttons, JS form dispatch, delete triggers).
+
+---
 
 ### CSS-only dialogs — `cliquer` timeout on hidden containers (REX FR-57)
 
