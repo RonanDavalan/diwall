@@ -151,23 +151,26 @@ for f in "$REPO"/docs/*.md; do
     fi
 done
 
-# ── Créer diwall.conf si absent (ne jamais l'écraser) ────────────────────────
-CONF="$DEST/diwall.conf"
-if [ ! -f "$CONF" ]; then
-    sudo tee "$CONF" > /dev/null << 'CONF_EOF'
+# ── Modèle de configuration : diwall-sample.conf (toujours écrit) ────────────
+SAMPLE="$DEST/diwall-sample.conf"
+sudo tee "$SAMPLE" > /dev/null << 'CONF_EOF'
 {
   "vault_dir": "~/Vaults/Diwall"
 }
 CONF_EOF
-    echo "  Créé    : diwall.conf (config par défaut)"
+echo "  Écrit   : diwall-sample.conf (modèle générique)"
+
+# ── diwall.conf : config machine — ne jamais créer ni écraser ────────────────
+CONF="$DEST/diwall.conf"
+if [ ! -f "$CONF" ]; then
     echo ""
-    echo "  ┌─ DIWALL.CONF — À ADAPTER À VOTRE MACHINE ──────────────────────────────┐"
-    echo "  │  vault_dir créé avec la valeur générique : ~/Vaults/Diwall           │"
-    echo "  │  Pour pointer vers votre vault, remplacez le contenu :              │"
+    echo "  ┌─ DIWALL.CONF ABSENT — ÉTAPE MANUELLE REQUISE ──────────────────────────┐"
+    echo "  │  Aucune configuration vault active sur cette machine.                │"
+    echo "  │  Toute opération vault échouera jusqu'à la création de ce fichier.   │"
     echo "  │                                                                      │"
-    echo "  │    sudo tee $CONF <<'EOF'     │"
-    echo "  │    {\"vault_dir\": \"~/Vaults/<PROJET>\"}                               │"
-    echo "  │    EOF                                                               │"
+    echo "  │    sudo cp $SAMPLE $CONF      │"
+    echo "  │    sudo nano $CONF                                                   │"
+    echo "  │    → {\"vault_dir\": \"~/Vaults/<PROJET>/Diwall\"}                       │"
     echo "  └──────────────────────────────────────────────────────────────────────┘"
 else
     echo "  Préservé: diwall.conf (config machine existante)"
@@ -178,16 +181,20 @@ fi
 # appartiennent au bon groupe mais ont les droits de la copie (644 par défaut)
 # ce qui est plus sûr que l'inverse.
 sudo chown root:"$GROUPE" "$DEST"/*.py "$DEST"/lib/*.py "$DEST"/scripts/*.sh \
-     "$DEST"/diwall.conf 2>/dev/null || true
+     "$DEST"/diwall-sample.conf "$DEST"/diwall.conf 2>/dev/null || true
 sudo chown root:"$GROUPE" "$DEST"/scenarios/*.json "$DEST"/scenarios/*.yaml \
      2>/dev/null || true
 sudo chown root:"$GROUPE" "$DEST"/skills/*.json "$DEST"/skills/*.md \
      2>/dev/null || true
 sudo chown root:"$GROUPE" "$DEST"/docs/*.md 2>/dev/null || true
 
-sudo chmod 644 "$DEST"/*.py "$DEST"/lib/*.py "$DEST"/diwall.conf 2>/dev/null || true
-sudo chmod 644 "$DEST"/scenarios/*.json "$DEST"/scenarios/*.yaml 2>/dev/null || true
-sudo chmod 644 "$DEST"/skills/*.json "$DEST"/skills/*.md 2>/dev/null || true
+# lib/*.py : code public GitHub → 644 lisible par tous
+sudo chmod 644 "$DEST"/*.py "$DEST"/lib/*.py "$DEST"/diwall-sample.conf 2>/dev/null || true
+# diwall.conf : contient vault_dir (chemin sensible) → 640 groupe diwall uniquement
+sudo chmod 640 "$DEST"/diwall.conf 2>/dev/null || true
+# scenarios/ et skills/ : données d'instance (cibles, séquences vault) → 640
+sudo chmod 640 "$DEST"/scenarios/*.json "$DEST"/scenarios/*.yaml 2>/dev/null || true
+sudo chmod 640 "$DEST"/skills/*.json "$DEST"/skills/*.md 2>/dev/null || true
 sudo chmod 644 "$DEST"/docs/*.md 2>/dev/null || true
 sudo chmod 755 "$DEST"/shot.py "$DEST"/watch.py "$DEST"/rpa.py \
      "$DEST"/journal.py 2>/dev/null || true
