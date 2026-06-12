@@ -4,6 +4,36 @@ Historique des décisions et découvertes par session, dans l'ordre chronologiqu
 
 ---
 
+## 2026-06-12 — Session 25 (v1.9.3 — hardening sécurité issu du REX Claude Sillage)
+
+**Contexte d'entrée :** v1.9.2 en production. Backlog vide. Message inter-LLM ouvert :
+trois lacunes architecturales identifiées par Claude Sillage lors de la PHASE_VALIDATION C2.
+
+**Travail effectué :**
+
+- `scripts/deploy.sh` — `diwall.conf` n'est plus créé automatiquement à l'installation.
+  `deploy.sh` écrit désormais `diwall-sample.conf` (modèle générique, 644). `diwall.conf`
+  doit être créé manuellement depuis ce modèle — son absence affiche un avertissement encadré.
+  Permissions séparées : `lib/*.py` → 644, `scenarios/*` + `skills/*` + `diwall.conf` → 640.
+
+- `lib/vault.py` — suppression du fallback silencieux `~/Vaults/Diwall`.
+  Nouvelle exception `VaultNonConfigureError` (exit 43) levée si `diwall.conf` absent
+  lors d'une résolution vault. Message structuré avec instructions de correction.
+  Le parc d'erreurs vault est désormais : 42 = coffre fermé, 43 = non configuré.
+
+- `docs/GUIDE_LLM.md` — infrastructure tree mis à jour (diwall-sample.conf / diwall.conf),
+  note fail-fast vault, section "Multi-model access" (onboarding compte service `usermod -aG`).
+
+**Décision architecturale (PHASE_PLANIFICATION, trilatérale opérateur + Gemini + Claude) :**
+`lib/` (code public GitHub) reste à 644 ; `scenarios/` et `skills/` (données d'instance)
+passent à 640 — la distinction est sémantique, pas seulement technique.
+
+**Commit :** `5f0d08e` — feat(sécurité): diwall-sample.conf + fail-fast vault + permissions 640 scenarios/skills
+
+**État en sortie :** production `/opt/diwall/` synchronisée. 56 frictions / 25 sessions.
+
+---
+
 ## 2026-06-11 — Session 24 (REX terrain Sillage + canal inter-LLM)
 
 **Contexte d'entrée :** v1.9.2 en production. Backlog vide. REX de validation E2E
