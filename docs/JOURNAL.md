@@ -252,6 +252,25 @@ création. Ajout en cours de session détecté lors de la vérification de cohé
 
 ---
 
+---
+
+## Session 26 — 12 juin 2026
+
+**Travail effectué :**
+
+- `docs/GUIDE_LLM.md` — 5 règles documentées issues de la validation E2E terrain (v1.9.3) :
+  - FN9 : champs `defiler` corrects (`px`/`selecteur`) — bloc wrong/correct ajouté pour prévenir la confusion avec `direction`/`pixels`
+  - FN6 : syntaxe `:nth-match()` — ne peut pas être chaîné en suffixe ; doit envelopper le sélecteur complet
+  - FN5 : noms de domaine dans les sélecteurs `<a>` → strict mode violation ; naviguer par URL directe
+  - FN7 : `attendre_reseau_calme` + opération serveur synchrone longue → timeout screenshot 30s fixe non contrôlable par `--timeout` ; pattern `pause` documenté
+  - FN8 : `evaluer` mutant dispatché avant le timeout Diwall → état serveur à vérifier avant relance du scénario
+
+**Version :** GUIDE_LLM.md v1.9 (doc only — pas de bump de version Diwall).
+
+**Commit :** `8a59e36` — docs(GUIDE_LLM): add FN5–FN9 rules from Sillage E2E validation
+
+---
+
 ## Sessions antérieures
 
 Les sessions 1 à 17 sont documentées dans :
