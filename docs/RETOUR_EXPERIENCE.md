@@ -1781,3 +1781,55 @@ PHASE_VALIDATION C2 : 4 verbes validés (cloner, supprimer, calculer_metriques, 
 Unification base64 JSON Sillage 3.5.6 confirmée E2E.
 
 **58 frictions sur 20 sessions.**
+
+---
+
+## 59. `attendre_reseau_calme` + opération serveur synchrone longue → timeout screenshot Playwright
+
+**Session :** 26 (12/06/2026) — PHASE_VALIDATION E2E Jalon C, troisième passage (v1.9.3), remontée Claude Sillage.
+
+`Page.screenshot` dans Playwright dispose d'un timeout interne fixé à 30 secondes, non configurable via l'option `--timeout` de `rpa.py`. Quand `attendre_reseau_calme` attend le calme réseau et que le serveur traite une opération synchrone longue (~1 min pour un clone PHP), le screenshot expire avant que l'opération ne se termine — le scénario s'interrompt sans erreur fonctionnelle côté serveur.
+
+**Ce n'est pas un bug Diwall.** C'est une contrainte Playwright : le timeout de `wait_for_load_state("networkidle")` est contrôlable via `timeout_ms`, mais le screenshot qui suit dispose de son propre plafond non exposé.
+
+**Contournement validé :** remplacer `attendre_reseau_calme` par `pause` dès que la durée serveur estimée dépasse ~20s. `pause` cède le contrôle du timing au scénario et ne déclenche pas de screenshot intermédiaire.
+
+```json
+{"type": "evaluer", "script": "/* déclencheur opération longue */"},
+{"type": "pause", "ms": 150000},
+{"type": "capturer", "nom": "after_operation"}
+```
+
+**Règle d'usage :** ne jamais enchaîner `attendre_reseau_calme` sur un déclencheur dont la durée serveur peut dépasser ~20s. `capturer` est compatible avec les longues attentes — il ne déclenche pas de timeout Playwright autonome.
+
+---
+
+## 60. `evaluer` mutant dispatché avant le timeout Diwall → artefact serveur parasite
+
+**Session :** 26 (12/06/2026) — PHASE_VALIDATION E2E Jalon C, troisième passage (v1.9.3), remontée Claude Sillage.
+
+`evaluer` envoie l'instruction JavaScript à la page **immédiatement**, avant toute action `attendre_*` qui suit dans la liste. Si le scénario échoue ensuite (timeout sur `attendre_reseau_calme`, screenshot expiré), l'opération déclenchée côté serveur a déjà démarré ou s'est terminée. **Diwall ne peut pas annuler une action déjà dispatchée au serveur.**
+
+En pratique : un `evaluer` cliquant un bouton "Lancer le clonage" + un timeout Diwall sur l'attente suivante = un clone créé côté serveur, non détecté par le scénario. La relance naïve du scénario peut créer un second clone.
+
+**Ce n'est pas un bug Diwall.** C'est une propriété fondamentale de l'architecture : Diwall est un exécuteur d'actions sans mécanisme de rollback. Les mutations serveur sont définitives dès l'envoi du signal JS.
+
+**Règle d'usage :** après tout scénario raté contenant une action mutante (`evaluer` sur bouton déclencheur, `remplir_som` + `cliquer_som` sur formulaire), vérifier l'état du serveur avant relance :
+
+1. Capturer la page cible en Mode A sans actions
+2. Confirmer si l'opération a démarré, est en cours, ou n'a pas eu lieu
+3. Reprendre le scénario uniquement à partir du point après la mutation réussie
+
+**Signal d'alerte :** si le log journal (`journal.py --cible target --mutatif`) enregistre une opération mutatrice sur la cible dans les minutes précédant l'échec, l'opération a probablement abouti côté serveur malgré le timeout Diwall.
+
+---
+
+## Synthèse session 26
+
+2 frictions nouvelles (#59–#60) — découvertes lors de la PHASE_VALIDATION E2E Jalon C (v1.9.3), remontées par Claude Sillage.
+
+Friction #59 : limitation Playwright non exposée (timeout screenshot 30s fixe) — contournement `pause` documenté. Friction #60 : propriété architecturale de Diwall (pas de rollback sur les actions mutantes) — règle de vérification d'état serveur avant relance.
+
+Les deux frictions ont été documentées dans `GUIDE_LLM.md` (section Known CLI pitfalls) et dans ce fichier. Elles complètent le tableau des comportements non évidents de l'architecture Diwall × Playwright.
+
+**60 frictions sur 26 sessions.**
