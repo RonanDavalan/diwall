@@ -24,9 +24,9 @@ trois lacunes architecturales identifiées par Claude Sillage lors de la PHASE_V
 - `docs/GUIDE_LLM.md` — infrastructure tree mis à jour (diwall-sample.conf / diwall.conf),
   note fail-fast vault, section "Multi-model access" (onboarding compte service `usermod -aG`).
 
-**Décision architecturale (PHASE_PLANIFICATION, trilatérale opérateur + Gemini + Claude) :**
-`lib/` (code public GitHub) reste à 644 ; `scenarios/` et `skills/` (données d'instance)
-passent à 640 — la distinction est sémantique, pas seulement technique.
+**Décision architecturale :** `lib/` (code public GitHub) reste à 644 ;
+`scenarios/` et `skills/` (données d'instance) passent à 640 — la distinction
+est sémantique, pas seulement technique.
 
 **Commit :** `5f0d08e` — feat(sécurité): diwall-sample.conf + fail-fast vault + permissions 640 scenarios/skills
 
