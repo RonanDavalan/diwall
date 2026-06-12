@@ -51,7 +51,8 @@ Architecture in one sentence: `shot.py` = hands (executor). You = brain (intelli
 ├── watch.py             ← visual monitoring (Phase 5)
 ├── rpa.py               ← RPA scenario runner (Phase 6)
 ├── journal.py           ← operation log reader (v1.4)
-├── diwall.conf          ← {"vault_dir": "~/Vaults/<project>/Diwall"}
+├── diwall.conf          ← {"vault_dir": "~/Vaults/<project>/Diwall"} — machine-specific, created manually
+├── diwall-sample.conf   ← generic template written by deploy.sh — copy → diwall.conf and configure
 ├── venv/                ← isolated Python — ALWAYS use this venv
 ├── lib/
 │   ├── vision.py        ← visual localisation (qwen3-vl:2b via Ollama)
@@ -80,6 +81,27 @@ After modifying source files in `~/git/Diwall/Diwall/`, deploy with:
 ```bash
 bash ~/git/Diwall/Diwall/scripts/deploy.sh
 ```
+
+---
+
+## Multi-model access — adding a service account
+
+If you operate under a service account other than `ron`, add it to the `diwall` group:
+
+```bash
+sudo usermod -aG diwall <service_account>
+```
+
+Verify:
+```bash
+getent group diwall
+# → diwall:x:NNN:ron,<service_account>
+```
+
+The group becomes active at the next login or immediately via `sg diwall -c "command"`.
+
+**Architecture note:** Diwall runs on `neo` only. Target machines (IKE4, Davalan-vps) are
+visited over HTTPS — no Diwall process, no `diwall` user, no Playwright runs on those machines.
 
 ---
 
@@ -420,6 +442,14 @@ pass that ID to `cliquer_som` or `remplir_som`.
 **Format:** `~/Vaults/<project>/Diwall/<hostname>.json`
 ```json
 {"password": "value", "username": "admin"}
+```
+
+**`diwall.conf` must exist before any vault operation.** It is not created automatically
+by `deploy.sh` — only `diwall-sample.conf` (generic template) is. If absent, vault
+operations fail immediately with a structured error message inviting you to run:
+```bash
+sudo cp /opt/diwall/diwall-sample.conf /opt/diwall/diwall.conf
+# then edit vault_dir with the real vault path for this machine
 ```
 
 **Resolution cascade (v1.8):**
