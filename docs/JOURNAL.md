@@ -11,7 +11,7 @@ Message Sillage : 4 nouvelles frictions terrain FN10–FN13 issues du re-test Ja
 
 **Travail effectué :**
 
-Trilatérale Ronan / Claude Diwall / Gemini en PHASE_PLANIFICATION : analyse du coût élevé
+Trilatérale opérateur / Claude Diwall / Gemini en PHASE_PLANIFICATION : analyse du coût élevé
 des sessions E2E sur fonctionnalités inédites (7 invocations rpa.py pour la suppression en
 lot — FN8 déclenché). Décision : réduire le coût par une passe d'exploration non-mutante
 obligatoire avant tout scénario opérationnel.
