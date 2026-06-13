@@ -1,0 +1,20 @@
+{
+  "$schema": "https://raw.githubusercontent.com/RonanDavalan/diwall/main/scenarios/schema.json",
+  "nom": "diagnostic_dom",
+  "description": "Exploration non-mutante des elements interactifs d'une page. Utiliser avec --url pour cibler n'importe quelle vue sans modifier ce fichier.",
+  "url": "https://example.com",
+  "actions": [
+    {
+      "type": "evaluer",
+      "script": "JSON.stringify(Array.from(document.querySelectorAll('button')).map(b=>({text:b.textContent.trim(),type:b.type,id:b.id,class:b.className})))"
+    },
+    {
+      "type": "evaluer",
+      "script": "JSON.stringify(Array.from(document.querySelectorAll('input')).map(i=>({type:i.type,id:i.id,name:i.name,value:i.value,placeholder:i.placeholder})))"
+    },
+    {
+      "type": "evaluer",
+      "script": "JSON.stringify(Array.from(document.querySelectorAll('select')).map(s=>({id:s.id,name:s.name,options:[...s.options].map(o=>o.value)})))"
+    }
+  ]
+}

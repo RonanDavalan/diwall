@@ -20,7 +20,7 @@ Format du scénario :
 Le vault est résolu par lib/vault.py (DIWALL_VAULT_DIR > diwall.conf > ~/Vaults/Diwall/).
 Jamais de mot de passe dans les fichiers de scénario.
 """
-__version__ = "1.9.3"
+__version__ = "1.9.4"
 
 import argparse
 import json
@@ -228,6 +228,8 @@ def main():
     p.add_argument("--no-capture", dest="no_capture", action="store_true",
                    help="Skip la capture PNG finale et les écritures disque (v1.9). "
                         "Transmis à shot.py.")
+    p.add_argument("--url", default=None,
+                   help="Remplace l'URL du scénario à l'exécution sans modifier le fichier (v1.9.4).")
     args = p.parse_args()
 
     chemin_scenario, essais = resoudre_chemin_scenario(args.scenario)
@@ -259,6 +261,9 @@ def main():
 
     # Linter SoM : vérifie les id entiers avant Playwright (v1.9.2).
     _linter_som(actions, chemin_scenario)
+
+    if args.url:
+        scenario["url"] = args.url
 
     url = scenario.get("url")
     if not url:
