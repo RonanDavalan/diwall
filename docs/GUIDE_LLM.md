@@ -1,6 +1,6 @@
 # Diwall — LLM Session Guide
 
-Version 1.9 — June 2026
+Version 2.0 — June 2026
 
 **You are a language model. This document tells you everything you need to operate Diwall.**
 
@@ -1067,6 +1067,45 @@ Total execution time remains ~2–3s (Chromium launch is incompressible at ~1–
 
 ---
 
+## Reconnaissance before mutation (bloquant)
+
+Before writing any mutating action (`cliquer`, `cliquer_som`, `remplir`, `remplir_som`,
+or a `evaluer` that submits a form or triggers a click) on a feature **never previously
+tested with Diwall on this interface**, you must run a read-only exploration pass first.
+
+**Signals that indicate unknown territory:**
+- No dated workaround for this feature in the project's `VAL_valider-ui.md` (or equivalent)
+- Feature not covered in this guide
+- First time this action × interface combination is attempted
+
+**Mandatory procedure — complete before writing the operational scenario:**
+
+```bash
+# Step 1 — Visual map: SoM + a11y tree
+/opt/diwall/venv/bin/python3 /opt/diwall/shot.py \
+  --url <target_url> --som --a11y [--reprendre-session session.json]
+
+# Step 2 — DOM inventory: exact button texts, input names, select values
+/opt/diwall/venv/bin/python3 /opt/diwall/rpa.py \
+  --scenario /opt/diwall/scenarios/diagnostic_dom.json \
+  --url <target_url> [--reprendre-session session.json] --no-capture
+
+# Step 3 — Read the eval results: extract selectors, button texts, checkbox values
+
+# Step 4 — Write the complete operational scenario in one pass
+
+# Step 5 — Execute once via rpa.py — no trial-and-error
+```
+
+**What is forbidden:** launching a mutating action without completing steps 1–3.
+Building the operational scenario across multiple trial invocations (intermediate failures
+create server-side side effects — REX FN8: parasitic clones, orphaned records).
+
+**Why `diagnostic_dom.json`:** writing inline JS introspection scripts on the fly risks
+quoting errors (REX friction #49). The pre-built scenario eliminates that risk.
+
+---
+
 ## Error recovery — Stop-and-Search rule (bloquant)
 
 Si une action retourne `succes: false` ou une erreur Playwright, il est **interdit** de
@@ -1293,6 +1332,61 @@ Sillage confirmation dialog.
 **Diagnosis rule:** if a click on a confirmation button times out and the dialog has no
 `open` attribute in the a11y tree, suspect CSS-only visibility. Switch to `evaluer`
 immediately — do not retry `cliquer` with different selectors.
+
+**FN10 — Extended scope: the button that *opens* the CSS modal (13/06/2026)**
+
+FD1 applies not only to buttons *inside* the CSS modal but also to the button that *opens*
+it. `cliquer button:has-text("Lancer un clonage")` → timeout "waiting for scheduled
+navigations to finish". Same mandatory pattern:
+
+```json
+{"type": "evaluer", "script": "Array.from(document.querySelectorAll('button')).find(b => b.textContent.includes('Lancer un clonage'))?.click()"}
+```
+
+**FN11 — `capturer` timeout while a CSS modal is open (13/06/2026)**
+
+When a CSS Sillage modal is visible (JS show/hide, no `<dialog>`), `capturer` times out
+at 30s. Playwright waits for font loading — the open modal blocks resolution.
+
+**Rule:** remove any intermediate `capturer` while the CSS modal is in the open state.
+Capture only after the modal closes (end of clone, post-submit navigation, etc.).
+
+---
+
+### Batch deletion dialog — native `<dialog open>` with `cliquer` timeout (FN12)
+
+The batch deletion flow (checkboxes + select "supprimer" + Appliquer) opens a native
+`<dialog open>`. Two sub-problems:
+
+1. **Button text is "Supprimer définitivement" — never "Confirmer".** `cliquer dialog[open]
+   button:has-text("Confirmer")` → timeout (button does not exist).
+2. **`cliquer` Playwright native on `dialog[open] button` times out** even when the dialog
+   is open. Use `evaluer` for both buttons (Appliquer and the confirmation button):
+
+```json
+{"type": "evaluer", "script": "Array.from(document.querySelectorAll('button')).find(b=>b.textContent.trim()==='Appliquer')?.click()"},
+{"type": "pause", "ms": 1000},
+{"type": "evaluer", "script": "Array.from(document.querySelectorAll('dialog[open] button')).find(b=>b.textContent.includes('Supprimer'))?.click()"}
+```
+
+---
+
+### Batch checkboxes — prefer a single `evaluer` over multiple `cliquer` (FN13)
+
+Multiple successive native Playwright `cliquer` calls on checkboxes can trigger timeouts
+with a final URL of `vue=login` (unstable PHP session or unexpected redirect).
+
+**Rule:** check all target boxes in a single `evaluer` JS call:
+
+```json
+{
+  "type": "evaluer",
+  "script": "(function(){ var cibles=['value-1','value-2','value-3']; Array.from(document.querySelectorAll('input[type=checkbox]')).filter(cb=>cibles.includes(cb.value)).forEach(cb=>{cb.checked=true;cb.dispatchEvent(new Event('change',{bubbles:true}));}); })()"
+}
+```
+
+Replace `value-1`, `value-2`, … with the exact `value` attributes retrieved via
+`diagnostic_dom.json` (input inventory, `type: checkbox`).
 
 ---
 
