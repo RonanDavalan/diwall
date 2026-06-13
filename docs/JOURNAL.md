@@ -4,6 +4,42 @@ Historique des décisions et découvertes par session, dans l'ordre chronologiqu
 
 ---
 
+## 2026-06-13 — Session 27 (v1.9.4 — Reconnaissance before mutation + FN10–FN13)
+
+**Contexte d'entrée :** v1.9.3 en production. 60 frictions / 26 sessions. Backlog vide.
+Message Sillage : 4 nouvelles frictions terrain FN10–FN13 issues du re-test Jalon C E2E du 13/06.
+
+**Travail effectué :**
+
+Trilatérale Ronan / Claude Diwall / Gemini en PHASE_PLANIFICATION : analyse du coût élevé
+des sessions E2E sur fonctionnalités inédites (7 invocations rpa.py pour la suppression en
+lot — FN8 déclenché). Décision : réduire le coût par une passe d'exploration non-mutante
+obligatoire avant tout scénario opérationnel.
+
+- `rpa.py` — paramètre `--url` : remplace l'URL du scénario à l'exécution sans modifier le
+  fichier. Permet aux scénarios génériques d'être réutilisés sur n'importe quelle URL cible.
+
+- `scenarios/diagnostic_dom.json` — scénario d'inventaire DOM non-mutant : liste les boutons
+  (text, type, id, class), les inputs (type, id, name, value) et les selects (id, name, options)
+  de la page cible. À exécuter avant tout scénario opérationnel sur terrain inconnu.
+
+- `docs/GUIDE_LLM.md` v2.0 — deux ajouts majeurs :
+  - Règle "Reconnaissance before mutation" (bloquante) : procédure 5 étapes avec shot.py
+    diagnostic puis rpa.py diagnostic_dom avant tout scénario mutant sur terrain inconnu.
+  - FN10–FN13 : 4 frictions terrain Sillage documentées (FD1 étendu, capturer timeout,
+    dialog lot, checkboxes en lot).
+
+**Décision architecturale :** le paramètre `--url` suit la philosophie de shot.py (déjà
+`--url`). La règle "Reconnaissance before mutation" est le pendant amont de "Stop-and-Search"
+(réactif après échec) — les deux forment une doctrine complète de sobriété d'invocation.
+
+**Commit :** `6b588bd` — feat(rpa): --url override + diagnostic_dom + GUIDE_LLM v2.0
+
+**État en sortie :** production `/opt/diwall/` synchronisée. 64 frictions / 27 sessions
+(FN10+FN11+FN12+FN13 = 4 nouvelles frictions terrain documentées).
+
+---
+
 ## 2026-06-12 — Session 25 (v1.9.3 — hardening sécurité issu du REX Claude Sillage)
 
 **Contexte d'entrée :** v1.9.2 en production. Backlog vide. Message inter-LLM ouvert :
