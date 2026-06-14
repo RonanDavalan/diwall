@@ -9,7 +9,7 @@ import sys
 import time
 from datetime import datetime, timezone
 
-__version__ = "1.9.5"
+__version__ = "1.9.6"
 
 # Permet d'importer lib/ depuis le même répertoire que shot.py
 sys.path.insert(0, os.path.dirname(os.path.abspath(__file__)))
@@ -583,7 +583,12 @@ def executer_actions(page, actions, output_dir, timeout, mode_llm="local",
                     raise ValueError(f"remplir_som SELECT : élément SoM {som_id!r} introuvable")
             else:
                 page.mouse.click(coord["x"], coord["y"])
-                page.keyboard.press("Control+a")
+                page.evaluate(
+                    "() => { const el = document.activeElement;"
+                    " if (el && 'value' in el) {"
+                    "   el.value = '';"
+                    "   el.dispatchEvent(new Event('input', {bubbles: true})); } }"
+                )
                 page.keyboard.type(valeur)
 
         elif t == "evaluer":

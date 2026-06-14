@@ -4,6 +4,33 @@ Historique des décisions et découvertes par session, dans l'ordre chronologiqu
 
 ---
 
+## 2026-06-14 — Session 29 (v1.9.6 — groupe C : remplir_som + permissions preuves)
+
+**Contexte d'entrée :** v1.9.5 en production. 67 frictions / 28 sessions. Backlog groupe C.
+
+**Travail effectué :**
+
+Découverte en début de session : frictions #35 (vault récursif) et #37 (vault port-aware)
+déjà implémentées dans `lib/vault.py` lors de la session 16 — sans spec ni marquage.
+Spec rétroactive `43_GROUPE_C_VAULT_FILL_PREUVES.md` créée dans `_CADRE/`.
+Frictions #35 et #37 marquées résolues dans `docs/RETOUR_EXPERIENCE.md`.
+
+- `shot.py` (friction #4) — `remplir_som` sur input non-SELECT : `Control+a` remplacé
+  par `page.evaluate(document.activeElement.value = '')` + dispatch `input`. Garantit
+  le vidage du champ avant saisie même sur les inputs avec handlers JS custom.
+
+- `scripts/install.sh` (friction #40) — étape 6 : `/var/log/diwall/preuves` passe de
+  `root:diwall` à `$USER:diwall` (propriétaire direct = l'opérateur courant) + `chmod 2770`
+  explicite. Élimine le `Permission denied` post-install immédiat sans attendre `newgrp`.
+  `check_dir` mis à jour en conséquence.
+
+**Preflight :** exit 0 / smoke tests 3/3
+
+**État en sortie :** Diwall v1.9.6. 67 frictions / 29 sessions.
+Groupe C : #35 ✓ #37 ✓ #4 ✓ #40 ✓ (test à froid #40 à mener avant release).
+
+---
+
 ## 2026-06-14 — Session 28 (v1.9.5 — communication pertinente + frictions #61–63)
 
 **Contexte d'entrée :** v1.9.4 en production. 64 frictions / 27 sessions. Backlog vide.
