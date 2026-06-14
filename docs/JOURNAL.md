@@ -38,7 +38,7 @@ dans des sessions antérieures sans marquage REX.
 
 **Commit :** `b12645a`, `d8c0d9d`, `87a1373`, `<ce commit>`
 
-**État en sortie :** Diwall v1.9.5 en production sur neo. 67 frictions / 28 sessions.
+**État en sortie :** Diwall v1.9.5 en production sur le serveur de production. 67 frictions / 28 sessions.
 
 ---
 
