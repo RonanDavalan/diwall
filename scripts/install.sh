@@ -85,8 +85,10 @@ echo ""
 
 # ── Étape 6 — Répertoire de preuves ──────────────────────────────────────────
 sudo mkdir -p "/var/log/diwall/preuves"
-sudo chown root:"$GROUPE" "/var/log/diwall" "/var/log/diwall/preuves"
-echo "  Preuves  : /var/log/diwall/preuves (2770 root:$GROUPE — setgid posé par deploy.sh)"
+sudo chown root:"$GROUPE" "/var/log/diwall"
+sudo chown "$USER":"$GROUPE" "/var/log/diwall/preuves"
+sudo chmod 2770 "/var/log/diwall/preuves"
+echo "  Preuves  : /var/log/diwall/preuves (2770 $USER:$GROUPE)"
 
 # ── Étape 7 — Vérification des permissions ───────────────────────────────────
 echo "  Vérification des permissions..."
@@ -110,7 +112,7 @@ check_dir "$DEST/scenarios"   "755" "root:$GROUPE"
 check_dir "$DEST/references"  "770" "root:$GROUPE"
 check_dir "$DEST/skills"               "770" "root:$GROUPE"
 check_dir "/var/log/diwall"            "2770" "root:$GROUPE"
-check_dir "/var/log/diwall/preuves"    "2770" "root:$GROUPE"
+check_dir "/var/log/diwall/preuves"    "2770" "$USER:$GROUPE"
 
 if [ "$ERRORS" -eq 0 ]; then
     echo "  Permissions : OK"
