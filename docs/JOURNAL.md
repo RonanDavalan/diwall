@@ -4,6 +4,44 @@ Historique des décisions et découvertes par session, dans l'ordre chronologiqu
 
 ---
 
+## 2026-06-14 — Session 28 (v1.9.5 — communication pertinente + frictions #61–63)
+
+**Contexte d'entrée :** v1.9.4 en production. 64 frictions / 27 sessions. Backlog vide.
+Frictions #61–63 découvertes lors de la campagne E2E Sillage v3.5.6 (14/06).
+
+**Travail effectué :**
+
+Trilatérale opérateur / Claude Diwall / Gemini en PHASE_PLANIFICATION : repositionnement de la
+communication Diwall autour du référentiel visuel partagé humain/LLM.
+
+- `README.md` — suppression de "not a tool for humans". Nouvelle accroche : référentiel visuel
+  partagé, bénéfices distincts humain (délégation anxiété) et LLM (perception interface).
+
+- `docs/GUIDE_HUMAIN.md` v1.1 — introduction conceptuelle "Pourquoi Diwall" ajoutée en tête :
+  délégation de la vérification visuelle anxiogène, tableau cas recommandés / déconseillés.
+
+- `docs/GUIDE_LLM.md` v2.1 — deux ajouts :
+  - Section "When NOT to use Diwall" : FR-59 (timeout Playwright 30 s non configurable),
+    FR-60 (mutation orpheline après timeout). Tableau récapitulatif avec alternatives.
+  - Frictions #61–63 : règles sur les éléments DOM JS-interactifs — inputs masqués CSS
+    (toggle-switch), boutons conditionnels à un `<select>`, boutons dans `<dialog>` natif.
+    Règle générale : tout conteneur ouvert/masqué via JS → `evaluer`, jamais `cliquer`.
+
+- `scripts/deploy.sh` — suppression de deux blocs obsolètes (`/opt/diwall/scripts/` vide,
+  chmod sur scripts vault non déployés en production).
+
+- `_CADRE/SPECIFICATIONS/10_ROADMAP.md` — jalon "Vitrine double entrée __DOMAINE_OPERATEUR__" inscrit.
+
+**Correctifs groupe B constatés déjà présents dans les sources :**
+FR-48 (journal stderr), #41 (écriture atomique session), #36 (message vault enrichi) — résolus
+dans des sessions antérieures sans marquage REX.
+
+**Commit :** `b12645a`, `d8c0d9d`, `87a1373`, `<ce commit>`
+
+**État en sortie :** Diwall v1.9.5 en production sur neo. 67 frictions / 28 sessions.
+
+---
+
 ## 2026-06-13 — Session 27 (v1.9.4 — Reconnaissance before mutation + FN10–FN13)
 
 **Contexte d'entrée :** v1.9.3 en production. 60 frictions / 26 sessions. Backlog vide.

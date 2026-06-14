@@ -1390,6 +1390,58 @@ Replace `value-1`, `value-2`, … with the exact `value` attributes retrieved vi
 
 ---
 
+### CSS-hidden inputs — `cliquer` timeout on toggle-switch pattern (REX #61)
+
+`<input type="checkbox">` hidden via CSS (e.g. `toggle-switch` pattern) is present in the
+DOM but invisible to Playwright's layout engine. `cliquer` → timeout, even with `--timeout`.
+
+**Rule:** For any CSS-hidden input, skip `cliquer` entirely — go directly to `evaluer`:
+
+```json
+{"type": "evaluer", "script": "document.querySelector('[data-sillage=\"toggle-wp-debug\"]').click()"}
+```
+
+`.click()` via JS bypasses Playwright's interactability checks (visibility, coverage).
+
+---
+
+### Conditional button with JS guard — silent no-op on `cliquer` (REX #62)
+
+A button whose JS callback returns early based on a `<select>` value (e.g. `if select.value === ""
+return`) looks clickable but produces no effect. Playwright reports `succes: true`, no dialog opens,
+no error.
+
+**Rule:** Before clicking any button that depends on a `<select>` value, force the value via
+`evaluer` and confirm the effect with `attendre_selecteur_present`:
+
+```json
+[
+  {"type": "evaluer", "script": "document.querySelector('[data-sillage=\"select-action-lot\"]').value = 'supprimer'"},
+  {"type": "cliquer", "selecteur": "[data-sillage='btn-appliquer-lot']"},
+  {"type": "attendre_selecteur_present", "selecteur": "dialog#dialog-lot[open]"}
+]
+```
+
+A "successful" click does not prove the intended effect occurred — always verify with a selector.
+
+---
+
+### Native `<dialog>` opened via `showModal()` — `cliquer` timeout (REX #63)
+
+A button inside a `<dialog>` opened via `showModal()` (HTML native, not CSS show/hide) can still
+timeout with Playwright `cliquer`, even after `attendre_selecteur_present` confirms `dialog[open]`.
+
+**Rule (general):** If the parent container was opened/shown via JS — whether CSS show/hide (FR-57)
+or `showModal()` — do not attempt `cliquer`. Use `evaluer` directly:
+
+```json
+{"type": "evaluer", "script": "document.querySelector('[data-sillage=\"btn-annuler-lot\"]').click()"}
+```
+
+This extends FR-57 to all JS-controlled containers.
+
+---
+
 ## When NOT to use Diwall
 
 Diwall excels at short functional scenarios and shared visual verification. There are cases where it is the wrong tool — using it in these situations costs tokens, produces timeouts, and can leave the server in an inconsistent state.
