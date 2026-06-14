@@ -1,6 +1,60 @@
 # Diwall — Guide opérateur humain
 
-Version 1.0 — June 2026
+Version 1.1 — June 2026
+
+---
+
+## Pourquoi Diwall — ce que vous déléguez réellement
+
+### Le problème que Diwall résout
+
+Quand vous travaillez avec un LLM sur une application web, il se produit une asymétrie
+de perception : le modèle lit le code, exécute les commandes, constate les sorties
+textuelles — mais il ne voit pas l'interface que vos utilisateurs voient. Vous, si.
+
+Cette asymétrie crée une forme d'anxiété spécifique : vous ne savez pas si ce que
+le modèle vous décrit correspond à ce que vous verriez dans un navigateur. Pour être
+sûr, vous devez soit lui faire confiance sur parole, soit vérifier vous-même.
+
+Diwall résout ce problème en créant un **référentiel visuel partagé** :
+le modèle capture l'interface avec un navigateur réel (Chromium headless),
+et vous avez accès aux mêmes captures PNG et aux mêmes arbres d'accessibilité.
+Vous ne prenez plus le modèle sur parole — vous constatez le même état que lui.
+
+### Ce que vous déléguez
+
+Diwall vous permet de déléguer la **vérification visuelle répétitive et anxiogène** :
+
+- Vérifier que 20 pages d'un site s'affichent correctement après un déploiement
+- Confirmer qu'un formulaire de connexion fonctionne sur la bonne interface
+- S'assurer qu'un déploiement n'a pas cassé l'affichage d'une vue critique
+- Valider visuellement qu'une correction est bien visible à l'écran
+
+Sans Diwall, ces vérifications vous incombent. Avec Diwall, le modèle les effectue
+et vous en rapporte le résultat — avec preuve visuelle à l'appui.
+
+### Ce que vous conservez
+
+Vous conservez **la validation de sens de haut niveau** : décider si le résultat
+que le modèle vous présente est acceptable, cohérent avec vos attentes, conforme
+à ce que vos utilisateurs doivent voir. Cette décision-là reste la vôtre.
+
+### Quand Diwall est pertinent
+
+| Cas d'usage | Diwall adapté ? |
+|---|---|
+| Validation visuelle post-déploiement | ✓ Oui |
+| Diagnostic d'un affichage cassé | ✓ Oui |
+| Navigation et saisie dans un formulaire (~30 s max) | ✓ Oui |
+| Délégation de vérifications répétitives | ✓ Oui |
+| Opération serveur longue (clonage ~2–5 min) | ✗ Non — timeout Playwright |
+| Suppression ou mutation en lot | ✗ Non — préférer un appel API direct |
+| Workflow avec besoin de rollback | ✗ Non — Diwall ne peut pas annuler |
+
+Pour les cas déconseillés, voir `docs/GUIDE_LLM.md` section "When NOT to use Diwall"
+(frictions FR-59 et FR-60 documentées).
+
+---
 
 **Ce document est destiné aux opérateurs humains qui utilisent Diwall.**
 
