@@ -1172,21 +1172,12 @@ première tentative d'authentification via `depuis_vault`.
 
 ## 35. Structure plate uniquement dans vault.py — sous-dossiers ignorés silencieusement
 
-**Contexte** : credentials rangés dans
-`~/Vaults/Diwall/__HOST_SERVICE_SLUG__/__HOST_SERVICE_SLUG__.json`.
-`vault.py` cherche uniquement `<vault_dir>/<hostname>.json` — aucune descente
-dans les sous-répertoires.
+**Résolu en session 16** (spec rétroactive — `_CADRE/SPECIFICATIONS/43_GROUPE_C_VAULT_FILL_PREUVES.md`).
 
-**Symptôme** : `FileNotFoundError` sans message expliquant que les sous-dossiers
-ne sont pas supportés. La convention de rangement par projet est une habitude
-naturelle ignorée silencieusement.
-
-**Workaround** : structure plate obligatoire — tous les fichiers JSON directement
-dans `<vault_dir>/`.
-
-**Piste de correction** : option `vault_lookup: recursive` dans `diwall.conf`,
-ou recherche récursive par défaut avec avertissement si plusieurs candidats
-correspondent.
+`lib/vault.py` effectue désormais une recherche récursive via `os.walk(followlinks=False)`
+si aucun fichier n'est trouvé à la racine du vault. En cas d'ambiguïté (plusieurs candidats),
+`FileNotFoundError` est levée avec la liste des fichiers trouvés — l'opérateur doit affiner
+`vault_dir` dans `diwall.conf`.
 
 ---
 
@@ -1218,23 +1209,12 @@ Nom attendu (d'après urlparse(url).hostname) : __HOST_SERVICE__.json
 
 ## 37. Collision hostname multi-services (port différent, même hôte)
 
-**Contexte** : deux services distincts — le service principal (`/`) et un
-service d'administration (`:__PORT_SERVICE__`) — partagent le même hostname
-`__HOST_SERVICE__`. Le schéma `<hostname>.json` ne permet pas deux fichiers
-de credentials séparés.
+**Résolu en session 16** (spec rétroactive — `_CADRE/SPECIFICATIONS/43_GROUPE_C_VAULT_FILL_PREUVES.md`).
 
-**Impact** : fusion forcée des credentials des deux services dans un seul
-fichier JSON — compromet la lisibilité et la segmentation des accès. Si les
-credentials sont différents, il est impossible de les stocker indépendamment
-avec le schéma actuel.
-
-**Workaround** : fusionner les credentials dans un seul JSON avec des clés
-distinctes par service (ex. `username`, `password` pour le service principal,
-`pgadmin_username`, `pgadmin_password` pour le service secondaire).
-
-**Piste de correction** : résolution port-aware avec fallback — vault.py
-cherche d'abord `<hostname>_<port>.json` (spécifique), puis `<hostname>.json`
-(générique). Permet d'avoir un fichier par service sans collision.
+`lib/vault.py` applique un algorithme port-aware à 4 niveaux :
+`<hostname>_<port>.json` (plat) → `<hostname>.json` (plat) → `<hostname>_<port>.json` (récursif) →
+`<hostname>.json` (récursif). Chaque service sur un port distinct peut avoir son propre fichier
+de credentials sans collision.
 
 ---
 
@@ -1831,5 +1811,70 @@ En pratique : un `evaluer` cliquant un bouton "Lancer le clonage" + un timeout D
 Friction #59 : limitation Playwright non exposée (timeout screenshot 30s fixe) — contournement `pause` documenté. Friction #60 : propriété architecturale de Diwall (pas de rollback sur les actions mutantes) — règle de vérification d'état serveur avant relance.
 
 Les deux frictions ont été documentées dans `GUIDE_LLM.md` (section Known CLI pitfalls) et dans ce fichier. Elles complètent le tableau des comportements non évidents de l'architecture Diwall × Playwright.
+
+---
+
+## Friction #61 — Checkbox masquée CSS : `cliquer` → timeout systématique
+
+**Découverte :** Campagne de test E2E Sillage v3.5.6, 2026-06-14. Fonctionnalité WP1/WP2 (toggle WP_DEBUG).
+
+**Contexte :** `<input type="checkbox">` masqué par CSS (classe `toggle-switch`) — l'élément est dans le DOM, visible à l'inspection, mais son layout CSS le rend `hidden` au sens de Playwright.
+
+**Symptôme :** `{"type": "cliquer", "selecteur": "[data-sillage='toggle-wp-debug']"}` → timeout après 24 tentatives, même avec `--timeout 15000`. Aucun message d'erreur explicite — juste "element is hidden".
+
+**Pattern obligatoire :**
+```json
+{"type": "evaluer", "script": "document.querySelector('[data-sillage=\"toggle-wp-debug\"]').click()"}
+```
+
+**Règle :** Tout `<input>` masqué par CSS (pattern toggle-switch, checkbox hidden) → `evaluer` direct, sans essai `cliquer` préalable.
+
+---
+
+## Friction #62 — `<select>` avec guard JS silencieux : clic sans effet
+
+**Découverte :** Campagne de test E2E Sillage v3.5.6, 2026-06-14. Fonctionnalité D6 (suppression en lot).
+
+**Contexte :** Un bouton `btn-appliquer-lot` dont la callback JS (`ouvrirDialogLot()`) retourne silencieusement si `select-action-lot.value === ""` (valeur par défaut). Playwright exécute le clic sans erreur — la page ne bouge pas.
+
+**Symptôme :** `cliquer` sur le bouton conditionnel → succès Playwright, aucun dialog, aucune erreur.
+
+**Pattern obligatoire :**
+```json
+[
+  {"type": "evaluer", "script": "document.querySelector('[data-sillage=\"select-action-lot\"]').value = 'supprimer'"},
+  {"type": "cliquer", "selecteur": "[data-sillage='btn-appliquer-lot']"},
+  {"type": "attendre_selecteur_present", "selecteur": "dialog#dialog-lot[open]"}
+]
+```
+
+**Règle :** Avant tout clic conditionnel à la valeur d'un `<select>`, forcer la valeur via `evaluer` et vérifier l'effet avec `attendre_selecteur_present`. Un clic "réussi" ne prouve pas que son effet est visible.
+
+---
+
+## Friction #63 — Bouton dans `<dialog>` HTML natif : `cliquer` timeout
+
+**Découverte :** Campagne de test E2E Sillage v3.5.6, 2026-06-14. Fonctionnalité D6 (annuler la suppression en lot).
+
+**Contexte :** `btn-annuler-lot` est dans un `<dialog>` ouvert via `showModal()` — element HTML natif, pas une modale CSS. Malgré l'attribut `open` présent sur le dialog (confirmé par `attendre_selecteur_present`), Playwright refuse le `cliquer`.
+
+**Symptôme :** `cliquer` sur `btn-annuler-lot` → timeout, même après `attendre_selecteur_present` sur `dialog#dialog-lot[open]`.
+
+**Pattern obligatoire :**
+```json
+{"type": "evaluer", "script": "document.querySelector('[data-sillage=\"btn-annuler-lot\"]').click()"}
+```
+
+**Règle :** `evaluer` est nécessaire pour les boutons dans tout conteneur ouvert via JS (CSS show/hide comme FR-57, ou `<dialog>` natif via `showModal()`). Le pattern général : si l'élément parent a été ouvert/affiché via JS, ne pas tenter `cliquer` — aller directement à `evaluer`.
+
+---
+
+## Synthèse session 27
+
+3 frictions nouvelles (#61–#63) — découvertes lors de la campagne de test E2E v3.5.6 Sillage (2026-06-14, 32 fonctionnalités validées sur 45).
+
+Thème commun : les éléments DOM interactifs masqués ou ouverts via JS résistent à `cliquer` même quand ils sont "présents" dans le DOM. `evaluer` est le seul pattern fiable pour (1) les inputs CSS cachés, (2) les boutons conditionnels à un état JS, (3) les boutons dans des `<dialog>` HTML natifs.
+
+Ces frictions étendent et complètent FR-57 (modales CSS Sillage).
 
 **60 frictions sur 26 sessions.**
