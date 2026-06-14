@@ -1,22 +1,24 @@
-# Diwall — Visual Perception for Language Models
+# Diwall — Shared Visual Reference between Human and LLM
 
-> **If you are a human developer:** share this README with Claude Code (or your LLM of choice) and ask it to install and configure Diwall. You do not need to understand every detail — your LLM does.
-
-*LLM technical reference: [`docs/GUIDE_LLM.md`](docs/GUIDE_LLM.md)*
+> **For the human operator:** Diwall lets you delegate visual verification to your LLM. Both of you see the same capture — you stop having to take its word for it.
+>
+> **For the LLM:** [`docs/GUIDE_LLM.md`](docs/GUIDE_LLM.md) is your operational reference. Start there.
 
 ---
 
 ## What is Diwall?
 
-Diwall is **not a tool for humans**. It is an execution API that gives language models (Claude Code, Gemini, etc.) the ability to **see web interfaces**.
+Diwall creates a **shared visual reference** between a human operator and a language model. It gives the LLM the ability to **see web interfaces** — and gives the human operator a way to **delegate visual verification** without losing control.
 
-When a language model develops a web application, it can modify code but cannot see the result in a browser. `lynx` does not render modern interfaces. Diwall solves this: it takes a screenshot using Playwright and returns it to the model, which analyses it directly using its multimodal capabilities.
+Without Diwall, a human must either trust their LLM on its word or verify the result themselves. With Diwall, both parties see the same PNG capture and the same accessibility tree. The doubt disappears on both sides.
 
 ```
-LLM writes code → Diwall captures → LLM sees → LLM corrects → loop
+LLM acts → Diwall captures → LLM sees and reports → Human verifies from the same state
 ```
 
-The model calls `shot.py`, reads the PNG, analyses it, corrects the code, and loops — without any human in the feedback cycle.
+**What the human gains:** delegation of the anxious, repetitive work of visual verification. Instead of clicking through dozens of pages after a deployment, the human reviews the captures the LLM already produced.
+
+**What the LLM gains:** real perception of the interface. Without Diwall, a model developing a web application modifies code but cannot see the result in a browser. `lynx` does not render modern interfaces.
 
 ---
 

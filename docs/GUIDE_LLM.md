@@ -1390,6 +1390,52 @@ Replace `value-1`, `value-2`, … with the exact `value` attributes retrieved vi
 
 ---
 
+## When NOT to use Diwall
+
+Diwall excels at short functional scenarios and shared visual verification. There are cases where it is the wrong tool — using it in these situations costs tokens, produces timeouts, and can leave the server in an inconsistent state.
+
+### FR-59 — Long server-side operations (do not use Diwall)
+
+**Context:** Playwright's internal `Page.screenshot` timeout is fixed at 30 seconds and is not configurable per action. The `--timeout` parameter of `rpa.py` controls the overall run timeout, not individual action timeouts.
+
+**Consequence:** Any server-side operation that takes more than ~20–30 seconds (WordPress clone ~2–5 min, Matomo rebuild, database import) will cause `attendre_reseau_calme` or the final capture to timeout. The scenario fails even if the server-side operation completed successfully.
+
+**Rule:** For long operations, prefer a direct SSH dispatcher call or an API endpoint. Use Diwall only to verify the result *after* the operation completes:
+```bash
+# Wrong: Diwall waiting for a 3-minute clone
+{"type": "cliquer_som", "id": 5},
+{"type": "attendre_reseau_calme"}   # ← will timeout at 30s
+
+# Correct: trigger via SSH dispatcher, then verify with Diwall
+ssh target "wp core clone …"        # runs to completion
+# then: Diwall shot.py to verify the result visually
+```
+
+### FR-60 — Mutating actions before a long wait (use with caution)
+
+**Context:** A `evaluer` JS click that triggers a server-side mutation (clone, delete, import) is dispatched to the server immediately — before Diwall's timeout fires. If Diwall then times out on `attendre_reseau_calme` or the capture, the server-side mutation has already been executed.
+
+**Consequence:** Retrying the scenario creates a duplicate mutation (second clone, second delete). The server is now in an inconsistent state that Diwall cannot roll back — Diwall has no undo capability.
+
+**Rule:** After any scenario that fails on a step following a mutating action, verify the server state before replaying:
+```bash
+# Before replaying: passive capture to check what the server did
+/opt/diwall/venv/bin/python3 /opt/diwall/shot.py \
+  --url <target_url> --a11y --no-capture
+# → read the a11y_tree to confirm whether the mutation already happened
+```
+
+### Summary — cases where Diwall is not recommended
+
+| Case | Reason | Alternative |
+|---|---|---|
+| Server operation > 20–30 s | FR-59 — Playwright screenshot timeout not configurable | SSH dispatcher + Diwall for verification only |
+| Batch mutations (delete 50 items) | Unreliable at scale, FR-60 risk on failure | Direct batch API call |
+| Mutating action + long wait | FR-60 — orphan mutation on timeout | Split: trigger via API, then verify with Diwall |
+| Workflows requiring rollback | Diwall cannot undo a dispatched action | Application-level rollback before Diwall retry |
+
+---
+
 ## See also
 
 - `docs/FAQ_LLM.md` — answers to recurring LLM questions (Shadow DOM, `--no-capture` guarantees, dry-run, version map, PDF/image analysis)
