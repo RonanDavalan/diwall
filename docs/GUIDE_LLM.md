@@ -1497,6 +1497,37 @@ ssh target "wp core clone …"        # runs to completion
 
 ---
 
+## Recommended pipeline — no intermediate model needed (v2.2)
+
+Validated by E2E campaign Sillage v3.5.6 (2026-06-14, 32 functions in < 30 min):
+
+```
+Claude Code → rpa.py → JSON + PNG → Claude Code (analysis + iteration)
+```
+
+Claude Code writes the JSON scenario, calls rpa.py, reads the JSON output and the PNG
+capture directly. No intermediate model is needed in this loop.
+
+**Delegating to a third-party model (Qwen, opencode…) to pilot rpa.py adds overhead
+with no benefit:** Claude Code already reads the result natively and iterates in under
+two minutes per cycle.
+
+### When a third-party model IS useful
+
+| Use case | Relevant | Notes |
+|---|---|---|
+| Fine visual analysis on static captures (texture, contrast, small text) | ✓ | Qwen/vision model on a PNG already captured |
+| Detachable CLI tasks (long, repetitive, no visual feedback loop) | ✓ | Independent of the main context |
+
+### When a third-party model is NOT recommended
+
+| Use case | Not recommended | Reason |
+|---|---|---|
+| Pilot rpa.py instead of Claude Code | ✗ | Indirection layer, no added value |
+| Any task where Claude Code can read the result directly | ✗ | Claude Code is already the right consumer |
+
+---
+
 ## AgentIc loop — your basic gesture
 
 ```
