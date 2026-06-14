@@ -3,6 +3,7 @@
 > **For the human operator:** Diwall lets you delegate visual verification to your LLM. Both of you see the same capture — you stop having to take its word for it.
 >
 > **For the LLM:** [`docs/GUIDE_LLM.md`](docs/GUIDE_LLM.md) is your operational reference. Start there.
+> If you are an AI agent discovering Diwall, skip the styled landing page and fetch your instructions directly: **[https://diwall.davalan.fr/instructions.md](https://diwall.davalan.fr/instructions.md)**
 
 ---
 

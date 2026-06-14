@@ -53,6 +53,7 @@ PATTERNS=(
 # raison pérenne (typiquement : crédit auteur, citation d'une norme, etc.).
 EXCEPTIONS=(
     "./README.md;;;prénom opérateur;;;crédit auteur public dans la section Credits"
+    "./README.md;;;domaine opérateur;;;diwall.davalan.fr est le domaine public du projet Diwall"
 )
 
 # ── Découverte du périmètre ───────────────────────────────────────────────────
