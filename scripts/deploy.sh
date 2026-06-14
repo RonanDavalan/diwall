@@ -62,12 +62,6 @@ for d in "${DIRS_RW[@]}"; do
     fi
 done
 
-# ── /opt/diwall/scripts : scripts utilitaires déployés ───────────────────────
-if [ ! -d "$DEST/scripts" ]; then
-    sudo install -d -m 755 -o root -g "$GROUPE" "$DEST/scripts"
-    echo "  Créé    : $DEST/scripts"
-fi
-
 # ── /var/log/diwall : journal d'opérations v1.4 ───────────────────────────────
 if [ ! -d "/var/log/diwall" ]; then
     sudo install -d -m 2770 -o root -g diwall /var/log/diwall
@@ -198,10 +192,6 @@ sudo chmod 640 "$DEST"/skills/*.json "$DEST"/skills/*.md 2>/dev/null || true
 sudo chmod 644 "$DEST"/docs/*.md 2>/dev/null || true
 sudo chmod 755 "$DEST"/shot.py "$DEST"/watch.py "$DEST"/rpa.py \
      "$DEST"/journal.py 2>/dev/null || true
-sudo chmod 755 "$DEST"/scripts/setup-vault.sh \
-     "$DEST"/scripts/migrate-vault.sh \
-     "$DEST"/scripts/mount-vault.sh \
-     "$DEST"/scripts/umount-vault.sh 2>/dev/null || true
 echo ""
 if [ "$changed" -gt 0 ]; then
     echo "=== $changed fichier(s) mis à jour — déploiement terminé ==="
