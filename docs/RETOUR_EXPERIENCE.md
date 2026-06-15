@@ -1878,3 +1878,41 @@ Thème commun : les éléments DOM interactifs masqués ou ouverts via JS résis
 Ces frictions étendent et complètent FR-57 (modales CSS Sillage).
 
 **60 frictions sur 26 sessions.**
+
+---
+
+## Friction #64 — Chemin Python RAG : `/opt/diwall/venv` n'a pas `chromadb`
+
+> **RÉSOLU le 15/06/2026 (session 30).** Chemin corrigé dans `PROTOCOLE_DEMARRAGE.md`,
+> `PROTOCOLE_CLOTURE.md`, `scripts/build-index.py` et `scripts/search-index.py` (_CADRE).
+
+**Session 28 — 2026-06-15**
+
+**Symptôme :** `ModuleNotFoundError: No module named 'chromadb'` en tentant :
+```
+/opt/diwall/venv/bin/python3 /home/ron/git/Diwall/_CADRE/scripts/search-index.py "..."
+```
+
+**Cause :** `/opt/diwall/venv` ne contient que `playwright`. Il ne sert qu'à `rpa.py`,
+`watch.py` et `shot.py`. Il n'a jamais eu `chromadb`.
+
+**Chemin correct (vérifié 2026-06-15) :**
+```
+~/.pyenv/versions/3.12.11/bin/python3 /home/ron/git/Diwall/_CADRE/scripts/search-index.py "..."
+```
+
+Ce Python a chromadb, et la base de Diwall (`Diwall/_CADRE/MEMOIRE/chroma_db/`) lui est accessible.
+Le GUIDE_LLM.md et tous les fichiers de documentation Diwall référencent la mauvaise commande.
+
+**Contournement immédiat :** utiliser `~/.pyenv/versions/3.12.11/bin/python3`.
+**Action requise (Claude Diwall) :** corriger le chemin dans `GUIDE_LLM.md` et dans les
+commentaires d'en-tête de `build-index.py` / `search-index.py` du dépôt Diwall.
+
+---
+
+## Synthèse session 28
+
+1 friction nouvelle (#64) — mauvais chemin Python pour le RAG Diwall.
+Constat fait lors de la mise à jour du RAG Sillage (ajout type `fondateur`).
+
+**61 frictions sur 27 sessions.**
