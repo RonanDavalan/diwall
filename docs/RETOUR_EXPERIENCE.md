@@ -1890,7 +1890,7 @@ Ces frictions étendent et complètent FR-57 (modales CSS Sillage).
 
 **Symptôme :** `ModuleNotFoundError: No module named 'chromadb'` en tentant :
 ```
-/opt/diwall/venv/bin/python3 /home/ron/git/Diwall/_CADRE/scripts/search-index.py "..."
+/opt/diwall/venv/bin/python3 ~/git/Diwall/_CADRE/scripts/search-index.py "..."
 ```
 
 **Cause :** `/opt/diwall/venv` ne contient que `playwright`. Il ne sert qu'à `rpa.py`,
@@ -1898,7 +1898,7 @@ Ces frictions étendent et complètent FR-57 (modales CSS Sillage).
 
 **Chemin correct (vérifié 2026-06-15) :**
 ```
-~/.pyenv/versions/3.12.11/bin/python3 /home/ron/git/Diwall/_CADRE/scripts/search-index.py "..."
+~/.pyenv/versions/3.12.11/bin/python3 ~/git/Diwall/_CADRE/scripts/search-index.py "..."
 ```
 
 Ce Python a chromadb, et la base de Diwall (`Diwall/_CADRE/MEMOIRE/chroma_db/`) lui est accessible.
