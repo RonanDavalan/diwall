@@ -355,6 +355,22 @@ création. Ajout en cours de session détecté lors de la vérification de cohé
 
 ---
 
+## Session 30 — 15 juin 2026
+
+**Travail effectué :**
+
+- Tracker Matomo ajouté à `site_internet/index.html` (site `__DOMAINE_OPERATEUR__`,
+  ID 7, instance Matomo de l'opérateur). Déployé via `deploy-site.sh`.
+- Friction #65 documentée dans `docs/RETOUR_EXPERIENCE.md` : sélecteur `a.addSite`
+  vs `button.addSite` (erreur), framework Vue.js vs hypothèse AngularJS (erreur),
+  primitive `remplir` obligatoire pour les champs Vue, pause 4000 ms nécessaire.
+- Fiche opératoire créée : `_CADRE/SPECIFICATIONS/PROCEDURES_LLM/TACHE_matomo-ajouter-site.md`.
+
+**Décision :** pas de bump de version — `site_internet/` est hors dépôt public,
+aucun code Diwall modifié.
+
+---
+
 ## Session 26 — 12 juin 2026
 
 **Travail effectué :**

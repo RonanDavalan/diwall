@@ -1916,3 +1916,111 @@ commentaires d'en-tête de `build-index.py` / `search-index.py` du dépôt Diwal
 Constat fait lors de la mise à jour du RAG Sillage (ajout type `fondateur`).
 
 **61 frictions sur 27 sessions.**
+
+---
+
+## Friction #65 — Matomo SitesManager : sélecteurs Vue.js vs hypothèse AngularJS
+
+**Session 30 — 2026-06-15**
+
+**Objectif :** Créer le site `__DOMAINE_OPERATEUR__` dans Matomo via Diwall.
+**Durée totale :** 32 minutes 25 secondes.
+**Résultat :** succès — site ID 7 créé, tracker injecté et déployé.
+
+### Cause racine — mauvais sélecteur, hypothèse de framework erronée
+
+Le LLM a supposé que Matomo utilisait AngularJS (nom de classe `ng-click`, interface
+similaire) sans vérifier. En réalité `typeof angular === 'undefined'` dans le DOM —
+Matomo SitesManager (v4+) utilise Vue.js.
+
+Conséquence directe : les tentatives de mise à jour du modèle via `angular.element().triggerHandler()`
+ont échoué silencieusement. Et les `evaluer` + `dispatchEvent` ne déclenchent pas
+la réactivité Vue.
+
+### Piège #1 — `button.addSite` n'existe pas
+
+Le LLM a répété `button.addSite` **plusieurs fois** avant de diagnostiquer.
+Le bouton est un `<a class="btn addSite">`, pas un `<button>`.
+CSS `text-transform: uppercase` affiche "AJOUTER" dans l'UI — le DOM contient
+"Ajouter". Cibler par texte uppercase → n'importe quel autre élément.
+
+```
+❌ {"type": "cliquer", "selecteur": "button.addSite"}       → TimeoutError
+✅ {"type": "cliquer", "selecteur": ":nth-match(a.addSite, 1)"}
+```
+
+**Baisse de concentration identifiée :** le LLM a relancé le même sélecteur échoué
+au lieu de diagnostiquer avec `evaluer` pourquoi l'élément n'était pas trouvé.
+Diagnostic correct : `Array.from(document.querySelectorAll('[class*="add"]'))`.
+
+### Piège #2 — `input[role='validation']` n'est pas le bouton Enregistrer
+
+Deux `input.btn` coexistent dans la page :
+
+| Élément | Contenu | Visible |
+|---|---|---|
+| `input[type=button][value='Envoyer le retour']` | Dialog feedback de Matomo (sondage) | **Non** |
+| `input[type=submit][value='Enregistrer']` | Footer du formulaire de site | **Oui** |
+
+`input.btn` → strict mode Playwright (2 éléments) → TimeoutError.
+`input[role='validation']` → cible le bouton du sondage (caché) → visible=false → TimeoutError.
+
+```
+❌ {"type": "cliquer", "selecteur": "input.btn"}                → strict mode
+❌ {"type": "cliquer", "selecteur": "input[role='validation']"} → visible=false
+✅ {"type": "cliquer", "selecteur": "input[value='Enregistrer']"}
+```
+
+**Diagnostic utile :**
+```js
+Array.from(document.querySelectorAll('input.btn')).map((el,i)=>
+  i+'|visible='+(el.offsetParent!==null)+'|value='+el.value+'|parent='+el.parentElement?.className?.slice(0,40)
+).join('\n')
+```
+
+### Piège #3 — `evaluer` + dispatchEvent ne suffit pas pour Vue.js
+
+Les champs `#siteName` et `#urls` ne transmettent pas leur valeur au modèle
+Vue si on les remplit via `evaluer` + `dispatchEvent`. Vue.js écoute ses propres
+événements synthétiques, pas ceux du DOM natif.
+
+```
+❌ evaluer → element.value = 'x'; element.dispatchEvent(new Event('input',{bubbles:true}))
+✅ {"type": "remplir", "selecteur": "#siteName", "valeur": "__DOMAINE_OPERATEUR__"}
+```
+
+La primitive `remplir` utilise Playwright `fill()` qui déclenche les bons événements
+pour React, Vue, et les frameworks modernes.
+
+### Piège #4 — pause trop courte après navigation
+
+Avec `pause: 3000`, Vue.js n'a pas terminé de monter les composants SitesManager.
+`document.querySelector('a.addSite')` retourne `null`. Résultat : `attendre_selecteur_present`
+timeout sur `a.addSite` (car le sélecteur testé était `button.addSite` — double erreur).
+
+```
+❌ pause 1500 ms après naviguer → composants Vue pas montés
+✅ pause 4000 ms après naviguer → liste de sites visible, a.addSite présent
+```
+
+### Séquence validée
+
+Voir `_CADRE/SPECIFICATIONS/PROCEDURES_LLM/TACHE_matomo-ajouter-site.md`
+pour la procédure complète avec toutes les étapes.
+
+### Règle extraite
+
+> Avant toute interaction avec une interface web inconnue via Diwall :
+> 1. Vérifier le framework : `typeof angular`, `typeof Vue`, `typeof React`
+> 2. Diagnostiquer l'élément exact : `document.querySelector('[class*="addSite"]')?.tagName`
+> 3. Ne jamais répéter un sélecteur qui a échoué sans diagnostic intermédiaire
+
+---
+
+## Synthèse session 30
+
+1 friction nouvelle (#65) — Matomo SitesManager, sélecteurs Vue.js, baisses de concentration.
+Découverte lors de l'ajout du tracker Matomo sur `__DOMAINE_OPERATEUR__`.
+Fiche opératoire créée : `TACHE_matomo-ajouter-site.md`.
+
+**62 frictions sur 30 sessions.**
