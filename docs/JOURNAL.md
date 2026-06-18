@@ -4,6 +4,38 @@ Historique des décisions et découvertes par session, dans l'ordre chronologiqu
 
 ---
 
+## 2026-06-18 — Session 31 (v1.9.7 — delai_initial_ms + friction #66)
+
+**Contexte d'entrée :** v1.9.6 en production. 62 frictions / 30 sessions. Backlog vide.
+Friction #66 remontée par Claude Sillage (validation E2E C1b, campagne 18/06).
+
+**Travail effectué :**
+
+Trilatérale Ronan / Claude Diwall / Claude Sillage (via relais Ronan) en amont :
+décision d'un correctif en deux temps — documentaire immédiat, API non urgent.
+
+- `docs/GUIDE_LLM.md` v2.3 — règle `attendre_absence` timeout sur première soumission
+  de formulaire (REX #66) : sur la première navigation POST d'un scénario, insérer
+  `pause ms:2000` + `evaluer` sur l'URL cible. `attendre_absence` immédiat après un
+  premier submit provoque un timeout même si le login réussit — Playwright n'a pas encore
+  traité le redirect. Lié aux frictions #5 et #16 (session_regenerate_id timing).
+
+- `shot.py` + `scenarios/schema.json` (friction #66) — nouveau paramètre optionnel
+  `delai_initial_ms` sur `attendre_absence` : pause en ms avant le début du polling
+  `wait_for_selector(state=detached)`. Permet de documenter l'intention dans le scénario
+  sans ajouter une action `pause` séparée. Décision API : paramètre optionnel, rétrocompatible,
+  comportement par défaut inchangé.
+
+- `scenarios/` — trois scénarios Sillage versionnés :
+  `valider_auth_multitenant.json` (C1a), `valider_admin_maitre_c1b.json` (C1b — 14/14 assertions),
+  `explorer_client_projet_vitrine.json` (diagnostic DOM __DOMAINE_OPERATEUR__).
+
+**Preflight :** exit 0 / smoke tests 3/3
+
+**État en sortie :** Diwall v1.9.7. 63 frictions / 31 sessions.
+
+---
+
 ## 2026-06-14 — Session 29 (v1.9.6 — groupe C : remplir_som + permissions preuves)
 
 **Contexte d'entrée :** v1.9.5 en production. 67 frictions / 28 sessions. Backlog groupe C.
