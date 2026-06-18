@@ -2085,7 +2085,7 @@ Règle documentée dans `docs/GUIDE_LLM.md` v2.3.
 
 # Note 18/06/2026 (hors session Diwall) — Lacune signalée : bwlimit rsync
 
-**Contexte** : chantier 3 Sillage — push allsys.io IKE4→Davalan-vps via connexion internet.
+**Contexte** : chantier 3 Sillage — push __DOMAINE_OPERATEUR__ __HOST_ADMIN__→__HOST_VPS__ via connexion internet.
 
 **Lacune identifiée** : le script générique `transfert-wordpress-local-vers-serveur.sh`
 utilise rsync sans `--bwlimit`. Sur une connexion internet, un débit non limité cause un

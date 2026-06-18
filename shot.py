@@ -9,7 +9,7 @@ import sys
 import time
 from datetime import datetime, timezone
 
-__version__ = "1.9.6"
+__version__ = "1.9.7"
 
 # Permet d'importer lib/ depuis le même répertoire que shot.py
 sys.path.insert(0, os.path.dirname(os.path.abspath(__file__)))
@@ -704,6 +704,9 @@ def executer_actions(page, actions, output_dir, timeout, mode_llm="local",
                     "attendre_absence requiert un champ 'selecteur' (CSS). "
                     "Attend que l'élément disparaisse du DOM (state=detached)."
                 )
+            delai_initial = a.get("delai_initial_ms", 0)
+            if delai_initial > 0:
+                time.sleep(delai_initial / 1000.0)
             page.wait_for_selector(a["selecteur"], state="detached", timeout=timeout)
 
         elif t == "attendre_reseau_calme":

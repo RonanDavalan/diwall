@@ -221,7 +221,7 @@ Scenario format:
 | `nettoyer_overlay` | `selecteur` | Mask fixed/sticky overlays before SoM injection. Explicit CSS selector required — no auto-detection. Forbidden in `watch.py` QA scenarios (would hide layout regressions). Execute **before** SoM generation. (v1.9) |
 | `attendre_url` | `motif`, [`attendre_changement`] | Wait until current URL contains `motif`. **Partial match** — resolves immediately if current URL already contains `motif`. Set `"attendre_changement":true` to wait for a navigation away from the current URL first (FR-55, v1.8.0). |
 | `attendre_selecteur_present` | `selecteur` | Wait for element to become visible. Uses `page.wait_for_selector(state="visible")`. Use to confirm a successful login before continuing. (v1.9) |
-| `attendre_absence` | `selecteur` | Wait for element to disappear (spinner, loading veil). Uses `page.wait_for_selector(state="detached")`. (v1.9) |
+| `attendre_absence` | `selecteur`, [`delai_initial_ms`] | Wait for element to disappear (spinner, loading veil). Uses `page.wait_for_selector(state="detached")`. Optional `delai_initial_ms` (int, ms) delays polling start — use on first POST submission to let Playwright process the redirect (REX #66, v1.9.7). (v1.9) |
 | `attendre_reseau_calme` | [`timeout_ms`] | Wait for 500ms network silence. Uses `page.wait_for_load_state("networkidle")`. `timeout_ms` = max wait before abort (distinct from the 500ms silence threshold). (v1.9) |
 
 ### `evaluer` — DOM/JS introspection (v1.1)
