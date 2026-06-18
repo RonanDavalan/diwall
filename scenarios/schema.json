@@ -236,7 +236,9 @@
       "properties": {
         "type":      { "const": "attendre_absence" },
         "selecteur": { "type": "string", "minLength": 1,
-                       "description": "CSS selector — waits until element is removed from DOM (state=detached)" }
+                       "description": "CSS selector — waits until element is removed from DOM (state=detached)" },
+        "delai_initial_ms": { "type": "integer", "minimum": 0,
+                              "description": "Optional delay (ms) before polling starts — use on first POST submission to let Playwright process the redirect (REX #66)" }
       }
     },
 
