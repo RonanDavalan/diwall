@@ -758,7 +758,7 @@ Every run of `shot.py`, `watch.py`, and `rpa.py` is automatically appended to
 Sample output:
 ```
 2026-06-02T08:41:59+02:00  [succes] ✏ MUTATIF  shot.py  https://target.local/
-      intention : Delete clone allsys.online 2026-05-30
+      intention : Delete clone __DOMAINE_CLIENT__ 2026-05-30
       actions   : cliquer_som#10, remplir_som#19=<saisie>, cliquer #btn-lot-confirmer
       preuves   : 2 → /var/log/diwall/preuves/2026-06/4bd9449655d8/…
 

@@ -349,7 +349,7 @@ def parse_args():
                         "possible via la clé 'interval_capture' du scénario.")
     p.add_argument("--intention", default=None,
                    help="Libellé métier du run, consigné dans le journal d'opérations "
-                        "(v1.4). Ex. : \"Suppression clone allsys.online 2026-05-30\".")
+                        "(v1.4). Ex. : \"Suppression clone __DOMAINE_CLIENT__ 2026-05-30\".")
     p.add_argument("--auth-indicator", dest="auth_indicator", default=None,
                    help="Sélecteur CSS visible uniquement en session authentifiée (v1.9). "
                         "Ajoute auth_status (\"active\"|\"inactive\") à la racine du JSON.")

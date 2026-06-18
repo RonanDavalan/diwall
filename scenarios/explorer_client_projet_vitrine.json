@@ -22,7 +22,7 @@
     },
     {
       "type": "evaluer",
-      "script": "JSON.stringify(document.body.innerHTML.match(/allsys[^\"\\s<]{0,50}/g) || [])"
+      "script": "JSON.stringify(document.body.innerHTML.match(/__DOMAINE_CLIENT__[^\"\\s<]{0,50}/g) || [])"
     }
   ]
 }

@@ -64,9 +64,9 @@ def test_t1_mutatif_preuves():
     ]
     journal.enregistrer_operation(
         outil="shot.py", version="1.4.0",
-        cible_url="https://target.local/?vue=domaine&domaine=allsys.online",
+        cible_url="https://target.local/?vue=domaine&domaine=__DOMAINE_CLIENT__",
         resultat="succes", actions=actions, diwall_meta=META,
-        intention="Suppression clone allsys.online 2026-05-30", captures=[cap],
+        intention="Suppression clone __DOMAINE_CLIENT__ 2026-05-30", captures=[cap],
     )
     e = _entrees()[-1]
     preuves = e.get("captures") or []
