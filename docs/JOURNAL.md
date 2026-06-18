@@ -11,7 +11,7 @@ Friction #66 remontée par Claude Sillage (validation E2E C1b, campagne 18/06).
 
 **Travail effectué :**
 
-Trilatérale Ronan / Claude Diwall / Claude Sillage (via relais Ronan) en amont :
+Trilatérale opérateur / Claude Diwall / Claude Sillage (via relais opérateur) en amont :
 décision d'un correctif en deux temps — documentaire immédiat, API non urgent.
 
 - `docs/GUIDE_LLM.md` v2.3 — règle `attendre_absence` timeout sur première soumission
