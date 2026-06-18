@@ -1,0 +1,28 @@
+{
+  "$schema": "https://raw.githubusercontent.com/RonanDavalan/diwall/main/scenarios/schema.json",
+  "nom": "explorer_client_projet_vitrine",
+  "description": "Exploration de la vue client projet-vitrine pour identifier les domaines affichés, les clones visibles, et l'état des boutons supprimer.",
+  "url": "https://sillage.ike4.local/?vue=client&client=projet-vitrine",
+  "actions": [
+    {
+      "type": "evaluer",
+      "script": "JSON.stringify({titre: document.title, h1: document.querySelector('h1')?.textContent?.trim(), url: window.location.href})"
+    },
+    {
+      "type": "evaluer",
+      "script": "JSON.stringify(Array.from(document.querySelectorAll('[data-domaine], .domaine, .domain, section[id]')).map(el => ({tag: el.tagName, id: el.id, class: el.className, text: el.textContent.trim().slice(0,100)})))"
+    },
+    {
+      "type": "evaluer",
+      "script": "JSON.stringify(Array.from(document.querySelectorAll('button, a.btn, [role=button]')).map(b => ({text: b.textContent.trim(), id: b.id, class: b.className, disabled: b.disabled, href: b.href || null})).filter(b => b.text.length > 0))"
+    },
+    {
+      "type": "evaluer",
+      "script": "JSON.stringify(Array.from(document.querySelectorAll('.clone, .item-clone, [data-clone], tr[data-dest], li[data-dest]')).map(el => ({class: el.className, text: el.textContent.trim().slice(0,150), dataset: JSON.stringify(el.dataset)})))"
+    },
+    {
+      "type": "evaluer",
+      "script": "JSON.stringify(document.body.innerHTML.match(/allsys[^\"\\s<]{0,50}/g) || [])"
+    }
+  ]
+}

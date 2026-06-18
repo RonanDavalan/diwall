@@ -2024,3 +2024,78 @@ Découverte lors de l'ajout du tracker Matomo sur `__DOMAINE_OPERATEUR__`.
 Fiche opératoire créée : `TACHE_matomo-ajouter-site.md`.
 
 **62 frictions sur 30 sessions.**
+
+---
+
+# Session 31 — 18 juin 2026 — Validation C1b Sillage (UI admin maître)
+
+Validation E2E de C1b (gestion des locataires multi-tenant) via `rpa.py --scenario`.
+14/14 assertions passées. Une friction identifiée lors des runs de mise au point.
+
+## 66. `attendre_absence` timeout sur la première soumission de formulaire
+
+**Contexte** : scénario qui, depuis `?vue=login`, remplit le formulaire de login et
+soumet. C'est la **première action POST** de toute la session Playwright.
+
+**Séquence défaillante** :
+```json
+{"type": "remplir", "selecteur": "input[name=\"identifiant\"]", "valeur": "diwall-test"},
+{"type": "remplir", "selecteur": "input[name=\"password\"]",    "valeur": "Diwall2026!"},
+{"type": "cliquer", "selecteur": "button.login-bouton"},
+{"type": "attendre_absence", "selecteur": "input[name=\"identifiant\"]"}
+← TimeoutError 10000ms, 24 polls, element still present
+```
+
+Le login RÉUSSIT côté serveur (vérifié via `curl` et `password_verify`). La session PHP
+`session_regenerate_id(true)` émet un nouveau cookie. Playwright suit le redirect → `?` →
+dashboard. Mais `attendre_absence` commence à poller AVANT que Playwright ne commence à
+traiter la réponse de la redirection, et chaque poll voit l'élément encore présent (page
+de login toujours chargée dans le contexte courant). Après 10s, timeout.
+
+**Ce qui le révèle** : le même pattern (`attendre_absence` sur `input[name="identifiant"]`)
+FONCTIONNE dans un autre scénario (C1a `valider_auth_multitenant.json`) parce que deux
+soumissions de formulaire (avec `attendre_url "err=1"`) ont eu lieu AVANT — Playwright
+a « pré-chauffé » sa gestion des navigations POST → redirect.
+
+**Séquence fonctionnelle** :
+```json
+{"type": "cliquer", "selecteur": "button.login-bouton"},
+{"type": "pause", "ms": 2000},
+{"type": "evaluer", "script": "!window.location.href.includes('vue=login')", "attendu": true}
+```
+
+**Règle** : sur la PREMIÈRE soumission de formulaire d'un scénario (première navigation
+POST), ne pas utiliser `attendre_absence` ni `attendre_navigation` immédiatement après
+le clic — insérer un `pause ms:2000` suivi d'un `evaluer` sur l'URL cible.
+
+**Lien avec friction #5 et #16** : même famille — `session_regenerate_id()` post-login
++ timing Playwright. Ici, l'angle nouveau est que le problème est spécifique à la
+*première* soumission d'un scénario (pas les suivantes).
+
+---
+
+## Synthèse session 31
+
+1 friction nouvelle (#66). C1b Sillage 14/14 assertions validées.
+Règle documentée dans `docs/GUIDE_LLM.md` v2.3.
+
+**63 frictions sur 31 sessions.**
+
+---
+
+# Note 18/06/2026 (hors session Diwall) — Lacune signalée : bwlimit rsync
+
+**Contexte** : chantier 3 Sillage — push allsys.io IKE4→Davalan-vps via connexion internet.
+
+**Lacune identifiée** : le script générique `transfert-wordpress-local-vers-serveur.sh`
+utilise rsync sans `--bwlimit`. Sur une connexion internet, un débit non limité cause un
+`Broken pipe` après ~1.2 Mo transférés (buffers SSH saturés).
+
+**Ce qui manque dans Sillage** : une variable `srv_<alias>_bwlimit` dans config.sh,
+passée par le wrapper `local-vers-serveur.sh` comme variable d'environnement, et utilisée
+dans le script générique comme `--bwlimit=${SILLAGE_RSYNC_BWLIMIT:-}`.
+
+**Contournement actuel** : rsync manuel avec `--bwlimit=500` avant le push officiel.
+
+Cette lacune est propre à Sillage, pas à Diwall. Consignée ici par erreur de routage initial.
+(→ Reporter dans `_CADRE/MEMOIRE/RETOUR_EXPERIENCE.md` de Sillage si besoin de suivi.)

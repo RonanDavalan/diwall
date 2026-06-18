@@ -1,6 +1,6 @@
 # Diwall — LLM Session Guide
 
-Version 2.0 — June 2026
+Version 2.3 — June 2026
 
 **You are a language model. This document tells you everything you need to operate Diwall.**
 
@@ -1239,6 +1239,34 @@ cookies are not yet established (REX friction #51). Same root cause as friction 
   {"type": "capturer",     "nom": "post-login"}
 ]
 ```
+
+### `attendre_absence` timeout on first form submission (REX #66)
+
+`attendre_absence` polls `page.wait_for_selector(state="detached")` immediately after the
+click. On the **first POST submission** of a scenario, Playwright has not yet started
+processing the server response — every poll sees the login form still present, and the
+10 s timeout fires even though the login succeeded server-side.
+
+**Root cause:** `session_regenerate_id(true)` issues a new cookie, Playwright follows the
+redirect — but polling starts before that redirect is processed. Subsequent submissions in
+the same session do not reproduce the issue because Playwright's navigation pipeline is
+already warm.
+
+**Do not use `attendre_absence` immediately after the first form submit.** Use `pause` +
+`evaluer` on the target URL instead:
+
+```json
+{"type": "cliquer",  "selecteur": "button.login-bouton"},
+{"type": "pause",    "ms": 2000},
+{"type": "evaluer",  "script": "!window.location.href.includes('vue=login')", "attendu": true}
+```
+
+**`attendre_absence` is safe** on subsequent submissions within the same session (Playwright
+pipeline warm), and for spinners / loading veils that appear *after* a page has fully loaded.
+
+**Related:** friction #5 (session_regenerate_id timing), friction #16 (same family).
+
+---
 
 ### `DIWALL_VAULT_DIR` vs `DIWALL_CONF` — different semantics (FR-58)
 

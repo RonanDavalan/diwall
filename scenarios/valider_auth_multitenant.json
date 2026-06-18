@@ -1,0 +1,76 @@
+{
+  "$schema": "https://raw.githubusercontent.com/RonanDavalan/diwall/main/scenarios/schema.json",
+  "nom": "valider_auth_multitenant",
+  "description": "Validation Chantier 1a — login identifiant+mdp multi-tenant, message générique, session, logout, protection accès direct.",
+  "url": "https://sillage.ike4.local/?vue=login",
+  "actions": [
+
+    {"type": "capturer", "nom": "01_page_login"},
+
+    {"type": "evaluer",
+     "script": "document.querySelector('input[name=\"identifiant\"]') !== null && document.querySelector('input[name=\"password\"]') !== null",
+     "attendu": true},
+
+    {"type": "evaluer",
+     "script": "document.querySelector('input[name=\"identifiant\"]').hasAttribute('autofocus')",
+     "attendu": true},
+
+    {"type": "remplir", "selecteur": "input[name=\"identifiant\"]", "valeur": "tenant-qui-nexiste-pas"},
+    {"type": "remplir", "selecteur": "input[name=\"password\"]",    "valeur": "nImportQuoi"},
+    {"type": "cliquer", "selecteur": "button.login-bouton"},
+    {"type": "attendre_url", "motif": "err=1"},
+
+    {"type": "evaluer",
+     "script": "window.location.href.includes('err=1')",
+     "attendu": true},
+
+    {"type": "evaluer",
+     "script": "document.querySelector('.login-erreur') !== null && document.querySelector('.login-erreur').textContent.trim().length > 0",
+     "attendu": true},
+
+    {"type": "evaluer",
+     "script": "document.querySelector('.login-erreur').textContent.includes('incorrect')",
+     "attendu": true},
+
+    {"type": "capturer", "nom": "02_erreur_tenant_inexistant"},
+
+    {"type": "remplir", "selecteur": "input[name=\"identifiant\"]", "valeur": "diwall-test"},
+    {"type": "remplir", "selecteur": "input[name=\"password\"]",    "valeur": "mauvais-mdp-123"},
+    {"type": "cliquer", "selecteur": "button.login-bouton"},
+    {"type": "attendre_url", "motif": "err=1"},
+
+    {"type": "evaluer",
+     "script": "window.location.href.includes('err=1')",
+     "attendu": true},
+
+    {"type": "remplir", "selecteur": "input[name=\"identifiant\"]", "valeur": "diwall-test"},
+    {"type": "remplir", "selecteur": "input[name=\"password\"]",    "valeur": "Diwall2026!"},
+    {"type": "cliquer", "selecteur": "button.login-bouton"},
+    {"type": "attendre_absence", "selecteur": "input[name=\"identifiant\"]"},
+
+    {"type": "evaluer",
+     "script": "!window.location.href.includes('vue=login') && !window.location.href.includes('err=')",
+     "attendu": true},
+
+    {"type": "capturer", "nom": "03_dashboard_apres_login"},
+
+    {"type": "naviguer", "url": "https://sillage.ike4.local/?action=logout"},
+    {"type": "attendre_selecteur_present", "selecteur": "input[name=\"identifiant\"]"},
+
+    {"type": "evaluer",
+     "script": "document.querySelector('input[name=\"identifiant\"]') !== null",
+     "attendu": true},
+
+    {"type": "capturer", "nom": "04_retour_login_apres_logout"},
+
+    {"type": "naviguer", "url": "https://sillage.ike4.local/"},
+    {"type": "attendre_selecteur_present", "selecteur": "input[name=\"identifiant\"]"},
+
+    {"type": "evaluer",
+     "script": "document.querySelector('input[name=\"identifiant\"]') !== null",
+     "attendu": true},
+
+    {"type": "capturer", "nom": "05_protection_acces_direct"}
+
+  ]
+}

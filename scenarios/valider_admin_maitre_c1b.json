@@ -1,0 +1,132 @@
+{
+  "$schema": "https://raw.githubusercontent.com/RonanDavalan/diwall/main/scenarios/schema.json",
+  "nom": "valider_admin_maitre_c1b",
+  "description": "Validation C1b — UI admin maître : section Locataires invisible pour tenant ordinaire, visible pour maître ; créer/réinitialiser/supprimer un locataire avec mdp temporaire one-shot.",
+  "url": "https://sillage.ike4.local/?vue=login",
+  "actions": [
+
+    {"type": "capturer", "nom": "01_page_login"},
+
+    {"type": "remplir", "selecteur": "input[name=\"identifiant\"]", "valeur": "diwall-test"},
+    {"type": "remplir", "selecteur": "input[name=\"password\"]",    "valeur": "Diwall2026!"},
+    {"type": "cliquer", "selecteur": "button.login-bouton"},
+    {"type": "pause",   "ms": 2000},
+
+    {"type": "evaluer",
+     "script": "!window.location.href.includes('vue=login')",
+     "attendu": true},
+
+    {"type": "naviguer", "url": "https://sillage.ike4.local/?vue=tenant"},
+    {"type": "attendre_selecteur_present", "selecteur": "body"},
+    {"type": "pause", "ms": 600},
+    {"type": "capturer", "nom": "02_page_tenant_non_maitre"},
+
+    {"type": "evaluer",
+     "script": "Array.from(document.querySelectorAll('h3')).every(h => h.textContent.trim().toLowerCase() !== 'locataires')",
+     "attendu": true},
+
+    {"type": "naviguer", "url": "https://sillage.ike4.local/?action=logout"},
+    {"type": "attendre_selecteur_present", "selecteur": "input[name=\"identifiant\"]"},
+    {"type": "capturer", "nom": "03_logout_avant_login_maitre"},
+
+    {"type": "remplir", "selecteur": "input[name=\"identifiant\"]", "valeur": "ronan-davalan"},
+    {"type": "remplir", "selecteur": "input[name=\"password\"]",    "valeur": "depuis_vault", "vault_cle": "password"},
+    {"type": "cliquer", "selecteur": "button.login-bouton"},
+    {"type": "pause",   "ms": 2000},
+
+    {"type": "evaluer",
+     "script": "!window.location.href.includes('vue=login')",
+     "attendu": true},
+
+    {"type": "naviguer", "url": "https://sillage.ike4.local/?vue=tenant"},
+    {"type": "attendre_selecteur_present", "selecteur": "body"},
+    {"type": "pause", "ms": 600},
+    {"type": "capturer", "nom": "04_page_tenant_maitre_avant_creation"},
+
+    {"type": "evaluer",
+     "script": "Array.from(document.querySelectorAll('h3')).some(h => h.textContent.trim().toLowerCase() === 'locataires')",
+     "attendu": true},
+
+    {"type": "evaluer",
+     "script": "document.querySelector('summary[data-sillage=\"toggle-creer-locataire\"]') !== null",
+     "attendu": true},
+
+    {"type": "evaluer",
+     "script": "document.querySelector('details').open = true; true",
+     "attendu": true},
+
+    {"type": "pause", "ms": 300},
+    {"type": "capturer", "nom": "05_formulaire_creation_ouvert"},
+
+    {"type": "remplir", "selecteur": "input[name=\"nouveau_tenant\"]", "valeur": "test-c1b"},
+    {"type": "remplir", "selecteur": "input[name=\"display_name\"]",   "valeur": "Test C1b"},
+    {"type": "cliquer", "selecteur": "button[data-sillage=\"btn-creer-locataire\"]"},
+
+    {"type": "pause", "ms": 2000},
+    {"type": "capturer", "nom": "06_apres_creation_locataire"},
+
+    {"type": "evaluer",
+     "script": "document.querySelector('[data-sillage=\"mdp-temp-locataire\"]') !== null",
+     "attendu": true},
+
+    {"type": "evaluer",
+     "script": "document.querySelector('[data-sillage=\"mdp-temp-locataire\"] code') !== null && document.querySelector('[data-sillage=\"mdp-temp-locataire\"] code').textContent.trim().length >= 8",
+     "attendu": true},
+
+    {"type": "evaluer",
+     "script": "Array.from(document.querySelectorAll('td')).some(td => td.textContent.trim() === 'test-c1b')",
+     "attendu": true},
+
+    {"type": "capturer", "nom": "07_locataire_test_c1b_dans_tableau"},
+
+    {"type": "naviguer", "url": "https://sillage.ike4.local/?vue=tenant"},
+    {"type": "attendre_selecteur_present", "selecteur": "body"},
+    {"type": "pause", "ms": 600},
+
+    {"type": "evaluer",
+     "script": "document.querySelector('[data-sillage=\"mdp-temp-locataire\"]') === null",
+     "attendu": true},
+
+    {"type": "capturer", "nom": "08_mdp_temp_disparu_apres_rechargement"},
+
+    {"type": "cliquer", "selecteur": "button[data-sillage=\"btn-reinit-auth-test-c1b\"]"},
+    {"type": "pause", "ms": 400},
+    {"type": "capturer", "nom": "09_dialog_reinit_ouvert"},
+
+    {"type": "evaluer",
+     "script": "document.querySelector('#dialog-reinit-test-c1b') !== null && document.querySelector('#dialog-reinit-test-c1b').open",
+     "attendu": true},
+
+    {"type": "cliquer", "selecteur": "button[data-sillage=\"btn-confirmer-reinit-test-c1b\"]"},
+    {"type": "pause", "ms": 2000},
+    {"type": "capturer", "nom": "10_apres_reinit_mdp"},
+
+    {"type": "evaluer",
+     "script": "document.querySelector('[data-sillage=\"mdp-temp-locataire\"]') !== null",
+     "attendu": true},
+
+    {"type": "capturer", "nom": "11_mdp_temp_reinit_visible"},
+
+    {"type": "cliquer", "selecteur": "button[data-sillage=\"btn-supprimer-tenant-test-c1b\"]"},
+    {"type": "pause", "ms": 400},
+    {"type": "capturer", "nom": "12_dialog_suppression_ouvert"},
+
+    {"type": "evaluer",
+     "script": "document.querySelector('#dialog-sup-test-c1b') !== null && document.querySelector('#dialog-sup-test-c1b').open",
+     "attendu": true},
+
+    {"type": "cliquer", "selecteur": "button[data-sillage=\"btn-confirmer-supprimer-tenant-test-c1b\"]"},
+    {"type": "pause", "ms": 2000},
+    {"type": "capturer", "nom": "13_apres_suppression_locataire"},
+
+    {"type": "evaluer",
+     "script": "!Array.from(document.querySelectorAll('td')).some(td => td.textContent.trim() === 'test-c1b')",
+     "attendu": true},
+
+    {"type": "naviguer", "url": "https://sillage.ike4.local/?action=logout"},
+    {"type": "attendre_selecteur_present", "selecteur": "input[name=\"identifiant\"]"},
+
+    {"type": "capturer", "nom": "14_fin_logout"}
+
+  ]
+}
