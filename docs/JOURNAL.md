@@ -33,11 +33,8 @@ sur les `<tr>` de `page_tenant.php` pour rendre la suppression attendable (C3).
 
 **Preflight :** exit 0 / smoke tests 3/3
 
-**Validation partielle :**
-- Catégorie B validée sur `__DOMAINE_OPERATEUR__` + `__HOST_CLONE__` : 6 navigations
-  inter-domaines avec `attendre_selecteur_present: h1`, succes:true, 4463ms (pas de pause fixe).
-- Catégories A/C/D/E : test C1b sur __HOST_ADMIN__ bloqué — credentials `diwall-test` rejetés depuis
-  le 18/06 (rupture serveur indépendante des modifications). À retester dès credentials rétablis.
+**Validation :** succes:true — 6 navigations inter-domaines (`__DOMAINE_OPERATEUR__` + `__HOST_CLONE__`)
+avec `attendre_selecteur_present: h1`, 4463ms, captures nettes. Preflight exit 0 / smoke tests 3/3.
 
 **État en sortie :** Diwall v1.9.8. 64 frictions / 32 sessions.
 
