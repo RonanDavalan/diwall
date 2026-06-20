@@ -243,3 +243,72 @@ def lire_totp(domaine: str) -> str:
     import pyotp
     seed = lire_credential(domaine, "totp_cle")
     return pyotp.TOTP(seed).now()
+
+
+def lire_credential_fichier(chemin: str, cle: str) -> str:
+    """Lit un credential depuis un fichier désigné explicitement (--secrets).
+
+    T1 (montage strict) : le répertoire parent doit être un point de montage
+    actif dans /proc/mounts. Refuse tout fichier sur disque nu persistant
+    (ex. /tmp) — ferme le contournement identifié en session 33.
+    Fallback : si /proc/mounts est illisible, ne bloque pas (même logique
+    que _coffre_est_monte).
+    """
+    repertoire = os.path.dirname(os.path.abspath(chemin))
+    if not _coffre_est_monte(repertoire):
+        raise VaultFermeError(
+            f"Le répertoire du fichier secrets n'est pas un point de montage actif.\n"
+            f"  Fichier    : {chemin}\n"
+            f"  Répertoire : {repertoire}\n"
+            f"  Montez le coffre contenant ce fichier avant d'exécuter."
+        )
+    if not os.path.isfile(chemin):
+        raise FileNotFoundError(
+            f"Fichier secrets introuvable : {chemin}"
+        )
+    with open(chemin, encoding="utf-8") as f:
+        data = json.load(f)
+    if cle not in data:
+        raise KeyError(
+            f"Clé '{cle}' absente du fichier secrets ({chemin})\n"
+            f"Clés disponibles : {list(data.keys())}"
+        )
+    return data[cle]
+
+
+def verifier_cles_fichier(chemin: str, cles) -> None:
+    """Pré-validation fail-fast sur un fichier de secrets explicite (--secrets).
+
+    Même vérification de montage T1 que lire_credential_fichier.
+    Vérifie coffre + clés SANS lire les valeurs.
+    """
+    repertoire = os.path.dirname(os.path.abspath(chemin))
+    if not _coffre_est_monte(repertoire):
+        raise VaultFermeError(
+            f"Le répertoire du fichier secrets n'est pas un point de montage actif.\n"
+            f"  Fichier    : {chemin}\n"
+            f"  Répertoire : {repertoire}\n"
+            f"  Montez le coffre contenant ce fichier avant d'exécuter."
+        )
+    if not os.path.isfile(chemin):
+        raise FileNotFoundError(
+            f"Fichier secrets introuvable : {chemin}"
+        )
+    with open(chemin, encoding="utf-8") as f:
+        data = json.load(f)
+    manquantes = [c for c in cles if c not in data]
+    if manquantes:
+        raise KeyError(
+            f"Clé(s) {manquantes} absente(s) du fichier secrets ({chemin})\n"
+            f"Clés disponibles : {list(data.keys())}"
+        )
+
+
+def lire_totp_fichier(chemin: str) -> str:
+    """Génère le code TOTP depuis la seed dans un fichier secrets explicite (--secrets).
+
+    Délègue à lire_credential_fichier (vérification montage T1 incluse).
+    """
+    import pyotp
+    seed = lire_credential_fichier(chemin, "totp_cle")
+    return pyotp.TOTP(seed).now()
