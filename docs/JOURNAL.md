@@ -4,6 +4,52 @@ Historique des décisions et découvertes par session, dans l'ordre chronologiqu
 
 ---
 
+## 2026-06-20 — Session 35 (v1.10.0 — `--secrets` multi-coffre + fail-fast venv)
+
+**Contexte d'entrée :** v1.9.8 en production. 64 frictions / 32 sessions. PHASE_EXECUTION v1.10.0 en attente depuis session 33.
+
+**Travail effectué :**
+
+PHASE_EXECUTION complète, spec `V1_10_0_SECRETS_MULTICOFFRE.md` (Items A–D) :
+
+- `lib/vault.py` — trois nouvelles fonctions :
+  `lire_credential_fichier(chemin, cle)` — lecture depuis fichier désigné avec vérification montage T1 ;
+  `verifier_cles_fichier(chemin, cles)` — pré-validation fail-fast des clés ;
+  `lire_totp_fichier(chemin)` — génération TOTP depuis fichier désigné.
+
+- `shot.py` — fail-fast venv (`find_spec("playwright")` absent → message explicite + exit 3) ;
+  argument `--secrets <fichier>` dans `parse_args()` ;
+  paramètre `secrets_chemin` dans `executer_actions()` avec couverture T3 complète :
+  `depuis_vault`, `depuis_vault_totp` (×2 : remplir + remplir_som), `attendre_mfa_ntfy` (ntfy_topic).
+
+- `rpa.py` — argument `--secrets` ; import `verifier_cles_fichier` ; pré-validation bifurquée
+  (`verifier_cles_fichier` si `--secrets`, `verifier_cles` sinon) ; propagation vers subprocess shot.py.
+
+- `docs/GUIDE_LLM.md` v2.5 — section "Multi-vault and explicit credential files" :
+  cas d'usage, syntaxe, format JSON Diwall, couverture T3, doctrine T1 + limite honnête,
+  limite T4, surface de perception T6.
+
+- `__version__` → `1.10.0` sur `shot.py`, `rpa.py`, `journal.py`.
+
+**Plan de test :**
+T-A1 vert (lecture depuis coffre monté, valeur correcte).
+T-A2 vert (`VaultFermeError(42)` sur répertoire non monté, exit 42).
+T-A3 vert (`FileNotFoundError`, exit 1, message explicite).
+T-B1 vert (fail-fast clé manquante avant Playwright via rpa.py, 126ms).
+T-B2 vert (TOTP lu depuis fichier désigné, code 6 chiffres).
+T-C1 vert (message « exécutez via /opt/diwall/venv », exit 3).
+T-C2 vert (exit 3 relayé proprement par rpa.py).
+T-D1 vert (sans `--secrets` : comportement v1.9.8 strictement identique).
+Preflight exit 0. Smoke tests 3/3.
+
+**Note T-A2 :** `/tmp` sur neo est un tmpfs monté — VaultFermeError ne se déclenche pas sur `/tmp`.
+Conforme à la limite honnête T1 (tmpfs = montage actif). Le test utilise un répertoire non monté
+pour valider le refus.
+
+**État en sortie :** Diwall v1.10.0. 64 frictions / 35 sessions.
+
+---
+
 ## 2026-06-20 — Session 32 (v1.9.8 — FR-67 : pauses fixes → attentes sémantiques)
 
 **Contexte d'entrée :** v1.9.7 en production. 63 frictions / 31 sessions. Backlog vide.
