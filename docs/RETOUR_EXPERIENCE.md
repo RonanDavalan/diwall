@@ -2126,7 +2126,7 @@ sur un élément de contenu métier.
 
 1 friction nouvelle (#67 — pauses fixes → attentes sémantiques). Trilatérale l'opérateur / Claude Diwall /
 Claude Sillage. Vérification PHP par Sillage, commit Sillage `a762dbe`.
-`GUIDE_LLM.md` v2.4. `valider_admin_maitre_c1b.json` mis à jour. v1.9.8 livré.
+`GUIDE_LLM.md` v2.4. `valider_admin_maitre_c1b.json` mis à jour. v1.9.8 livré et validé.
 
 **64 frictions sur 32 sessions.**
 
