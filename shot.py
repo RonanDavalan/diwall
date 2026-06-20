@@ -9,7 +9,7 @@ import sys
 import time
 from datetime import datetime, timezone
 
-__version__ = "1.9.8"
+__version__ = "1.10.0"
 
 # Permet d'importer lib/ depuis le même répertoire que shot.py
 sys.path.insert(0, os.path.dirname(os.path.abspath(__file__)))
@@ -356,6 +356,10 @@ def parse_args():
     p.add_argument("--no-capture", dest="no_capture", action="store_true",
                    help="Skip la capture PNG finale, l'injection SoM et les écritures disque (v1.9). "
                         "Incompatible avec --som et l'action capturer.")
+    p.add_argument("--secrets", default=None,
+                   help="Chemin absolu vers un fichier JSON de credentials (v1.10). "
+                        "Court-circuite la résolution par hostname pour tout le run. "
+                        "Le répertoire parent doit être un point de montage actif (T1).")
     return p.parse_args()
 
 
@@ -398,7 +402,8 @@ def charger_actions(source):
 
 
 def executer_actions(page, actions, output_dir, timeout, mode_llm="local",
-                     interval_capture_default=0, modeles_appeles=None):
+                     interval_capture_default=0, modeles_appeles=None,
+                     secrets_chemin=None):
     from playwright.sync_api import TimeoutError as PWTimeoutError
 
     intermediaires = []
@@ -487,14 +492,22 @@ def executer_actions(page, actions, output_dir, timeout, mode_llm="local",
         elif t == "remplir":
             valeur = a.get("valeur", "")
             if valeur == "depuis_vault":
-                from lib.vault import lire_credential, domaine_depuis_url
                 cle = a.get("vault_cle")
                 if not cle:
                     raise ValueError("remplir depuis_vault : champ 'vault_cle' requis")
-                valeur = lire_credential(domaine_depuis_url(page.url), cle)
+                if secrets_chemin:
+                    from lib.vault import lire_credential_fichier
+                    valeur = lire_credential_fichier(secrets_chemin, cle)
+                else:
+                    from lib.vault import lire_credential, domaine_depuis_url
+                    valeur = lire_credential(domaine_depuis_url(page.url), cle)
             elif valeur == "depuis_vault_totp":
-                from lib.vault import lire_totp, domaine_depuis_url
-                valeur = lire_totp(domaine_depuis_url(page.url))
+                if secrets_chemin:
+                    from lib.vault import lire_totp_fichier
+                    valeur = lire_totp_fichier(secrets_chemin)
+                else:
+                    from lib.vault import lire_totp, domaine_depuis_url
+                    valeur = lire_totp(domaine_depuis_url(page.url))
             page.locator(a["selecteur"]).fill(valeur, timeout=timeout)
 
         elif t == "cliquer":
@@ -542,14 +555,22 @@ def executer_actions(page, actions, output_dir, timeout, mode_llm="local",
             if som_id is None:
                 raise ValueError("remplir_som requiert un champ 'id'")
             if valeur == "depuis_vault":
-                from lib.vault import lire_credential, domaine_depuis_url
                 cle = a.get("vault_cle")
                 if not cle:
                     raise ValueError("remplir_som depuis_vault : champ 'vault_cle' requis")
-                valeur = lire_credential(domaine_depuis_url(page.url), cle)
+                if secrets_chemin:
+                    from lib.vault import lire_credential_fichier
+                    valeur = lire_credential_fichier(secrets_chemin, cle)
+                else:
+                    from lib.vault import lire_credential, domaine_depuis_url
+                    valeur = lire_credential(domaine_depuis_url(page.url), cle)
             elif valeur == "depuis_vault_totp":
-                from lib.vault import lire_totp, domaine_depuis_url
-                valeur = lire_totp(domaine_depuis_url(page.url))
+                if secrets_chemin:
+                    from lib.vault import lire_totp_fichier
+                    valeur = lire_totp_fichier(secrets_chemin)
+                else:
+                    from lib.vault import lire_totp, domaine_depuis_url
+                    valeur = lire_totp(domaine_depuis_url(page.url))
             coord = page.evaluate(_SOM_TROUVER_JS, som_id)
             if coord is None:
                 raise ValueError(f"remplir_som : élément SoM {som_id!r} non trouvé sur la page")
@@ -658,9 +679,13 @@ def executer_actions(page, actions, output_dir, timeout, mode_llm="local",
             if id_som is None:
                 raise ValueError("attendre_mfa_ntfy requiert un champ 'id_som'")
             timeout_mfa = int(a.get("timeout", 120))
-            from lib.vault import lire_credential, domaine_depuis_url
             from lib import ntfy as ntfy_lib
-            topic = lire_credential(domaine_depuis_url(page.url), "ntfy_topic")
+            if secrets_chemin:
+                from lib.vault import lire_credential_fichier
+                topic = lire_credential_fichier(secrets_chemin, "ntfy_topic")
+            else:
+                from lib.vault import lire_credential, domaine_depuis_url
+                topic = lire_credential(domaine_depuis_url(page.url), "ntfy_topic")
             ntfy_lib.publier_attente(topic, page.url)
             code = ntfy_lib.attendre_code(topic, timeout_s=timeout_mfa)
             coord = page.evaluate(_SOM_TROUVER_JS, id_som)
@@ -738,6 +763,14 @@ def executer_actions(page, actions, output_dir, timeout, mode_llm="local",
 
 
 def main():
+    import importlib.util
+    if importlib.util.find_spec("playwright") is None:
+        sys.stderr.write(
+            "Diwall : module 'playwright' introuvable dans cet interpréteur.\n"
+            "  Exécutez via le venv : /opt/diwall/venv/bin/python depuis /opt/diwall\n"
+        )
+        sys.exit(3)
+
     # Interdire les core dumps pour ce processus : si Playwright crashe
     # pendant qu'un credential est en mémoire, le noyau ne peut pas écrire
     # un dump contenant le secret (spec 36_ §2.5).
@@ -871,6 +904,7 @@ def main():
                 page, actions, args.output_dir, args.timeout, args.llm,
                 interval_capture_default=args.interval_capture,
                 modeles_appeles=modeles_appeles,
+                secrets_chemin=getattr(args, "secrets", None),
             )
             url_finale = page.url  # mise à jour après actions
 

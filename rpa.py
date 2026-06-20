@@ -20,7 +20,7 @@ Format du scénario :
 Le vault est résolu par lib/vault.py (DIWALL_VAULT_DIR > diwall.conf > ~/Vaults/Diwall/).
 Jamais de mot de passe dans les fichiers de scénario.
 """
-__version__ = "1.9.8"
+__version__ = "1.10.0"
 
 import argparse
 import json
@@ -43,7 +43,7 @@ def _boussole():
         "ip_locale": ip,
         "repertoire": os.getcwd(),
     }
-from lib.vault import domaine_depuis_url, verifier_cles, VaultFermeError
+from lib.vault import domaine_depuis_url, verifier_cles, verifier_cles_fichier, VaultFermeError
 
 _SCHEMA_PATH = os.path.join(os.path.dirname(os.path.abspath(__file__)),
                             "scenarios", "schema.json")
@@ -230,6 +230,11 @@ def main():
                         "Transmis à shot.py.")
     p.add_argument("--url", default=None,
                    help="Remplace l'URL du scénario à l'exécution sans modifier le fichier (v1.9.4).")
+    p.add_argument("--secrets", default=None,
+                   help="Chemin absolu vers un fichier JSON de credentials (v1.10). "
+                        "Court-circuite la résolution par hostname. "
+                        "Le répertoire parent doit être un point de montage actif (T1). "
+                        "Propagé à shot.py pour tout le run.")
     args = p.parse_args()
 
     chemin_scenario, essais = resoudre_chemin_scenario(args.scenario)
@@ -291,7 +296,10 @@ def main():
                     )
                 cles.append(cle)
         if cles:
-            verifier_cles(domaine_depuis_url(url), cles)
+            if args.secrets:
+                verifier_cles_fichier(args.secrets, cles)
+            else:
+                verifier_cles(domaine_depuis_url(url), cles)
     except VaultFermeError as e:
         print(json.dumps({
             "succes": False, "erreur": "vault_ferme",
@@ -322,6 +330,8 @@ def main():
         cmd.append("--a11y")
     if args.no_capture:
         cmd.append("--no-capture")
+    if args.secrets:
+        cmd += ["--secrets", args.secrets]
     auth_indicator = scenario.get("auth_indicator")
     if auth_indicator:
         cmd += ["--auth-indicator", auth_indicator]
