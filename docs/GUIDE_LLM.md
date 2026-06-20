@@ -1,6 +1,6 @@
 # Diwall — LLM Session Guide
 
-Version 2.4 — June 2026
+Version 2.5 — June 2026
 
 **You are a language model. This document tells you everything you need to operate Diwall.**
 
@@ -498,6 +498,93 @@ from lib.vault import lire_credential
 print(lire_credential('target.local', 'password'))
 "
 ```
+
+---
+
+## Multi-vault and explicit credential files (`--secrets`, v1.10.0)
+
+### When to use `--secrets`
+
+The default resolution (hostname → `<hostname>.json`) fails in two cases:
+1. **Multi-tenant same hostname** — several tenants share the same admin URL (e.g. `app.local`). One file per hostname cannot disambiguate.
+2. **Partner vault** — credentials live outside the Diwall vault directory (e.g. a partner project's gocryptfs coffre). `DIWALL_VAULT_DIR` can point elsewhere, but `--secrets` is simpler when you just need to name a specific file.
+
+### Usage
+
+```bash
+# rpa.py — propagated automatically to shot.py for the entire run
+/opt/diwall/venv/bin/python3 /opt/diwall/rpa.py \
+  --scenario valider_auth_multitenant.json \
+  --secrets ~/Vaults/<PROJET>/Diwall/tenant_alpha.json
+
+# shot.py — direct use
+/opt/diwall/venv/bin/python3 /opt/diwall/shot.py \
+  --url https://app.local/admin \
+  --actions '[...]' \
+  --secrets ~/Vaults/<PROJET>/Diwall/tenant_alpha.json
+```
+
+The **scenario file is unchanged and committable** — `depuis_vault` / `vault_cle` syntax is identical:
+```json
+{"type": "remplir_som", "id": 2, "valeur": "depuis_vault", "vault_cle": "username"}
+```
+The tenant name appears only in the CLI argument (ephemeral, never written to disk).
+
+### File format
+
+A Diwall-format JSON file (distinct from PHP `.auth` files):
+```json
+{
+  "username": "tenant_alpha_admin",
+  "password": "secret",
+  "totp_cle": "BASE32SEED",
+  "ntfy_topic": "random-topic-id"
+}
+```
+All keys are optional — only those referenced by scenario actions are required.
+
+### Coverage (T3)
+
+`--secrets` applies to **all credential reads in the run**, not just `depuis_vault`:
+- `depuis_vault` + `vault_cle` — explicit key
+- `depuis_vault_totp` — always reads `totp_cle` from the designated file
+- `attendre_mfa_ntfy` — reads `ntfy_topic` from the designated file
+
+Without this full coverage, a scenario using both password and TOTP would silently read TOTP from the wrong vault.
+
+### T1 — Active mount required
+
+The **parent directory** of the `--secrets` file must appear as an active mount point in `/proc/mounts`. This closes the `/tmp`-interpolation attack vector observed in the wild (Sillage session, June 2026):
+
+```
+~/Vaults/<PROJET>/Diwall/tenant_alpha.json  ← OK if Sillage vault is mounted
+/tmp/tenant_alpha.json                              ← REFUSED (tmpfs IS a mountpoint, but see note)
+~/plain_dir/secrets.json                            ← REFUSED (not a mountpoint)
+```
+
+> **Honest limit:** `T1` guarantees "not on bare persistent disk", not "encrypted". A mounted `tmpfs` technically passes. The protection targets the concrete observed attack (credentials written to `/tmp` with hardcoded values). Always use a `gocryptfs` vault for real secrets.
+
+Exit code **42** (`VaultFermeError`) if the check fails — same as the regular vault.
+
+### T4 — Mono-source per run
+
+`--secrets` designates **one file for the entire run**. A multi-domain scenario (login on A, verify on B) cannot point two files simultaneously under this mode. The Sillage use case (mono-domain, multi-tenant) is fully covered. Extension to `--secrets domain=file` notation is identified but not implemented (YAGNI).
+
+### T6 — Perception surface (residual risk)
+
+`--secrets` closes the **storage** channel. It does not close the **perception** channel:
+
+| Vector | Risk | Status |
+|--------|------|--------|
+| PNG capture after fill, `type=password` field | Visually masked (••••) | Low |
+| PNG capture, `type=text` field (mistyped input) | Secret **visible in clear** in capture | Residual — app defect |
+| `evaluer` on `input.value` | Reads secret in clear in JSON + model context | **FORBIDDEN** (doctrine) |
+| Error message on failed `remplir_som` | May re-inject the attempted value | Audit if needed |
+
+**Hygiene rules (doctrine, not enforced in code):**
+- Never read a secret field via `evaluer ... .value`.
+- Use `--no-capture` on post-login steps handling sensitive data.
+- Verify the secret field is `type=password` (if `type=text`, the value appears in the screenshot).
 
 ---
 
