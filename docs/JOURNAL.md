@@ -4,6 +4,45 @@ Historique des décisions et découvertes par session, dans l'ordre chronologiqu
 
 ---
 
+## 2026-06-20 — Session 32 (v1.9.8 — FR-67 : pauses fixes → attentes sémantiques)
+
+**Contexte d'entrée :** v1.9.7 en production. 63 frictions / 31 sessions. Backlog vide.
+Proposition remontée par Claude Sillage : remplacer les pauses fixes par `attendre_selecteur_present`.
+
+**Travail effectué :**
+
+Trilatérale opérateur / Claude Diwall / Claude Sillage — vérification PHP des sélecteurs
+par Sillage avant exécution. Commit Sillage `a762dbe` : attribut `data-sillage` ajouté
+sur les `<tr>` de `page_tenant.php` pour rendre la suppression attendable (C3).
+
+- `docs/GUIDE_LLM.md` v2.4 — deux mises à jour :
+  (1) REX #66 révisé : `attendre_absence + delai_initial_ms:500` devient la forme préférentielle
+  (vs `pause 2000 + evaluer URL` qui reste le fallback pre-v1.9.7) ;
+  (2) Nouvelle section FR-67 : règle `pause` vs `attendre_selecteur_present` — tableau
+  décisionnel, anti-pattern `attendre_selecteur_present body + pause N`, principe
+  auto-documentation des scénarios.
+
+- `scenarios/valider_admin_maitre_c1b.json` — 10 pauses remplacées sur 11 :
+  A (post-login ×2) → `attendre_absence + delai_initial_ms:500` ;
+  B (navigation + body ×3) → `attendre_selecteur_present [data-sillage="toggle-creer-locataire"]` ;
+  C1/C2 (post-AJAX ×2) → `attendre_selecteur_present [data-sillage="mdp-temp-locataire"]` ;
+  C3 (post-suppression) → `attendre_absence tr[data-sillage="ligne-tenant-test-c1b"]` ;
+  D (dialog open ×2) → `attendre_selecteur_present #dialog-id[open]` ;
+  E (animation details) → `attendre_selecteur_present input[name="nouveau_tenant"]`.
+  1 pause conservée (C3 suppression → `attendre_absence`, voir ci-dessus).
+
+**Preflight :** exit 0 / smoke tests 3/3
+
+**Validation partielle :**
+- Catégorie B validée sur `__DOMAINE_OPERATEUR__` + `__HOST_CLONE__` : 6 navigations
+  inter-domaines avec `attendre_selecteur_present: h1`, succes:true, 4463ms (pas de pause fixe).
+- Catégories A/C/D/E : test C1b sur __HOST_ADMIN__ bloqué — credentials `diwall-test` rejetés depuis
+  le 18/06 (rupture serveur indépendante des modifications). À retester dès credentials rétablis.
+
+**État en sortie :** Diwall v1.9.8. 64 frictions / 32 sessions.
+
+---
+
 ## 2026-06-18 — Session 31 (v1.9.7 — delai_initial_ms + friction #66)
 
 **Contexte d'entrée :** v1.9.6 en production. 62 frictions / 30 sessions. Backlog vide.
