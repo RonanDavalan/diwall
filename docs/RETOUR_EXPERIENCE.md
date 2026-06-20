@@ -2083,6 +2083,74 @@ Règle documentée dans `docs/GUIDE_LLM.md` v2.3.
 
 ---
 
+## Friction #67 — `pause` fixe : borne temporelle arbitraire remplaçable par `attendre_selecteur_present`
+
+**Remontée par :** Claude Sillage (session 32, 20/06/2026), à la suite de la campagne C1b.
+
+**Catégorie :** ergonomie / fiabilité scénarios — aucun changement API Diwall requis.
+
+**Problème :** `pause ms:N` est utilisé comme rustine post-action alors qu'un élément DOM précis
+signale l'état attendu. C'est une borne temporelle arbitraire :
+- sur un serveur rapide, on attend le pire cas inutilement ;
+- sur un serveur lent, si la durée réelle dépasse N ms, le scénario continue sur un état incohérent.
+
+**Cause racine :** les pauses ont été introduites par itération défensive, faute d'un sélecteur
+connu au moment de l'écriture. Le pattern s'est reproduit dans `valider_admin_maitre_c1b.json`
+(11 occurrences).
+
+**Correction appliquée en v1.9.8 :** 10 des 11 pauses remplacées dans `valider_admin_maitre_c1b.json` :
+
+| Cat | Avant | Après |
+|-----|-------|-------|
+| A (post-login ×2) | `pause ms:2000` | `attendre_absence input[name="identifiant"], delai_initial_ms:500` |
+| B (navigation + body ×3) | `attendre_selecteur_present body` + `pause ms:600` | `attendre_selecteur_present [data-sillage="toggle-creer-locataire"]` |
+| C1/C2 (post-AJAX ×2) | `pause ms:2000` | `attendre_selecteur_present [data-sillage="mdp-temp-locataire"]` |
+| C3 (post-suppression) | `pause ms:2000` | `attendre_absence tr[data-sillage="ligne-tenant-<id>"]` |
+| D (dialog open ×2) | `pause ms:400` | `attendre_selecteur_present #dialog-id[open]` |
+| E (animation `<details>`) | `pause ms:300` | `attendre_selecteur_present input[name="nouveau_tenant"]` |
+
+Note C3 : l'attribut `data-sillage="ligne-tenant-<id>"` a été ajouté dans `page_tenant.php`
+par Claude Sillage (commit Sillage `a762dbe`) pour rendre la suppression attendable.
+
+**Règle :** `pause` est réservé aux transitions CSS pures (aucun changement DOM) et aux
+opérations serveur longues sans signal DOM. Dans tous les autres cas, `attendre_selecteur_present`
+(ou `attendre_absence` pour les disparitions) est la primitive correcte.
+
+**Corollaire :** `attendre_selecteur_present body` + `pause N` est un anti-pattern — `body` est
+toujours attaché, la combinaison est équivalente à une pause pure. Remplacer par un sélecteur
+sur un élément de contenu métier.
+
+---
+
+## Synthèse session 32
+
+1 friction nouvelle (#67 — pauses fixes → attentes sémantiques). Trilatérale l'opérateur / Claude Diwall /
+Claude Sillage. Vérification PHP par Sillage, commit Sillage `a762dbe`.
+`GUIDE_LLM.md` v2.4. `valider_admin_maitre_c1b.json` mis à jour. v1.9.8 livré.
+
+**64 frictions sur 32 sessions.**
+
+---
+
+# Note 19/06/2026 — Lacune : __HOST_ADMIN__ inaccessible depuis Diwall (cert auto-signé)
+
+**Contexte** : validation migration __HOST_VPS__ Phase 1 — tentative de capture `https://__HOST_ADMIN__/`
+depuis neo via shot.py (Playwright Chromium).
+
+**Comportement** : `succes: false`, http_status absent. Playwright rejette le certificat
+auto-signé de `__HOST_ADMIN__` sans option de contournement exposée par shot.py.
+
+**Ce qui manque dans Diwall** : une option `--ignore-https-errors` pour les environnements
+locaux avec cert auto-signé (développement, staging intranet). Sans cette option, Diwall
+est inutilisable sur les interfaces locales HTTPS non certifiées par Let's Encrypt.
+
+**Contournement actuel** : validation par WP-CLI en SSH direct sur __HOST_VPS__.
+
+**Impact** : Sillage sur __HOST_ADMIN__ ne peut pas être testé visuellement avec Diwall.
+Sillage sur `__DOMAINE_OPERATEUR__` (cert LE valide) est accessible.
+
+---
+
 # Note 18/06/2026 (hors session Diwall) — Lacune signalée : bwlimit rsync
 
 **Contexte** : chantier 3 Sillage — push __DOMAINE_OPERATEUR__ __HOST_ADMIN__→__HOST_VPS__ via connexion internet.
