@@ -1,6 +1,6 @@
 # Diwall — LLM Session Guide
 
-Version 2.3 — June 2026
+Version 2.4 — June 2026
 
 **You are a language model. This document tells you everything you need to operate Diwall.**
 
@@ -214,7 +214,7 @@ Scenario format:
 | `attendre` | `selecteur` | Wait for CSS selector |
 | `attendre_navigation` | — | Wait for networkidle |
 | `capturer` | `nom` | Named intermediate capture |
-| `pause` | `ms` | Fixed delay |
+| `pause` | `ms` | Fixed delay. Prefer `attendre_selecteur_present` whenever a content element signals page readiness (FR-67). Reserve `pause` for pure CSS transitions and long server-side operations. |
 | `evaluer` | `script` | Runs `page.evaluate(script)`; result returned in `evaluations[]` (v1.1) |
 | `defiler` | `px` or `selecteur` | Scroll viewport: relative pixels or `scrollIntoView` (v1.6) |
 | `attendre_mfa_ntfy` | `id_som`, [`timeout`] | Wait for 2FA code via ntfy, type into SoM element (v1.6) |
@@ -1252,8 +1252,15 @@ redirect — but polling starts before that redirect is processed. Subsequent su
 the same session do not reproduce the issue because Playwright's navigation pipeline is
 already warm.
 
-**Do not use `attendre_absence` immediately after the first form submit.** Use `pause` +
-`evaluer` on the target URL instead:
+**Preferred fix (v1.9.7+):** use `attendre_absence` with `delai_initial_ms: 500` — the delay
+lets Playwright process the server redirect before polling begins:
+
+```json
+{"type": "cliquer",   "selecteur": "button.login-bouton"},
+{"type": "attendre_absence", "selecteur": "input[name=\"identifiant\"]", "delai_initial_ms": 500}
+```
+
+**Fallback (Diwall < v1.9.7):** use `pause` + `evaluer` on the target URL:
 
 ```json
 {"type": "cliquer",  "selecteur": "button.login-bouton"},
@@ -1261,10 +1268,38 @@ already warm.
 {"type": "evaluer",  "script": "!window.location.href.includes('vue=login')", "attendu": true}
 ```
 
-**`attendre_absence` is safe** on subsequent submissions within the same session (Playwright
-pipeline warm), and for spinners / loading veils that appear *after* a page has fully loaded.
+**`attendre_absence` without `delai_initial_ms`** is safe on subsequent submissions in the same
+session (pipeline warm), and for spinners / loading veils that appear *after* the page has fully loaded.
 
 **Related:** friction #5 (session_regenerate_id timing), friction #16 (same family).
+
+---
+
+### `pause` vs `attendre_selecteur_present` — semantic waits over fixed delays (FR-67)
+
+`pause ms:N` is a fixed upper bound: it wastes time on fast servers and fails silently on
+slow ones (the sequence continues on a state that is not yet ready). `attendre_selecteur_present`
+exits the moment the target element is visible — it is both faster and safer.
+
+**Decision rule:**
+
+| Situation | Correct primitive |
+|---|---|
+| Post-navigation — content element known | `attendre_selecteur_present: <element>` |
+| Post-AJAX — result element known | `attendre_selecteur_present: <result-element>` |
+| Dialog open | `attendre_selecteur_present: #dialog-id[open]` |
+| Post-login (first submit, pipeline cold) | `attendre_absence: input[name="…"], delai_initial_ms: 500` |
+| Mutation with negative result (element disappears) | `attendre_absence: <element>` |
+| Pure CSS transition (no DOM change) | `pause ms:150–300` — only valid case |
+| Long server-side operation (no selector signal) | `pause` + `capturer` to monitor progress |
+
+**Anti-pattern — `attendre_selecteur_present: body` + `pause`:**
+`body` is always attached; this combination is a no-op wait followed by a fixed delay.
+Replace both with a single `attendre_selecteur_present` on a meaningful content element
+(a section title, a form field, a `data-sillage` attribute on a stable element).
+
+**A well-written scenario is self-documenting:** each wait names the business element
+it waits for, not a duration in ms.
 
 ---
 

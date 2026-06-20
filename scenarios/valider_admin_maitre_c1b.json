@@ -10,15 +10,14 @@
     {"type": "remplir", "selecteur": "input[name=\"identifiant\"]", "valeur": "diwall-test"},
     {"type": "remplir", "selecteur": "input[name=\"password\"]",    "valeur": "Diwall2026!"},
     {"type": "cliquer", "selecteur": "button.login-bouton"},
-    {"type": "pause",   "ms": 2000},
+    {"type": "attendre_absence", "selecteur": "input[name=\"identifiant\"]", "delai_initial_ms": 500},
 
     {"type": "evaluer",
      "script": "!window.location.href.includes('vue=login')",
      "attendu": true},
 
     {"type": "naviguer", "url": "https://sillage.ike4.local/?vue=tenant"},
-    {"type": "attendre_selecteur_present", "selecteur": "body"},
-    {"type": "pause", "ms": 600},
+    {"type": "attendre_selecteur_present", "selecteur": "[data-sillage=\"toggle-creer-locataire\"]"},
     {"type": "capturer", "nom": "02_page_tenant_non_maitre"},
 
     {"type": "evaluer",
@@ -32,15 +31,14 @@
     {"type": "remplir", "selecteur": "input[name=\"identifiant\"]", "valeur": "ronan-davalan"},
     {"type": "remplir", "selecteur": "input[name=\"password\"]",    "valeur": "depuis_vault", "vault_cle": "password"},
     {"type": "cliquer", "selecteur": "button.login-bouton"},
-    {"type": "pause",   "ms": 2000},
+    {"type": "attendre_absence", "selecteur": "input[name=\"identifiant\"]", "delai_initial_ms": 500},
 
     {"type": "evaluer",
      "script": "!window.location.href.includes('vue=login')",
      "attendu": true},
 
     {"type": "naviguer", "url": "https://sillage.ike4.local/?vue=tenant"},
-    {"type": "attendre_selecteur_present", "selecteur": "body"},
-    {"type": "pause", "ms": 600},
+    {"type": "attendre_selecteur_present", "selecteur": "[data-sillage=\"toggle-creer-locataire\"]"},
     {"type": "capturer", "nom": "04_page_tenant_maitre_avant_creation"},
 
     {"type": "evaluer",
@@ -55,14 +53,14 @@
      "script": "document.querySelector('details').open = true; true",
      "attendu": true},
 
-    {"type": "pause", "ms": 300},
+    {"type": "attendre_selecteur_present", "selecteur": "input[name=\"nouveau_tenant\"]"},
     {"type": "capturer", "nom": "05_formulaire_creation_ouvert"},
 
     {"type": "remplir", "selecteur": "input[name=\"nouveau_tenant\"]", "valeur": "test-c1b"},
     {"type": "remplir", "selecteur": "input[name=\"display_name\"]",   "valeur": "Test C1b"},
     {"type": "cliquer", "selecteur": "button[data-sillage=\"btn-creer-locataire\"]"},
 
-    {"type": "pause", "ms": 2000},
+    {"type": "attendre_selecteur_present", "selecteur": "[data-sillage=\"mdp-temp-locataire\"]"},
     {"type": "capturer", "nom": "06_apres_creation_locataire"},
 
     {"type": "evaluer",
@@ -80,8 +78,7 @@
     {"type": "capturer", "nom": "07_locataire_test_c1b_dans_tableau"},
 
     {"type": "naviguer", "url": "https://sillage.ike4.local/?vue=tenant"},
-    {"type": "attendre_selecteur_present", "selecteur": "body"},
-    {"type": "pause", "ms": 600},
+    {"type": "attendre_selecteur_present", "selecteur": "[data-sillage=\"toggle-creer-locataire\"]"},
 
     {"type": "evaluer",
      "script": "document.querySelector('[data-sillage=\"mdp-temp-locataire\"]') === null",
@@ -90,7 +87,7 @@
     {"type": "capturer", "nom": "08_mdp_temp_disparu_apres_rechargement"},
 
     {"type": "cliquer", "selecteur": "button[data-sillage=\"btn-reinit-auth-test-c1b\"]"},
-    {"type": "pause", "ms": 400},
+    {"type": "attendre_selecteur_present", "selecteur": "#dialog-reinit-test-c1b[open]"},
     {"type": "capturer", "nom": "09_dialog_reinit_ouvert"},
 
     {"type": "evaluer",
@@ -98,7 +95,7 @@
      "attendu": true},
 
     {"type": "cliquer", "selecteur": "button[data-sillage=\"btn-confirmer-reinit-test-c1b\"]"},
-    {"type": "pause", "ms": 2000},
+    {"type": "attendre_selecteur_present", "selecteur": "[data-sillage=\"mdp-temp-locataire\"]"},
     {"type": "capturer", "nom": "10_apres_reinit_mdp"},
 
     {"type": "evaluer",
@@ -108,7 +105,7 @@
     {"type": "capturer", "nom": "11_mdp_temp_reinit_visible"},
 
     {"type": "cliquer", "selecteur": "button[data-sillage=\"btn-supprimer-tenant-test-c1b\"]"},
-    {"type": "pause", "ms": 400},
+    {"type": "attendre_selecteur_present", "selecteur": "#dialog-sup-test-c1b[open]"},
     {"type": "capturer", "nom": "12_dialog_suppression_ouvert"},
 
     {"type": "evaluer",
@@ -116,7 +113,7 @@
      "attendu": true},
 
     {"type": "cliquer", "selecteur": "button[data-sillage=\"btn-confirmer-supprimer-tenant-test-c1b\"]"},
-    {"type": "pause", "ms": 2000},
+    {"type": "attendre_absence", "selecteur": "tr[data-sillage=\"ligne-tenant-test-c1b\"]"},
     {"type": "capturer", "nom": "13_apres_suppression_locataire"},
 
     {"type": "evaluer",
