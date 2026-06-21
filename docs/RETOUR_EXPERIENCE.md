@@ -2167,3 +2167,108 @@ dans le script générique comme `--bwlimit=${SILLAGE_RSYNC_BWLIMIT:-}`.
 
 Cette lacune est propre à Sillage, pas à Diwall. Consignée ici par erreur de routage initial.
 (→ Reporter dans `_CADRE/MEMOIRE/RETOUR_EXPERIENCE.md` de Sillage si besoin de suivi.)
+
+---
+
+## Friction #68 — `diwall.conf` inaccessible après installation : 640 root:root ou groupe inactif
+
+**Remontée par :** Claude Sillage (session 36, 21/06/2026).
+
+**Catégorie :** installation / permissions — silencieux (exit 43).
+
+**Problème :** deux causes indépendantes produisent le même symptôme (`VaultNonConfigureError`, exit 43) :
+
+1. **`root:root 640` au lieu de `root:diwall 640`** — `deploy.sh` fait `sudo chown root:"$GROUPE" diwall.conf 2>/dev/null || true`. Si le groupe `diwall` n'existe pas encore au moment du déploiement (ex. `deploy.sh` lancé sans `install.sh` préalable), le `chown` échoue silencieusement → propriétaire `root:root` → `ron` ne peut pas lire le fichier.
+
+2. **Groupe `diwall` inactif dans la session courante** — `install.sh` ajoute `ron` au groupe via `usermod -aG diwall ron`, mais ce changement n'est effectif qu'à la prochaine reconnexion. Si `rpa.py` est lancé dans la même session, `ron` n'a pas encore le groupe → lecture interdite → exit 43.
+
+**Symptôme :** `VaultNonConfigureError` avec exit 43 — le message ne précise pas si la cause est une permission ou une configuration manquante.
+
+**Contournement immédiat :**
+```bash
+# Cas 1 — mauvais propriétaire
+sudo chown root:diwall /opt/diwall/diwall.conf
+
+# Cas 2 — groupe inactif (sans reconnexion)
+sg diwall -c "/opt/diwall/venv/bin/python3 /opt/diwall/rpa.py ..."
+# ou se reconnecter
+```
+
+**Cause racine :** `install.sh` vérifie les permissions des répertoires (`check_dir`) mais pas des fichiers (`diwall.conf`, `diwall-sample.conf`). Le message d'erreur `VaultNonConfigureError` ne distingue pas "fichier illisible" de "fichier absent ou vault_dir non configuré".
+
+**Correction à terme :** ajouter une vérification `check_file` pour `diwall.conf` dans `install.sh` + préciser le message d'erreur selon la cause (IOError vs JSON invalide).
+
+---
+
+## Friction #69 — Message d'erreur schéma JSON non orientant : "is not of type 'object'"
+
+**Remontée par :** Claude Sillage (session 36, 21/06/2026).
+
+**Catégorie :** ergonomie / débogage scénarios.
+
+**Problème :** quand la racine du fichier JSON n'est pas un objet (`{"actions": [...]}`) mais un tableau (`[...]`) ou une autre structure, `rpa.py` retourne :
+
+```
+ValidationError: [...] is not of type 'object'
+```
+
+Le message ne dit pas quelle structure est attendue, ni quel champ manque. Un LLM qui débogue perd du temps à comprendre que la racine doit être `{"actions": [...]}` et pas directement `[...]`.
+
+**Contournement :** structure obligatoire rappelée dans `GUIDE_LLM.md` — envelopper la liste d'actions dans `{"actions": [...]}`.
+
+**Correction à terme :** intercepter `ValidationError` au niveau racine et émettre un message explicite :
+```
+Erreur schéma : la racine du scénario doit être un objet {"actions": [...]}
+Reçu : tableau (list) — enveloppez vos actions dans {"actions": [...]}.
+```
+
+---
+
+## Friction #70 — `remplir_som` vide le champ avant saisie : comportement non documenté dans GUIDE_LLM
+
+**Remontée par :** Claude Sillage (session 36, 21/06/2026). Découvert en lisant les changelogs, pas dans la documentation.
+
+**Catégorie :** documentation / comportement inattendu.
+
+**Problème :** depuis v1.9.6, `remplir_som` efface le champ via `document.activeElement.value = ''` + dispatch `input` avant la saisie, au lieu du triple-clic historique. Ce comportement n'est pas décrit dans le tableau des actions du `GUIDE_LLM.md`.
+
+Conséquence : un LLM qui s'attend à de la concaténation (ex. champ pré-rempli + saisie additionnelle) sera surpris. La découverte se fait à l'exécution ou par lecture des changelogs.
+
+**Correction appliquée (session 36) :** ajout d'une note dans le tableau `remplir_som` du `GUIDE_LLM.md` — "clears the field before typing (v1.9.6+)".
+
+---
+
+## Friction #71 — `--secrets` : logistique du fichier credentials dans le vault à chaque run
+
+**Remontée par :** Claude Sillage (session 36, 21/06/2026).
+
+**Catégorie :** ergonomie / workflow `--secrets`.
+
+**Problème :** `--secrets <fichier>` exige que le fichier soit dans un répertoire qui est un point de montage actif (`/proc/mounts`). Un fichier dans `/tmp` est refusé par le contrôle T1 (`VaultFermeError(42)`). Cela implique :
+
+1. Avoir le vault gocryptfs monté au moment du run.
+2. Maintenir un fichier credentials JSON par tenant dans ce vault (création initiale manuelle).
+3. Si le vault n'est pas monté → le run échoue dès le pré-check.
+
+La logistique (monter le vault, vérifier que le fichier existe) est invisible dans la commande `rpa.py` et génère des surprises à l'exécution.
+
+**Contournement recommandé :** maintenir un fichier JSON permanent par tenant dans le vault (ex. `~/Vaults/Sillage/Diwall/tenant_alpha.json`). Le format attendu :
+```json
+{
+  "username": "...",
+  "password": "...",
+  "totp_cle": "SEED_BASE32_SI_MFA"
+}
+```
+Seules les clés référencées dans le scénario sont requises.
+
+**Correction à terme :** émettre un message d'erreur explicite quand le vault n'est pas monté, distinct du refus `/tmp` — distinguer "répertoire non monté" de "répertoire non sécurisé".
+
+---
+
+## Synthèse session 36
+
+4 frictions nouvelles (#68 — diwall.conf permissions, #69 — message schéma JSON, #70 — remplir_som clear implicite, #71 — --secrets logistique vault). Remontées par Claude Sillage.
+Corrections documentation : GUIDE_LLM.md étendu (tail -1 pour rpa.py + diagnostic hint cliquer timeout).
+
+**68 frictions sur 36 sessions.**
