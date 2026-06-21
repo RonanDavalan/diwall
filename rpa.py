@@ -88,10 +88,15 @@ def _valider_schema(scenario: dict, chemin_scenario: str) -> None:
         jsonschema.validate(instance=scenario, schema=schema)
     except jsonschema.ValidationError as e:
         chemin_champ = " → ".join(str(p) for p in e.absolute_path) or "(racine)"
+        hint = (
+            '\n   attendu  : objet {"actions": [{"type": "...", ...}, ...]}'
+            if not e.absolute_path and "is not of type" in e.message
+            else ""
+        )
         print(
             f"❌ Scénario invalide ({chemin_scenario}) :\n"
             f"   champ    : {chemin_champ}\n"
-            f"   message  : {e.message}",
+            f"   message  : {e.message}{hint}",
             file=sys.stderr,
         )
         sys.exit(1)

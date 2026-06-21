@@ -106,6 +106,23 @@ check_dir() {
     fi
 }
 
+check_file() {
+    local path="$1" expected_mode="$2" expected_owner="$3"
+    if [ ! -f "$path" ]; then
+        echo "  ABSENT   : $path (attendu : $expected_mode $expected_owner)"
+        ERRORS=$((ERRORS + 1))
+        return
+    fi
+    local actual
+    actual=$(sudo stat -c "%a %U:%G" "$path" 2>/dev/null || echo "absent")
+    local actual_mode="${actual%% *}"
+    local actual_owner="${actual#* }"
+    if [ "$actual_mode" != "$expected_mode" ] || [ "$actual_owner" != "$expected_owner" ]; then
+        echo "  ERREUR   : $path → $actual (attendu : $expected_mode $expected_owner)"
+        ERRORS=$((ERRORS + 1))
+    fi
+}
+
 check_dir "$DEST"             "755" "root:$GROUPE"
 check_dir "$DEST/lib"         "755" "root:$GROUPE"
 check_dir "$DEST/scenarios"   "755" "root:$GROUPE"
@@ -113,6 +130,11 @@ check_dir "$DEST/references"  "770" "root:$GROUPE"
 check_dir "$DEST/skills"               "770" "root:$GROUPE"
 check_dir "/var/log/diwall"            "2770" "root:$GROUPE"
 check_dir "/var/log/diwall/preuves"    "2770" "$USER:$GROUPE"
+check_file "$DEST/diwall-sample.conf"  "644"  "root:$GROUPE"
+# diwall.conf n'existe qu'après configuration manuelle — vérifier seulement si présent
+if [ -f "$DEST/diwall.conf" ]; then
+    check_file "$DEST/diwall.conf" "640" "root:$GROUPE"
+fi
 
 if [ "$ERRORS" -eq 0 ]; then
     echo "  Permissions : OK"
