@@ -1434,14 +1434,35 @@ Use a fixed `pause` instead — it hands timing control to the scenario author:
 {"type": "evaluer", "script": "...click clone button..."},
 {"type": "attendre_reseau_calme"}
 
-// CORRECT — wait long enough for the server operation, then capture
+// CORRECT — wait for the full operation, then capture once the page has stabilised
 {"type": "evaluer", "script": "...click clone button..."},
 {"type": "pause", "ms": 150000},
 {"type": "capturer", "nom": "after_clone"}
 ```
 
-Tune `pause` to match the expected server duration + margin. `capturer` does not trigger a
-screenshot timeout — it is compatible with long waits.
+Tune `pause` to match the expected server duration + margin.
+
+**Important:** `capturer` has the same 30-second Playwright timeout. It succeeds only once
+the page has fully stabilised (fonts loaded, layout complete). If the page is still "busy"
+mid-operation, `capturer` will also abort with `Page.screenshot: Timeout 30000ms exceeded`
+(FR-73). Two distinct situations:
+
+| Situation | What to do |
+|---|---|
+| Capture **after** the operation (page stable) | `pause` long enough → `capturer` |
+| Observe **during** the operation (page busy) | `pause` with `interval_capture` |
+
+```json
+// Observe intermediate states during a long operation (e.g. 3-minute server clone)
+{"type": "evaluer", "script": "...click clone button..."},
+{"type": "pause", "ms": 180000, "interval_capture": 5},
+{"type": "capturer", "nom": "after_clone"}
+```
+
+`interval_capture: 5` takes a screenshot every 5 seconds throughout the `pause`.
+These intermediate captures bypass Playwright's stability wait — they freeze the page
+as-is, including "busy" states. The final `capturer` runs once the operation has completed
+and the page is stable.
 
 ### Mutating `evaluer` and server state after a failed scenario (FN8)
 

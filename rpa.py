@@ -88,11 +88,19 @@ def _valider_schema(scenario: dict, chemin_scenario: str) -> None:
         jsonschema.validate(instance=scenario, schema=schema)
     except jsonschema.ValidationError as e:
         chemin_champ = " → ".join(str(p) for p in e.absolute_path) or "(racine)"
-        hint = (
-            '\n   attendu  : objet {"actions": [{"type": "...", ...}, ...]}'
-            if not e.absolute_path and "is not of type" in e.message
-            else ""
-        )
+        hint = ""
+        if not e.absolute_path and "is not of type" in e.message:
+            hint = '\n   attendu  : objet {"actions": [{"type": "...", ...}, ...]}'
+        elif (
+            "is not valid under any of the given schemas" in e.message
+            and isinstance(e.instance, dict)
+            and e.instance.get("type") == "attendre"
+            and "ms" in e.instance
+        ):
+            hint = (
+                "\n   → `attendre` attend un sélecteur CSS (`selecteur`)."
+                " Pour un délai fixe, utilisez `pause`."
+            )
         print(
             f"❌ Scénario invalide ({chemin_scenario}) :\n"
             f"   champ    : {chemin_champ}\n"
