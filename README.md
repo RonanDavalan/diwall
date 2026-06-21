@@ -110,6 +110,25 @@ mkdir -p ~/Vaults/<your-project>/Diwall
 # Create ~/Vaults/<your-project>/Diwall/<hostname>.json with your credentials
 ```
 
+## Uninstallation
+
+```bash
+# Preview what will be removed (no changes made)
+bash scripts/uninstall.sh --dry-run
+
+# Full uninstallation with interactive confirmation
+bash scripts/uninstall.sh
+
+# Non-interactive (CI, cold-reinstall tests)
+bash scripts/uninstall.sh --confirme
+```
+
+Removes: `/opt/diwall/`, `/var/log/diwall/`, system user `diwall`, system group `diwall`, operator's group membership, git pre-push hook.
+
+**Never touched:** `~/Vaults/` (credential vaults), the repository itself, Playwright browser cache.
+
+If `/var/log/diwall/preuves/` contains captures, they are preserved by default. Add `--purge-preuves` to remove them.
+
 ---
 
 ## Usage (by your LLM)

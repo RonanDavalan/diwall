@@ -254,6 +254,47 @@ CAPTURE=$(python3 -c "import json; d=json.load(open('/tmp/out.json')); print(d['
 
 ---
 
+## Désinstaller Diwall
+
+Le script `scripts/uninstall.sh` supprime l'installation proprement, dans l'ordre inverse
+de `install.sh`.
+
+```bash
+# Voir ce qui sera supprimé, sans rien faire
+bash scripts/uninstall.sh --dry-run
+
+# Désinstallation complète (confirmation interactive)
+bash scripts/uninstall.sh
+
+# Sans confirmation (tests à froid, réinstallation enchaînée)
+bash scripts/uninstall.sh --confirme && bash scripts/install.sh
+```
+
+**Ce qui est supprimé :**
+
+| Élément | Détail |
+|---|---|
+| `/opt/diwall/` | Code, venv Python, configuration |
+| `/var/log/diwall/` | Journaux d'opérations |
+| Utilisateur système `diwall` | Créé exclusivement pour Diwall |
+| Groupe système `diwall` | Idem |
+| Appartenance au groupe | Votre compte est retiré du groupe `diwall` |
+| Hook git pre-push | `core.hooksPath` désactivé dans le dépôt source |
+
+**Ce qui n'est jamais touché :**
+- `~/Vaults/` — vos coffres de credentials
+- `~/git/Diwall/` — les sources git
+- Le cache navigateur Playwright (`~/.cache/ms-playwright/`)
+
+**Captures de preuves (`/var/log/diwall/preuves/`) :** si le répertoire contient des
+captures, il est conservé par défaut avec un avertissement. Pour le supprimer :
+
+```bash
+bash scripts/uninstall.sh --confirme --purge-preuves
+```
+
+---
+
 ## Consulter l'historique des opérations
 
 ```bash
