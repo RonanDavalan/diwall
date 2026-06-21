@@ -256,11 +256,19 @@ def lire_credential_fichier(chemin: str, cle: str) -> str:
     """
     repertoire = os.path.dirname(os.path.abspath(chemin))
     if not _coffre_est_monte(repertoire):
+        if not os.path.isdir(repertoire):
+            raise VaultFermeError(
+                f"Répertoire du fichier secrets introuvable — coffre non monté ?\n"
+                f"  Fichier    : {chemin}\n"
+                f"  Répertoire : {repertoire}\n"
+                f"  Montez le coffre contenant ce fichier avant d'exécuter."
+            )
         raise VaultFermeError(
             f"Le répertoire du fichier secrets n'est pas un point de montage actif.\n"
             f"  Fichier    : {chemin}\n"
             f"  Répertoire : {repertoire}\n"
-            f"  Montez le coffre contenant ce fichier avant d'exécuter."
+            f"  Seuls les points de montage actifs sont autorisés (coffre gocryptfs, tmpfs…).\n"
+            f"  Refusé : disque nu persistant (ex. /tmp, ~/Documents)."
         )
     if not os.path.isfile(chemin):
         raise FileNotFoundError(
@@ -284,11 +292,19 @@ def verifier_cles_fichier(chemin: str, cles) -> None:
     """
     repertoire = os.path.dirname(os.path.abspath(chemin))
     if not _coffre_est_monte(repertoire):
+        if not os.path.isdir(repertoire):
+            raise VaultFermeError(
+                f"Répertoire du fichier secrets introuvable — coffre non monté ?\n"
+                f"  Fichier    : {chemin}\n"
+                f"  Répertoire : {repertoire}\n"
+                f"  Montez le coffre contenant ce fichier avant d'exécuter."
+            )
         raise VaultFermeError(
             f"Le répertoire du fichier secrets n'est pas un point de montage actif.\n"
             f"  Fichier    : {chemin}\n"
             f"  Répertoire : {repertoire}\n"
-            f"  Montez le coffre contenant ce fichier avant d'exécuter."
+            f"  Seuls les points de montage actifs sont autorisés (coffre gocryptfs, tmpfs…).\n"
+            f"  Refusé : disque nu persistant (ex. /tmp, ~/Documents)."
         )
     if not os.path.isfile(chemin):
         raise FileNotFoundError(
