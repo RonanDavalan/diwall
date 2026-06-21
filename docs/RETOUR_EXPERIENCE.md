@@ -2252,7 +2252,7 @@ Conséquence : un LLM qui s'attend à de la concaténation (ex. champ pré-rempl
 
 La logistique (monter le vault, vérifier que le fichier existe) est invisible dans la commande `rpa.py` et génère des surprises à l'exécution.
 
-**Contournement recommandé :** maintenir un fichier JSON permanent par tenant dans le vault (ex. `~/Vaults/Sillage/Diwall/tenant_alpha.json`). Le format attendu :
+**Contournement recommandé :** maintenir un fichier JSON permanent par tenant dans le vault (ex. `~/Vaults/<PROJET>/Diwall/tenant_alpha.json`). Le format attendu :
 ```json
 {
   "username": "...",
@@ -2277,14 +2277,14 @@ Seules les clés référencées dans le scénario sont requises.
 any(chemin in ligne for ligne in /proc/mounts)
 ```
 Ce test cherche `chemin` comme sous-chaîne de chaque ligne de `/proc/mounts`. Cela fonctionne
-quand `vault_dir` EST le point de montage exact (ex. `/home/ron/Vaults/Sillage`). Mais si le
+quand `vault_dir` EST le point de montage exact (ex. `~/Vaults/<PROJET>`). Mais si le
 fichier credentials est dans un **sous-dossier** du coffre monté (ex.
-`/home/ron/Vaults/Sillage/Diwall/ike4.json`), le répertoire parent est
-`/home/ron/Vaults/Sillage/Diwall` — absent de `/proc/mounts` (seul
-`/home/ron/Vaults/Sillage` y figure). Le test retourne `False` → `VaultFermeError(42)`.
+`~/Vaults/<PROJET>/Diwall/__TENANT__.json`), le répertoire parent est
+`~/Vaults/<PROJET>/Diwall` — absent de `/proc/mounts` (seul
+`~/Vaults/<PROJET>` y figure). Le test retourne `False` → `VaultFermeError(42)`.
 
 **Contournement de Sillage :** copier le fichier credentials à la racine du coffre
-(`/home/ron/Vaults/Sillage/ike4-ronan-davalan.json`) pour que le répertoire parent soit
+(`~/Vaults/<PROJET>/__TENANT__.json`) pour que le répertoire parent soit
 exactement le point de montage.
 
 **Cause racine :** dérive sémantique — la vérification testait l'égalité exacte du chemin
