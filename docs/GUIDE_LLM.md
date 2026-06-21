@@ -209,7 +209,7 @@ Scenario format:
 | `cliquer` | `selecteur` (CSS) | Mode A only |
 | `remplir` | `selecteur`, `valeur` | `valeur` can be `"depuis_vault"` or `"depuis_vault_totp"`. **Does not work on `<select>` elements** — use `evaluer` with `HTMLSelectElement.value` or `remplir_som` instead. |
 | `cliquer_som` | `id` | Exact DOM click via SoM |
-| `remplir_som` | `id`, `valeur`, [`vault_cle`] | Exact DOM fill; `valeur` can be `"depuis_vault_totp"` |
+| `remplir_som` | `id`, `valeur`, [`vault_cle`] | Exact DOM fill; `valeur` can be `"depuis_vault_totp"`. **Clears the field before typing** (via `activeElement.value = ''` + `input` event dispatch, v1.9.6+) — no concatenation with pre-filled content. |
 | `cliquer_visuel` | `description` | LLM vision fallback (~32s, avoid if SoM works) |
 | `attendre` | `selecteur` | Wait for CSS selector |
 | `attendre_navigation` | — | Wait for networkidle |
@@ -1213,15 +1213,19 @@ dans ce guide (navigation post-login, sélecteurs nth-match).
 
 ## Known CLI pitfalls
 
-### Journal warning on stdout — always parse with `| tail -1`
+### stdout warnings — always parse with `| tail -1` (shot.py and rpa.py)
 
-`shot.py` may emit `⚠ journal : log principal inaccessible` to **stdout** before the JSON
-when the log directory is inaccessible. This breaks piped JSON parsing (REX friction #48).
+Both `shot.py` and `rpa.py` may emit warning lines to **stdout** before the JSON result:
 
-**Always parse output this way:**
+- `shot.py` → `⚠ journal : log principal inaccessible` when the log directory is inaccessible (REX #48).
+- `rpa.py` → `⚠ jsonschema absent — validation des scénarios désactivée` or `⚠ schéma de validation introuvable` when schema validation is unavailable (REX #69).
+
+These lines break piped JSON parsing if captured naively.
+
+**Always parse output this way (applies to both tools):**
 ```bash
 result=$(/opt/diwall/venv/bin/python3 /opt/diwall/shot.py --url … 2>/dev/null | tail -1)
-python3 -c "import json,sys; print(json.loads(sys.stdin.read()))" <<< "$result"
+result=$(/opt/diwall/venv/bin/python3 /opt/diwall/rpa.py --scenario … 2>/dev/null | tail -1)
 ```
 `2>/dev/null` suppresses stderr; `tail -1` ensures you capture only the JSON line.
 
@@ -1479,9 +1483,21 @@ Sillage confirmation dialog.
 }
 ```
 
-**Diagnosis rule:** if a click on a confirmation button times out and the dialog has no
-`open` attribute in the a11y tree, suspect CSS-only visibility. Switch to `evaluer`
-immediately — do not retry `cliquer` with different selectors.
+**Diagnosis rule — `cliquer` timeout → suspect JS-hidden container (REX #61–63, FR-57):**
+
+`Playwright: Locator.click: Timeout Xms exceeded` on an element you can see in the DOM
+does **not** mean the selector is wrong. It means Playwright refuses to click because the
+element (or one of its ancestors) is hidden via CSS or JS. Playwright's error gives no hint
+about the container — it just says "timeout". The correct response is **not** to retry with
+a different CSS selector or a longer timeout, but to switch to `evaluer`:
+
+```json
+{"type": "evaluer", "script": "document.querySelector('[data-sillage=\"target\"]').click()"}
+```
+
+This rule applies regardless of how the container is hidden: CSS `display:none`, `visibility:hidden`,
+`showModal()` dialog, or any JS toggle. See REX #61 (toggle-switch), #62 (JS guard on select),
+#63 (native dialog), FR-57 (CSS dialog).
 
 **FN10 — Extended scope: the button that *opens* the CSS modal (13/06/2026)**
 
