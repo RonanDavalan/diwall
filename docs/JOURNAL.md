@@ -4,6 +4,18 @@ Historique des décisions et découvertes par session, dans l'ordre chronologiqu
 
 ---
 
+## 2026-06-21 — Session 37 (v1.10.2 — FR-73 + note connexe FR-69)
+
+**Contexte d'entrée :** v1.10.1 en production. 68 frictions / 36 sessions. `scripts/uninstall.sh` sur `main` sans tag.
+FR-73 remontée par Claude Sillage (messagerie), note connexe sur hint `attendre`+`ms`.
+
+**Décisions techniques :**
+- GUIDE_LLM FN7 corrigé : suppression de l'affirmation fausse "`capturer` ne déclenche pas de timeout". Distinction captur après opération (OK) vs pendant (timeout 30s Playwright). Ajout du pattern `pause`+`interval_capture`.
+- rpa.py : hint ciblé `attendre`+`ms` → suggère `pause`. Détection via `e.instance.get("type") == "attendre"` et `"ms" in e.instance`.
+- FR-73 piste 2 (option `capturer` bypass stabilité) différée en v1.11 — nécessite planification.
+
+---
+
 ## 2026-06-21 — Session 36 (v1.10.1 — correctifs FR-68–72)
 
 **Contexte d'entrée :** v1.10.0 en production. 64 frictions / 32 sessions. Backlog vide.

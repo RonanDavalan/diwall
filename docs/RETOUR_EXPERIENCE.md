@@ -2304,3 +2304,64 @@ de systèmes de fichiers persistants ordinaires (ext4, btrfs, etc.).
 Corrections documentation : GUIDE_LLM.md étendu (tail -1 pour rpa.py + diagnostic hint cliquer timeout).
 
 **68 frictions sur 36 sessions.**
+
+---
+
+## Friction #73 — `capturer` expire pendant une opération serveur synchrone longue
+
+**Remontée par :** Claude Sillage (session 36, 21/06/2026 — suite, après-midi).
+Découverte en conditions réelles lors d'un parcours utilisateur complet (persona « Pierre »).
+
+**Contexte.** Un clic déclenche une opération synchrone longue côté serveur (clonage
+WordPress : export distant + ~70 tables + rsync, plusieurs minutes). La requête POST ne
+rend jamais `networkidle` tant qu'elle n'est pas terminée.
+
+**Symptôme.** Une action `capturer` placée après `attendre_reseau_calme` échoue :
+
+```
+Page.screenshot: Timeout 30000ms exceeded.
+  - taking page screenshot
+  - waiting for fonts to load...
+  - fonts loaded
+```
+
+Le screenshot Playwright attend la stabilité de rendu (polices, layout) ; sur une page
+bloquée au milieu d'une opération, ce délai (30 s) expire avant que la page ne se stabilise.
+Conséquence : impossible d'observer l'écran **pendant** l'opération avec un `capturer` terminal,
+alors même que c'est le moment qu'on veut justement valider (retour visuel de progression).
+
+**Contournement qui fonctionne.** `interval_capture` pendant un `pause` produit des images
+intermédiaires sans attendre la stabilité finale :
+
+```json
+{"type": "pause", "ms": 180000, "interval_capture": 5}
+```
+
+Le `capturer` terminal, lui, ne réussit qu'une fois la page réellement stabilisée (après
+rechargement, l'état final se capture sans problème).
+
+**Pistes (lacune DX, pas bug bloquant) :**
+1. **Doc « Pièges courants » du `GUIDE_LLM.md` :** pour observer une opération synchrone
+   longue, utiliser `pause` + `interval_capture` — ne pas compter sur un `capturer` après
+   `attendre_reseau_calme` tant que la page n'a pas rendu networkidle.
+2. **Option sur `capturer` :** un mode « capture d'état en cours » qui borne ou désactive
+   l'attente de stabilité (`waiting for fonts`), pour figer une page volontairement « busy ».
+   Utile à tout testeur d'opérations longues.
+
+**Note connexe (cf #69).** Au cours du même parcours, `{"type": "attendre", "ms": 800}` a été
+rejeté (`is not valid under any of the given schemas`) — `attendre` prend `selecteur`, c'est
+`pause` qui prend `ms` (erreur d'usage de ma part). #69 a traité le cas général du message
+non orientant ; suggestion ciblée : étendre le hint « clé mal placée » pour mapper `ms` sur
+`attendre` → suggérer `pause`, comme c'est déjà fait pour `attendu` sur `attendre`.
+
+**Corrigé en v1.10.2.** rpa.py détecte désormais la combinaison `type: attendre` + clé `ms`
+et émet : "→ `attendre` attend un sélecteur CSS (`selecteur`). Pour un délai fixe, utilisez `pause`."
+
+---
+
+## Synthèse session 37
+
+1 friction nouvelle (#73 — `capturer` expire pendant opération serveur synchrone longue). Remontée par Claude Sillage lors d'un parcours complet persona « Pierre ».
+Corrections : GUIDE_LLM.md FN7 corrigé (affirmation fausse supprimée, pattern `pause`+`interval_capture` ajouté) ; rpa.py hint ciblé `attendre`+`ms` → suggère `pause` (note connexe FR-73/FR-69).
+
+**69 frictions sur 37 sessions.**
