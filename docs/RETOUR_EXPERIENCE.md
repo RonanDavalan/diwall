@@ -2277,14 +2277,14 @@ Seules les clés référencées dans le scénario sont requises.
 any(chemin in ligne for ligne in /proc/mounts)
 ```
 Ce test cherche `chemin` comme sous-chaîne de chaque ligne de `/proc/mounts`. Cela fonctionne
-quand `vault_dir` EST le point de montage exact (ex. `/home/<user>/Vaults/<PROJET>`). Mais si le
+quand `vault_dir` EST le point de montage exact (ex. `~/Vaults/<PROJET>`). Mais si le
 fichier credentials est dans un **sous-dossier** du coffre monté (ex.
-`/home/<user>/Vaults/<PROJET>/Diwall/__HOST_ADMIN__.json`), le répertoire parent est
-`/home/<user>/Vaults/<PROJET>/Diwall` — absent de `/proc/mounts` (seul
-`/home/<user>/Vaults/<PROJET>` y figure). Le test retourne `False` → `VaultFermeError(42)`.
+`~/Vaults/<PROJET>/Diwall/__TENANT__.json`), le répertoire parent est
+`~/Vaults/<PROJET>/Diwall` — absent de `/proc/mounts` (seul
+`~/Vaults/<PROJET>` y figure). Le test retourne `False` → `VaultFermeError(42)`.
 
 **Contournement de Sillage :** copier le fichier credentials à la racine du coffre
-(`/home/<user>/Vaults/<PROJET>/__HOST_ADMIN__-__TENANT__.json`) pour que le répertoire parent soit
+(`~/Vaults/<PROJET>/__TENANT__.json`) pour que le répertoire parent soit
 exactement le point de montage.
 
 **Cause racine :** dérive sémantique — la vérification testait l'égalité exacte du chemin
