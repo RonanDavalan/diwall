@@ -96,16 +96,30 @@ def _chemin_vault_crypt() -> str:
 
 
 def _coffre_est_monte(vault_dir: str) -> bool:
-    """Vérifie si vault_dir est un point de montage FUSE actif via /proc/mounts.
+    """Vérifie si vault_dir est sous un point de montage FUSE actif via /proc/mounts.
+
+    Accepte vault_dir = point de montage exact OU sous-dossier d'un montage FUSE
+    (ex. ~/Vaults/Sillage/Diwall/ est sous ~/Vaults/Sillage monté via gocryptfs).
+    Restriction aux systèmes de fichiers FUSE pour ne pas ouvrir T1 aux disques
+    persistants ordinaires (ext4, btrfs, etc.).
 
     Agnostique du mode d'ouverture : Plasma Vault, script, montage manuel —
-    tous produisent une entrée dans /proc/mounts.
+    tous produisent une entrée FUSE dans /proc/mounts.
     Retourne True si incapable de lire /proc/mounts (ne pas bloquer le run).
     """
     chemin = os.path.realpath(os.path.expanduser(vault_dir))
     try:
         with open("/proc/mounts", encoding="utf-8") as f:
-            return any(chemin in ligne for ligne in f)
+            for ligne in f:
+                parties = ligne.split()
+                if len(parties) < 3:
+                    continue
+                point, fstype = parties[1], parties[2]
+                if "fuse" not in fstype:
+                    continue
+                if chemin == point or chemin.startswith(point + "/"):
+                    return True
+        return False
     except OSError:
         return True
 

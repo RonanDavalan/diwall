@@ -2266,6 +2266,38 @@ Seules les clés référencées dans le scénario sont requises.
 
 ---
 
+## Friction #72 — `_coffre_est_monte` : sous-dossier d'un coffre refusé à tort (dérive sémantique T1)
+
+**Remontée par :** Gemini (analyse de session Sillage, 21/06/2026). Friction vécue par Claude Sillage.
+
+**Catégorie :** sécurité / bug silencieux — VaultFermeError(42) sur un chemin légitime.
+
+**Problème :** `_coffre_est_monte(vault_dir)` dans `lib/vault.py` fait :
+```python
+any(chemin in ligne for ligne in /proc/mounts)
+```
+Ce test cherche `chemin` comme sous-chaîne de chaque ligne de `/proc/mounts`. Cela fonctionne
+quand `vault_dir` EST le point de montage exact (ex. `/home/ron/Vaults/Sillage`). Mais si le
+fichier credentials est dans un **sous-dossier** du coffre monté (ex.
+`/home/ron/Vaults/Sillage/Diwall/ike4.json`), le répertoire parent est
+`/home/ron/Vaults/Sillage/Diwall` — absent de `/proc/mounts` (seul
+`/home/ron/Vaults/Sillage` y figure). Le test retourne `False` → `VaultFermeError(42)`.
+
+**Contournement de Sillage :** copier le fichier credentials à la racine du coffre
+(`/home/ron/Vaults/Sillage/ike4-ronan-davalan.json`) pour que le répertoire parent soit
+exactement le point de montage.
+
+**Cause racine :** dérive sémantique — la vérification testait l'égalité exacte du chemin
+au lieu de tester si le chemin est **sous** un point de montage actif.
+
+**Correction appliquée (session 36) :** `_coffre_est_monte` parse désormais la colonne 2
+de `/proc/mounts` (chemin de montage) et vérifie si `chemin` est le point de montage ou
+en est un sous-dossier (`chemin.startswith(point + "/")`). Restriction aux systèmes de
+fichiers FUSE (`"fuse" in fstype`) pour ne pas affaiblir T1 en acceptant des sous-dossiers
+de systèmes de fichiers persistants ordinaires (ext4, btrfs, etc.).
+
+---
+
 ## Synthèse session 36
 
 4 frictions nouvelles (#68 — diwall.conf permissions, #69 — message schéma JSON, #70 — remplir_som clear implicite, #71 — --secrets logistique vault). Remontées par Claude Sillage.
