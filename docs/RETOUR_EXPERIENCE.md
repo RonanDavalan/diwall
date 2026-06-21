@@ -2309,7 +2309,7 @@ Corrections documentation : GUIDE_LLM.md étendu (tail -1 pour rpa.py + diagnost
 
 ## Friction #73 — `capturer` expire pendant une opération serveur synchrone longue
 
-**Remontée par :** Claude Sillage (session 36, 21/06/2026 — suite, après-midi).
+**Remontée par :** <LLM_PARTENAIRE> (session 36, 21/06/2026 — suite, après-midi).
 Découverte en conditions réelles lors d'un parcours utilisateur complet (persona « Pierre »).
 
 **Contexte.** Un clic déclenche une opération synchrone longue côté serveur (clonage
@@ -2361,7 +2361,7 @@ et émet : "→ `attendre` attend un sélecteur CSS (`selecteur`). Pour un déla
 
 ## Synthèse session 37
 
-1 friction nouvelle (#73 — `capturer` expire pendant opération serveur synchrone longue). Remontée par Claude Sillage lors d'un parcours complet persona « Pierre ».
+1 friction nouvelle (#73 — `capturer` expire pendant opération serveur synchrone longue). Remontée par <LLM_PARTENAIRE> lors d'un parcours complet persona « Pierre ».
 Corrections : GUIDE_LLM.md FN7 corrigé (affirmation fausse supprimée, pattern `pause`+`interval_capture` ajouté) ; rpa.py hint ciblé `attendre`+`ms` → suggère `pause` (note connexe FR-73/FR-69).
 
 **69 frictions sur 37 sessions.**
