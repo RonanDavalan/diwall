@@ -4,6 +4,38 @@ Historique des décisions et découvertes par session, dans l'ordre chronologiqu
 
 ---
 
+## 2026-06-21 — Session 36 (v1.10.1 — correctifs FR-68–72)
+
+**Contexte d'entrée :** v1.10.0 en production. 64 frictions / 32 sessions. Backlog vide.
+Frictions remontées par Claude Sillage (8 items) ; analyse complémentaire de Gemini (FR-72).
+
+**Travail effectué :**
+
+5 frictions documentées (FR-68 à FR-72), 4 correctifs code :
+
+- `scripts/install.sh` — ajout de `check_file()` (FR-68) : vérifie `diwall-sample.conf`
+  (644 root:diwall) et `diwall.conf` si présent (640 root:diwall). Détecte les cas
+  `root:root` causés par un `chown 2>/dev/null || true` silencieusement raté.
+
+- `rpa.py` — hint explicite dans `_valider_schema` (FR-69) : quand `ValidationError`
+  à la racine avec `"is not of type"`, oriente vers `{"actions": [...]}`.
+
+- `lib/vault.py` — deux correctifs :
+  - Messages distincts dans `lire_credential_fichier` et `verifier_cles_fichier` (FR-71) :
+    "répertoire inexistant (coffre non monté ?)" vs "répertoire existant non monté (disque nu refusé)".
+  - `_coffre_est_monte` (FR-72) : parse la colonne 2 de `/proc/mounts` et accepte désormais
+    les sous-dossiers d'un coffre FUSE (`chemin.startswith(point + "/")`). Restriction aux
+    fstype FUSE pour préserver T1. Dérive sémantique identifiée par Gemini : Sillage était
+    bloqué avec `VaultFermeError(42)` en rangeant ses credentials dans un sous-dossier du coffre.
+
+- `docs/GUIDE_LLM.md` v2.6 — 3 corrections : règle `tail -1` étendue à `rpa.py` ;
+  `remplir_som` : note "Clears the field before typing (v1.9.6+)" ; règle de diagnostic
+  `Locator.click: Timeout` → suspecter conteneur JS-masqué → `evaluer`.
+
+**68 frictions / 36 sessions.**
+
+---
+
 ## 2026-06-20 — Session 35 (v1.10.0 — `--secrets` multi-coffre + fail-fast venv)
 
 **Contexte d'entrée :** v1.9.8 en production. 64 frictions / 32 sessions. PHASE_EXECUTION v1.10.0 en attente depuis session 33.
