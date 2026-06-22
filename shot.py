@@ -9,7 +9,7 @@ import sys
 import time
 from datetime import datetime, timezone
 
-__version__ = "1.10.0"
+__version__ = "1.11.0"
 
 # Permet d'importer lib/ depuis le même répertoire que shot.py
 sys.path.insert(0, os.path.dirname(os.path.abspath(__file__)))
@@ -132,7 +132,7 @@ _SOM_TROUVER_JS = """(id) => {
 }"""
 
 
-def _injecter_som(page, output_dir, nom="state_som"):
+def _injecter_som(page, output_dir, nom="state_som", screenshot_timeout=120_000):
     """Injecte le Set-of-Mark, capture la vue annotée, nettoie le DOM.
 
     Retourne (chemin_som, elements_som, hors_vp) où hors_vp est le
@@ -140,7 +140,7 @@ def _injecter_som(page, output_dir, nom="state_som"):
     """
     elements = page.evaluate(_SOM_INJECTER_JS)
     chemin_som = chemin_png(output_dir, nom)
-    page.screenshot(path=chemin_som, full_page=False)  # fixed = viewport uniquement
+    page.screenshot(path=chemin_som, full_page=False, timeout=screenshot_timeout)
     page.evaluate(_SOM_RETIRER_JS)
     hors_vp = page.evaluate(_SOM_COMPTER_HORS_VIEWPORT_JS)
     return chemin_som, elements, hors_vp
@@ -333,6 +333,9 @@ def parse_args():
                    help="Sélecteur CSS à attendre avant la capture finale")
     p.add_argument("--timeout", type=int, default=10000,
                    help="Timeout en ms pour chaque opération (défaut : 10000)")
+    p.add_argument("--screenshot-timeout", dest="screenshot_timeout", type=int, default=120_000,
+                   help="Timeout ms pour page.screenshot() (défaut : 120000). "
+                        "Distinct de --timeout (actions Playwright).")
     p.add_argument("--output-dir", dest="output_dir", default="/tmp/diwall",
                    help="Répertoire de sortie des captures auto (défaut : /tmp/diwall)")
     p.add_argument("--largeur", type=int, default=1280, help="Largeur viewport px (défaut : 1280)")
@@ -379,10 +382,10 @@ def _preparer_stream_dir(output_dir, run_id):
     return stream_dir
 
 
-def _capture_periodique(page, stream_dir, action_index, t_ms):
+def _capture_periodique(page, stream_dir, action_index, t_ms, screenshot_timeout=120_000):
     """Prend une capture intermédiaire pendant une attente. Retourne le dict descriptif."""
     chemin = os.path.join(stream_dir, f"{action_index}_{t_ms}.png")
-    page.screenshot(path=chemin, full_page=False)
+    page.screenshot(path=chemin, full_page=False, timeout=screenshot_timeout)
     return {"action_index": action_index, "t_ms": t_ms, "chemin": chemin}
 
 
@@ -403,7 +406,7 @@ def charger_actions(source):
 
 def executer_actions(page, actions, output_dir, timeout, mode_llm="local",
                      interval_capture_default=0, modeles_appeles=None,
-                     secrets_chemin=None):
+                     secrets_chemin=None, screenshot_timeout=120_000):
     from playwright.sync_api import TimeoutError as PWTimeoutError
 
     intermediaires = []
@@ -462,7 +465,8 @@ def executer_actions(page, actions, output_dir, timeout, mode_llm="local",
                             raise
                         if now >= prochain_capture:
                             stream_captures.append(_capture_periodique(
-                                page, _stream_dir_lazy(), idx, int((now - t0) * 1000)))
+                                page, _stream_dir_lazy(), idx, int((now - t0) * 1000),
+                                screenshot_timeout=screenshot_timeout))
                             prochain_capture = now + iv
 
         elif t == "attendre_navigation":
@@ -486,7 +490,8 @@ def executer_actions(page, actions, output_dir, timeout, mode_llm="local",
                             raise
                         if now >= prochain_capture:
                             stream_captures.append(_capture_periodique(
-                                page, _stream_dir_lazy(), idx, int((now - t0) * 1000)))
+                                page, _stream_dir_lazy(), idx, int((now - t0) * 1000),
+                                screenshot_timeout=screenshot_timeout))
                             prochain_capture = now + iv
 
         elif t == "remplir":
@@ -511,7 +516,10 @@ def executer_actions(page, actions, output_dir, timeout, mode_llm="local",
             page.locator(a["selecteur"]).fill(valeur, timeout=timeout)
 
         elif t == "cliquer":
-            page.locator(a["selecteur"]).click(timeout=timeout)
+            page.locator(a["selecteur"]).click(
+                timeout=timeout,
+                force=bool(a.get("force", False)),
+            )
 
         elif t == "pause":
             duree_s = a.get("ms", 500) / 1000.0
@@ -534,10 +542,11 @@ def executer_actions(page, actions, output_dir, timeout, mode_llm="local",
         elif t == "capturer":
             nom = a.get("nom", "etape")
             if a.get("som"):
-                p, _, _ = _injecter_som(page, output_dir, f"capture_som_{nom}")
+                p, _, _ = _injecter_som(page, output_dir, f"capture_som_{nom}",
+                                        screenshot_timeout=screenshot_timeout)
             else:
                 p = chemin_png(output_dir, f"capture_{nom}")
-                page.screenshot(path=p, full_page=True)
+                page.screenshot(path=p, full_page=True, timeout=screenshot_timeout)
             intermediaires.append(p)
 
         elif t == "cliquer_som":
@@ -633,7 +642,7 @@ def executer_actions(page, actions, output_dir, timeout, mode_llm="local",
 
             # Capture intermédiaire pour la localisation
             tmp = chemin_png(output_dir, "vision_tmp")
-            page.screenshot(path=tmp)
+            page.screenshot(path=tmp, timeout=screenshot_timeout)
 
             from lib.vision import localiser_element
             result = localiser_element(tmp, description, mode_llm)
@@ -905,17 +914,19 @@ def main():
                 interval_capture_default=args.interval_capture,
                 modeles_appeles=modeles_appeles,
                 secrets_chemin=getattr(args, "secrets", None),
+                screenshot_timeout=args.screenshot_timeout,
             )
             url_finale = page.url  # mise à jour après actions
 
             # ── Capture finale ────────────────────────────────────────────────
             if not args.no_capture:
-                page.screenshot(path=sortie, full_page=True)
+                page.screenshot(path=sortie, full_page=True, timeout=args.screenshot_timeout)
 
             # ── SoM ───────────────────────────────────────────────────────────
             capture_som, elements_som, hors_vp_som = None, [], 0
             if args.som and not args.no_capture:
-                capture_som, elements_som, hors_vp_som = _injecter_som(page, args.output_dir)
+                capture_som, elements_som, hors_vp_som = _injecter_som(
+                    page, args.output_dir, screenshot_timeout=args.screenshot_timeout)
 
             # ── A11y ──────────────────────────────────────────────────────────
             a11y_tree = _snapshot_a11y(page) if args.a11y else None
