@@ -4,6 +4,24 @@ Historique des décisions et découvertes par session, dans l'ordre chronologiqu
 
 ---
 
+## 2026-06-23 — Session 38 (v1.11.0 — ergonomie et guide)
+
+**Contexte d'entrée :** v1.10.2 en production. REX Sillage : 6 frictions terrain remontées par LLM partenaire (CSS/showModal, screenshot timeout, stdout fragile, GUIDE_LLM monolithique, assertions rigides, vérification titre de page).
+
+**Décisions techniques :**
+
+- `force: true` sur `cliquer` — bypass Playwright pour CSS-hidden et `showModal()`. Non applicable à `cliquer_som` (click coordonné, bypass natif).
+- `--screenshot-timeout` — timeout configurable pour `page.screenshot()`, défaut 120 s. Distinct de `--timeout`. Propagé à toutes les captures.
+- stdout `rpa.py` propre — `tail -1` internalisé ; cause : `print(result.stdout)` retransmettait la sortie complète du subprocess.
+- Assertions `contient` (substring) et `motif` (re.search) sur `evaluer` — mutuellement exclusives avec `attendu`. Type non-str + contient/motif → exit 1.
+- GUIDE_LLM restructuré : 1 741 lignes → index 205 lignes + 3 notices (`GUIDE_LLM_INTERACTIONS.md`, `GUIDE_LLM_SESSIONS.md`, `GUIDE_LLM_MONITORING.md`).
+
+**Audit post-rédaction (session) :** 5 fuites nominales neutralisées dans les nouvelles notices, 5 erreurs d'API corrigées (`watch.py`, `--profil`, `journal.jsonl`, `--reprendre-session`, `--llm`).
+
+**Commits :** `2ebc4fe` (v1.11.0), `97badad` (fix docs anti-fuite + API). Tag v1.11.0 poussé. Release GitHub publiée.
+
+---
+
 ## 2026-06-21 — Session 37 (v1.10.2 — FR-73 + note connexe FR-69)
 
 **Contexte d'entrée :** v1.10.1 en production. 68 frictions / 36 sessions. `scripts/uninstall.sh` sur `main` sans tag.
