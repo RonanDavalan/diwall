@@ -14,7 +14,19 @@ vault.py, ou tout fichier sous `/opt/diwall/` ou `~/git/Diwall/` :**
 cat /opt/diwall/docs/GUIDE_LLM.md
 ```
 
-Lire ce fichier en entier. Ne pas résumer, ne pas sauter de section.
+Lire cet index en entier (≤250 lignes). Puis, selon la tâche, charger
+la notice correspondante :
+
+```bash
+# Timeout cliquer, SoM, dialogs CSS/showModal, assertions evaluer, DOM mutations :
+cat /opt/diwall/docs/GUIDE_LLM_INTERACTIONS.md
+
+# Vault, --secrets, SPA, sessions, MFA, auth_indicator, --no-capture :
+cat /opt/diwall/docs/GUIDE_LLM_SESSIONS.md
+
+# watch.py, pixel diff, opérations longues, --screenshot-timeout, journal :
+cat /opt/diwall/docs/GUIDE_LLM_MONITORING.md
+```
 
 **Pourquoi c'est non négociable :**
 Diwall n'est pas dans le corpus d'entraînement du modèle. Sans cette lecture,

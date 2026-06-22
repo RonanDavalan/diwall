@@ -20,7 +20,7 @@ Format du scénario :
 Le vault est résolu par lib/vault.py (DIWALL_VAULT_DIR > diwall.conf > ~/Vaults/Diwall/).
 Jamais de mot de passe dans les fichiers de scénario.
 """
-__version__ = "1.10.0"
+__version__ = "1.11.0"
 
 import argparse
 import json
@@ -356,20 +356,29 @@ def main():
     if intention:
         cmd += ["--intention", intention]
 
-    # Pré-collecte des assertions : clé 'attendu' sur les actions 'evaluer'.
-    # Lue côté rpa.py uniquement ; shot.py l'ignore (clé inconnue).
+    # Pré-collecte des assertions : clés 'attendu', 'contient', 'motif' sur 'evaluer'.
+    # Lues côté rpa.py uniquement ; shot.py les ignore (clés inconnues).
+    _CLES_ASSERTION = ("attendu", "contient", "motif")
     attentes = []
     for i, a in enumerate(actions):
-        if "attendu" not in a:
+        cles = [k for k in _CLES_ASSERTION if k in a]
+        if not cles:
             continue
         if a.get("type") != "evaluer":
             print(
-                f"avertissement : clé 'attendu' ignorée sur action #{i} "
+                f"avertissement : clé(s) d'assertion {cles!r} ignorée(s) sur action #{i} "
                 f"(type {a.get('type')!r}, valide uniquement sur 'evaluer')",
                 file=sys.stderr,
             )
             continue
-        attentes.append((i, a["attendu"]))
+        if len(cles) > 1:
+            print(
+                f"❌ Action #{i} : clés d'assertion en conflit : {cles}. "
+                f"Une seule autorisée parmi {list(_CLES_ASSERTION)}.",
+                file=sys.stderr,
+            )
+            sys.exit(1)
+        attentes.append((i, a))
 
     # Propagation v1.3 du profil opérateur : on transmet explicitement
     # l'environnement (notamment DIWALL_PROFIL) au subprocess shot.py.
@@ -378,13 +387,16 @@ def main():
     result = subprocess.run(
         cmd, capture_output=True, text=True, env=os.environ.copy(),
     )
-    print(result.stdout)
+    # Transmettre uniquement la dernière ligne de la sortie de shot.py (le JSON),
+    # même en cas de pollution accidentelle de stdout par une bibliothèque tierce.
+    json_line = result.stdout.rstrip("\n").split("\n")[-1] if result.stdout.strip() else ""
+    print(json_line)
     if result.stderr:
         print(result.stderr, file=sys.stderr)
 
     # Parse une seule fois pour signalements structurés et assertions
     try:
-        sortie = json.loads(result.stdout)
+        sortie = json.loads(json_line)
     except json.JSONDecodeError:
         sortie = None
 
@@ -408,7 +420,7 @@ def main():
         sys.exit(result.returncode)
 
     evaluations = {e["index"]: e for e in sortie.get("evaluations", [])}
-    for idx, attendu in attentes:
+    for idx, action in attentes:
         ev = evaluations.get(idx)
         if ev is None:
             print(
@@ -416,15 +428,64 @@ def main():
                 file=sys.stderr,
             )
             sys.exit(1)
-        if ev.get("valeur") != attendu:
-            print(
-                f"Assertion échouée action #{idx} (evaluer) :\n"
-                f"  script  : {ev.get('script')}\n"
-                f"  attendu : {json.dumps(attendu, ensure_ascii=False)}\n"
-                f"  obtenu  : {json.dumps(ev.get('valeur'), ensure_ascii=False)}",
-                file=sys.stderr,
-            )
-            sys.exit(1)
+
+        valeur_obtenue = ev.get("valeur")
+
+        if "attendu" in action:
+            if valeur_obtenue != action["attendu"]:
+                print(
+                    f"Assertion échouée action #{idx} (evaluer) :\n"
+                    f"  script  : {ev.get('script')}\n"
+                    f"  attendu : {json.dumps(action['attendu'], ensure_ascii=False)}\n"
+                    f"  obtenu  : {json.dumps(valeur_obtenue, ensure_ascii=False)}",
+                    file=sys.stderr,
+                )
+                sys.exit(1)
+
+        elif "contient" in action:
+            if not isinstance(valeur_obtenue, str):
+                print(
+                    f"Assertion impossible action #{idx} (evaluer) :\n"
+                    f"  script   : {ev.get('script')}\n"
+                    f"  clé      : \"contient\"\n"
+                    f"  problème : valeur retournée de type "
+                    f"{type(valeur_obtenue).__name__} ({valeur_obtenue!r}), pas str.\n"
+                    f"             Utilisez \"attendu\" pour comparer int ou bool.",
+                    file=sys.stderr,
+                )
+                sys.exit(1)
+            if action["contient"] not in valeur_obtenue:
+                print(
+                    f"Assertion échouée action #{idx} (evaluer) :\n"
+                    f"  script   : {ev.get('script')}\n"
+                    f"  contient : {json.dumps(action['contient'], ensure_ascii=False)}\n"
+                    f"  obtenu   : {json.dumps(valeur_obtenue, ensure_ascii=False)}",
+                    file=sys.stderr,
+                )
+                sys.exit(1)
+
+        elif "motif" in action:
+            import re
+            if not isinstance(valeur_obtenue, str):
+                print(
+                    f"Assertion impossible action #{idx} (evaluer) :\n"
+                    f"  script   : {ev.get('script')}\n"
+                    f"  clé      : \"motif\"\n"
+                    f"  problème : valeur retournée de type "
+                    f"{type(valeur_obtenue).__name__} ({valeur_obtenue!r}), pas str.\n"
+                    f"             Utilisez \"attendu\" pour comparer int ou bool.",
+                    file=sys.stderr,
+                )
+                sys.exit(1)
+            if not re.search(action["motif"], valeur_obtenue):
+                print(
+                    f"Assertion échouée action #{idx} (evaluer) :\n"
+                    f"  script : {ev.get('script')}\n"
+                    f"  motif  : {json.dumps(action['motif'], ensure_ascii=False)}\n"
+                    f"  obtenu : {json.dumps(valeur_obtenue, ensure_ascii=False)}",
+                    file=sys.stderr,
+                )
+                sys.exit(1)
 
     sys.exit(0)
 

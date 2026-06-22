@@ -61,7 +61,9 @@
       "additionalProperties": false,
       "properties": {
         "type":      { "const": "cliquer" },
-        "selecteur": { "type": "string", "minLength": 1 }
+        "selecteur": { "type": "string", "minLength": 1 },
+        "force":     { "type": "boolean",
+                       "description": "Bypass Playwright interactability checks (visibility, overlap). Use for CSS-hidden containers and showModal() dialogs. Not applicable to cliquer_som (coordinate-based click). Default: false." }
       }
     },
 
@@ -175,9 +177,13 @@
       "required": ["type", "script"],
       "additionalProperties": false,
       "properties": {
-        "type":    { "const": "evaluer" },
-        "script":  { "type": "string", "minLength": 1 },
-        "attendu": {}
+        "type":     { "const": "evaluer" },
+        "script":   { "type": "string", "minLength": 1 },
+        "attendu":  { "description": "Strict equality assertion (==). Works on any return type (str, int, bool). Mutually exclusive with 'contient' and 'motif'." },
+        "contient": { "type": "string",
+                      "description": "Substring assertion on a string return value (Python 'in'). Mutually exclusive with 'attendu' and 'motif'. Error if return value is not str." },
+        "motif":    { "type": "string",
+                      "description": "Python re.search() regex assertion on a string return value. Mutually exclusive with 'attendu' and 'contient'. Error if return value is not str." }
       }
     },
 
