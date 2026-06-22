@@ -1,77 +1,87 @@
 # Diwall — Monitoring guide (watch.py, long ops, screenshot timeouts, journal)
 
-Version 1.0 — June 2026 (extracted from GUIDE_LLM.md v2.5 + v1.11.0 additions)
+Version 1.1 — June 2026 (extracted from GUIDE_LLM.md v2.5 + v1.11.0 additions)
 
 Load this notice when: watch.py, pixel diff, long-running operations, `--screenshot-timeout`,
-interval_capture, journal.py, operator profiles, FN7/FN8/FN9.
+interval_capture, journal.py, FN7/FN8/FN9.
 
 ---
 
-## watch.py — continuous visual monitoring
+## watch.py — visual monitoring
 
-watch.py compares periodic screenshots to a reference image using pixel diff.
-Use it when you need to detect a visual change on a page that you cannot poll via API.
+watch.py compares a current screenshot to a stored reference image using pixel diff or LLM
+semantic analysis. It does **not** loop by itself — call it from a shell loop or cron.
 
+**Save a reference image (known-good state):**
 ```bash
 /opt/diwall/venv/bin/python3 /opt/diwall/watch.py \
   --url https://target.local/status \
-  --reference /opt/diwall/references/status-ok.png \
-  --interval 30 \
-  --threshold 0.02
+  --sauver-reference
+```
+
+**Compare against the reference (pixel diff):**
+```bash
+/opt/diwall/venv/bin/python3 /opt/diwall/watch.py \
+  --url https://target.local/status \
+  --comparer-pixel /opt/diwall/references/status-ok.png \
+  --seuil-regression 0.02
+```
+
+**Compare against the reference (LLM semantic diff):**
+```bash
+/opt/diwall/venv/bin/python3 /opt/diwall/watch.py \
+  --url https://target.local/status \
+  --comparer \
+  --llm local
 ```
 
 **Key parameters:**
-- `--interval N` — check every N seconds
-- `--threshold F` — fraction of pixels that must differ to trigger an alert (0.0–1.0)
-- `--reference PATH` — PNG to compare against (see `capture-reference` below)
+- `--sauver-reference` — capture and save the current page as reference
+- `--comparer-pixel REF_PNG` — quantitative pixel diff against REF_PNG
+- `--comparer` — semantic LLM diff against stored reference
+- `--seuil-bruit N` — max RGB delta per pixel to consider unchanged (default: 5)
+- `--seuil-stable F` — upper bound for `stable` verdict (default: 0.002)
+- `--seuil-regression F` — lower bound for `regression` verdict (default: 0.05)
+- `--heatmap` — also produce a PNG heatmap of changed zones
+- `--llm-en-complement` — re-run LLM diff only when pixel verdict is `drift` or `regression`
+- `--exclure-zone X,Y,W,H` — ignore a zone during diff (repeatable)
+- `--nom NOM` — named view, for multiple reference views per URL
+- `--ntfy-url URL` — push alert to ntfy when regression detected
+- `--timeout MS` — Playwright capture timeout for this run (default: 10000)
 
-**Output:** JSON per check with `diff_fraction`, `verdict` (`ok` / `alerte`), and
-`capture` (PNG path of the latest frame). When `verdict` is `alerte`, the calling
-LLM can decide what to do (retry, notify, stop).
+**Verdict bands:**
 
-**Vision model in watch.py:** uses `qwen3-vl:2b` (local Ollama) for semantic
-interpretation of the diff when `--llm` is passed. Without `--llm`, pixel diff only.
+| `taux_diff` | Verdict | Exit code |
+|---|---|---|
+| `< seuil-stable` (0.2%) | `stable` | `0` |
+| `seuil-stable ≤ x < seuil-regression` | `drift` | `0` |
+| `≥ seuil-regression` (5%) | `regression` | `1` |
+| Dimensions mismatch | `viewport_mismatch` | `2` |
+| I/O error | — | `3` |
 
-**Running watch.py in the background:**
+**Reference stability:** capture the reference at the same viewport size and zoom as
+comparison runs. If the page has animations, use `--exclure-zone` on the animated area.
+
+**Monitoring loop (shell):**
 ```bash
-/opt/diwall/venv/bin/python3 /opt/diwall/watch.py --url ... --interval 60 &
+while true; do
+  /opt/diwall/venv/bin/python3 /opt/diwall/watch.py \
+    --url https://target.local/status \
+    --comparer-pixel /opt/diwall/references/status-ok.png \
+    --ntfy-url https://ntfy.sh/my-alerts
+  sleep 60
+done
 ```
 
-Redirect stdout to a file if you need to process the stream:
-```bash
-/opt/diwall/venv/bin/python3 /opt/diwall/watch.py \
-  --url https://target.local/status \
-  --reference /opt/diwall/references/status-ok.png \
-  --interval 30 > /tmp/watch-output.jsonl 2>&1 &
-```
-
----
-
-## `capture-reference` — building a reference image
-
-Before running watch.py, build a reference image from a known-good state.
-
-```bash
-/opt/diwall/venv/bin/python3 /opt/diwall/shot.py \
-  --url https://target.local/status \
-  --output-dir /opt/diwall/references/status-ok
-```
-
-The PNG at `capture` in the JSON output is your reference. Copy it to the
-`/opt/diwall/references/` directory (or any stable path you control).
-
-**Reference stability:** the reference must be captured from the same viewport
-size and zoom level as watch.py calls. If the page has animation or time-sensitive
-content, use `--no-capture` during watch iterations and only capture diffs.
+NumPy is used when present (~200ms on 1280×720); Pillow-only fallback for ~10s per comparison.
 
 ---
 
 ## `--screenshot-timeout` — configuring the screenshot limit (v1.11.0)
 
-Playwright's `page.screenshot()` has a fixed 30s default timeout. On slow pages
-or heavy SPA renders, this causes `TimeoutError` during capture.
-
-**v1.11.0 adds `--screenshot-timeout` to shot.py:**
+Playwright's `page.screenshot()` internal default is 30s. On slow pages or heavy SPA
+renders, this causes `TimeoutError` during capture. v1.11.0 raises shot.py's default to
+120 000 ms and makes it configurable.
 
 ```bash
 /opt/diwall/venv/bin/python3 /opt/diwall/shot.py \
@@ -79,7 +89,7 @@ or heavy SPA renders, this causes `TimeoutError` during capture.
   --screenshot-timeout 120000
 ```
 
-`--screenshot-timeout` is in milliseconds. Default: 120000 (120 s).
+`--screenshot-timeout` is in milliseconds. Default: 120 000 (120 s).
 
 **This parameter is distinct from `--timeout`:**
 - `--timeout` controls Playwright action timeouts (click, fill, wait…)
@@ -90,12 +100,12 @@ SoM capture, `capturer` actions, intermediate captures, `cliquer_visuel`, and th
 final capture.
 
 **When to increase it:**
-- Heavy dashboards or BI pages that render for 10–30s before stabilizing
+- Heavy dashboards or BI pages that render for 10–30s before stabilising
 - Pages with lazy-loaded charts or PDF embeds
 - Pages that time out on the SoM overlay injection
 
 **When to decrease it:**
-- Simple pages where you want fast failure rather than a 120s wait
+- Simple pages where you want fast failure rather than a long wait
 - Test suites where speed matters more than reliability on slow pages
 
 **If all else fails** and the screenshot still times out: use `--no-capture` to
@@ -117,7 +127,7 @@ The intermediate captures are appended to `stream_captures[]` in the JSON output
 Use them to diagnose what happened during a long wait.
 
 **Global default:** `--interval-capture N` on the rpa.py CLI sets the default for
-all actions that support it. Per-action `interval_capture` overrides the default.
+all actions that support it. Per-action `interval_capture` overrides the global default.
 
 ---
 
@@ -138,7 +148,7 @@ and takes several seconds to complete, do not use `pause` to wait.
 **Problem:** `pause` does not adapt to the actual operation duration.
 If the operation takes 15s, you get a stale capture. If it takes 2s, you waste 8s.
 
-**Correct pattern:**
+**Correct pattern — wait for a DOM signal:**
 ```json
 [
   {"type": "cliquer_som", "id": 7},
@@ -148,12 +158,12 @@ If the operation takes 15s, you get a stale capture. If it takes 2s, you waste 8
 ]
 ```
 
-Or, if the operation redirects to a result page:
+**Or, if the operation redirects to a result page:**
 ```json
 [
   {"type": "cliquer_som", "id": 7},
   {"type": "attendre_navigation"},
-  {"type": "evaluer", "script": "document.title", "contient": "Résultat"}
+  {"type": "evaluer", "script": "document.title", "contient": "Result"}
 ]
 ```
 
@@ -195,19 +205,19 @@ Use `delai_initial_ms` to add a small delay before polling starts:
 {"type": "attendre_absence", "selecteur": ".loading-overlay", "delai_initial_ms": 500}
 ```
 
-This is specifically useful when the spinner is injected by JS before the POST
-response arrives, so Playwright needs a moment to register the new DOM state.
+This is useful when the spinner is injected by JS before the POST response arrives —
+Playwright needs a moment to register the new DOM state (REX #66).
 
 ---
 
 ## journal.py — operations log
 
-journal.py appends a structured JSON line to `/var/log/diwall/journal.jsonl`
+journal.py appends a structured JSON line to `/var/log/diwall/operations.jsonl`
 after each shot.py / rpa.py execution. It is called automatically by rpa.py.
 
 ```bash
 # Read the last 10 entries
-tail -n 10 /var/log/diwall/journal.jsonl | python3 -m json.tool --no-ensure-ascii
+tail -n 10 /var/log/diwall/operations.jsonl | python3 -m json.tool --no-ensure-ascii
 ```
 
 **Fields in each log entry:**
@@ -220,38 +230,12 @@ tail -n 10 /var/log/diwall/journal.jsonl | python3 -m json.tool --no-ensure-asci
 | `url` | Target URL |
 | `scenario` | Scenario file path (rpa mode) |
 | `succes` | boolean |
-| `modeles_appeles` | list of LLM model names called during the run |
+| `modeles_appeles` | list of LLM models called during the run |
 | `duree_ms` | wall-clock duration in ms |
 | `erreur` | error message if `succes: false` |
 
 **When to read the journal:** after a failure in cron mode (no terminal output),
 or to audit which models were used in a given session.
-
----
-
-## Operator profiles — `--profil`
-
-Operator profiles are YAML files in `/opt/diwall/profiles/` (or `~/.config/diwall/profiles/`).
-A profile sets default values for `--timeout`, `--llm`, `--screenshot-timeout`, etc.
-
-```bash
-/opt/diwall/venv/bin/python3 /opt/diwall/shot.py \
-  --url https://target.local/ \
-  --profil standard
-```
-
-Profile `standard.yaml` example:
-```yaml
-timeout: 60000
-screenshot_timeout: 120000
-llm: qwen3-vl:2b
-interval_capture: 10
-```
-
-CLI flags override profile values. Profiles do not affect vault paths.
-
-**When there is no profile configured:** all parameters use built-in defaults
-(`--timeout 60000`, `--screenshot-timeout 120000`, no `--llm`).
 
 ---
 
@@ -283,23 +267,23 @@ running any mutating action.
 
 ## Cron mode — autonomous monitoring
 
-To schedule a monitoring check:
+watch.py does not loop internally. Call it from cron for scheduled checks:
 
 ```bash
 # /etc/cron.d/diwall-monitor
-*/30 * * * * diwall /opt/diwall/venv/bin/python3 /opt/diwall/rpa.py \
-  --scenario /opt/diwall/scenarios/health-check.json \
+*/30 * * * * diwall /opt/diwall/venv/bin/python3 /opt/diwall/watch.py \
+  --url https://target.local/status \
+  --comparer-pixel /opt/diwall/references/status-ok.png \
+  --ntfy-url https://ntfy.sh/my-alerts \
   >> /var/log/diwall/cron.jsonl 2>&1
 ```
 
-Each run appends one JSON line to `cron.jsonl`. On failure (`succes: false`),
-the `erreur` field contains the cause.
+Each run appends one JSON line to `cron.jsonl`. Exit code `1` on regression.
 
-Use ntfy integration to push alerts:
+Use `--ntfy-url` for push alerts without shell scripting. Or check the exit code:
 ```bash
-# After rpa.py, check exit code
 if [ $? -ne 0 ]; then
-  curl -s -X POST https://ntfy.sh/diwall-alerts -d "Health check failed"
+  # regression detected — take action
 fi
 ```
 

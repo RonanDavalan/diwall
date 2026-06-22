@@ -74,15 +74,15 @@ Use Mode A for exploration and single captures with a visual ReAct loop.
 ```bash
 /opt/diwall/venv/bin/python3 /opt/diwall/shot.py \
   --url https://target.local/ \
-  --som --a11y --llm qwen3-vl:2b
+  --som --a11y --llm local
 ```
 
 Output: JSON with `capture_som`, `elements_som`, `a11y_tree`, `boussole`.
 You read the PNG, decide which element to interact with, pass the ID to the next call.
 
 **Keep Mode A alive across steps:** pass `--actions` with accumulated actions each time.
-Closing and reopening shot.py loses the browser session. Use `--reprendre-session` for
-persistent sessions (stores state in `__diwall_session__/`).
+Closing and reopening shot.py loses the browser session. Use `--sauver-session` to save
+the session state to a JSON file, then `--reprendre-session` to reload it on the next call.
 
 ---
 
@@ -112,16 +112,18 @@ It collects all `evaluations[]` and runs assertions if `attendu`, `contient`, or
 When a login form saves a cookie in the browser, you can persist the session.
 
 ```bash
-# First call — authenticate
+# First call — authenticate and save session
 /opt/diwall/venv/bin/python3 /opt/diwall/shot.py \
   --url https://target.local/login \
   --actions login_actions.json \
-  --output-dir /tmp/run-1 --som
+  --sauver-session /tmp/diwall/session.json \
+  --som
 
 # Subsequent calls — reuse session
 /opt/diwall/venv/bin/python3 /opt/diwall/shot.py \
   --url https://target.local/dashboard \
-  --reprendre-session --output-dir /tmp/run-1 --som
+  --reprendre-session /tmp/diwall/session.json \
+  --som
 ```
 
 **Warning — session drift signal (lot 8.5):** if the session has expired or the
@@ -152,8 +154,8 @@ Playwright's default navigation wait (`load` event) never fires.
 ```json
 [
   {"type": "cliquer_som", "id": 5},
-  {"type": "attendre_url", "motif": "portabilite"},
-  {"type": "evaluer", "script": "document.title", "contient": "Portabilité"}
+  {"type": "attendre_url", "motif": "dashboard"},
+  {"type": "evaluer", "script": "document.title", "contient": "Dashboard"}
 ]
 ```
 
@@ -265,10 +267,10 @@ Skills are reusable action sequences defined in `skills/` (YAML files).
 Invoke a skill with the `declencher_scenario` action:
 
 ```json
-{"type": "declencher_scenario", "scenario": "login_sillage"}
+{"type": "declencher_scenario", "scenario": "login_myapp"}
 ```
 
-Resolved as `scenarios/login_sillage.json` (or `.yaml`, `.yml`). Max depth: 5.
+Resolved as `scenarios/login_myapp.json` (or `.yaml`, `.yml`). Max depth: 5.
 
 **Common pattern:** define the authentication sequence as a skill, call it at
 the beginning of every scenario that requires a logged-in session.
