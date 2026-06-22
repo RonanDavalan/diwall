@@ -72,21 +72,22 @@ element (or one of its ancestors) is hidden via CSS or JS.
 
 ```json
 // Solution 1 — force: true (v1.11.0, preferred when element is in the DOM)
-{"type": "cliquer", "selecteur": "[data-sillage='btn-confirm']", "force": true}
+{"type": "cliquer", "selecteur": "[data-testid='btn-confirm']", "force": true}
 
 // Solution 2 — evaluer JS (fallback when force fails or element absent from DOM)
-{"type": "evaluer", "script": "document.querySelector('[data-sillage=\"btn-confirm\"]').click()"}
+{"type": "evaluer", "script": "document.querySelector('[data-testid=\"btn-confirm\"]').click()"}
 ```
 
 **This rule covers all hidden-container patterns (REX #61–63, FR-57, FN10–FN12):**
-- CSS `display:none → block` dialogs (Sillage confirmation modals)
+- CSS `display:none → block` dialogs (app confirmation modals)
 - `showModal()` native `<dialog>` elements
 - CSS toggle-switch hidden `<input type="checkbox">`
 - Button that opens a CSS modal (FN10): the trigger button itself may timeout
 
 **FN11 — `capturer` timeout while a CSS modal is open:**
-When a CSS modal is open (JS show/hide), `capturer` times out at 30s. Remove any
-intermediate `capturer` while the modal is in the open state. Capture only after it closes.
+When a CSS modal is open (JS show/hide), `capturer` may time out (even at 120s) because
+Playwright waits for the page to stabilise before screenshotting. Remove any intermediate
+`capturer` while the modal is in the open state. Capture only after it closes.
 
 **FN12 — Batch deletion dialog (native `<dialog open>`):**
 ```json
@@ -103,9 +104,9 @@ intermediate `capturer` while the modal is in the open state. Capture only after
 **Conditional button with JS guard — silent no-op on `cliquer` (REX #62):**
 ```json
 [
-  {"type": "evaluer", "script": "document.querySelector('[data-sillage=\"select-action-lot\"]').value = 'supprimer'"},
-  {"type": "cliquer", "selecteur": "[data-sillage='btn-appliquer-lot']"},
-  {"type": "attendre_selecteur_present", "selecteur": "dialog#dialog-lot[open]"}
+  {"type": "evaluer", "script": "document.querySelector('[data-testid=\"select-action\"]').value = 'delete'"},
+  {"type": "cliquer", "selecteur": "[data-testid='btn-apply']"},
+  {"type": "attendre_selecteur_present", "selecteur": "dialog#dialog-batch[open]"}
 ]
 ```
 
@@ -149,14 +150,14 @@ Three mutually exclusive assertion keys — choose one per action:
 
 **`contient` — substring (v1.11.0):**
 ```json
-{"type": "evaluer", "script": "document.title", "contient": "Portabilité"}
-{"type": "evaluer", "script": "window.location.href", "contient": "vue=portabilite"}
+{"type": "evaluer", "script": "document.title", "contient": "User management"}
+{"type": "evaluer", "script": "window.location.href", "contient": "view=dashboard"}
 ```
 
 **`motif` — Python regex (v1.11.0):**
 ```json
-{"type": "evaluer", "script": "window.location.href", "motif": "vue=portabilite$"}
-{"type": "evaluer", "script": "document.title", "motif": "^Sillage — "}
+{"type": "evaluer", "script": "window.location.href", "motif": "view=dashboard$"}
+{"type": "evaluer", "script": "document.title", "motif": "^My App — "}
 ```
 
 **Error on wrong type:** if the return value is not `str` and you use `contient` or `motif`,
@@ -175,12 +176,12 @@ on a generic selector.
 
 ```json
 // With <title>
-{"type": "evaluer", "script": "document.title", "contient": "Portabilité du locataire"}
+{"type": "evaluer", "script": "document.title", "contient": "User management"}
 
 // Without <title> or generic title — use h1
 {"type": "evaluer",
  "script": "document.querySelector('h1')?.textContent.trim() ?? ''",
- "contient": "Portabilité du locataire"}
+ "contient": "User management"}
 ```
 
 **On error pages (404/500):** the title will be "404 Not Found" or the error template
