@@ -4,6 +4,32 @@ Historique des décisions et découvertes par session, dans l'ordre chronologiqu
 
 ---
 
+## 2026-06-23 — Session 40 (v1.12.0 — DX, sécurité visuelle et sonde rapide)
+
+**Contexte d'entrée :** v1.11.1 en production. Backlog vide. Campagne de retours multi-modèles (DeepSeek, Qwen, Grok) consolidée par Gemini. PHASE_PLANIFICATION trilatérale, puis PHASE_DOCUMENTATION + PHASE_EXECUTION en session unique.
+
+**Décisions techniques :**
+
+- `GUIDE_LLM.md` v3.1 — table d'aiguillage par symptôme d'erreur (12 entrées) + colonne `Version` dans l'index des notices + règle de versionnage autonome des notices.
+- `GUIDE_LLM_INTERACTIONS.md` v1.1 — section "Current limit — Shadow DOM and Web Components" : explication, workaround `evaluer`, annonce `--shadow-dom` v1.13.0.
+- `GUIDE_LLM_SESSIONS.md` v1.1 — section "Pre-condition pattern" : 4 patterns d'assertion initiale de sécurité avant actions mutantes.
+- `GUIDE_LLM_MONITORING.md` — reformatage en-tête uniquement (version inchangée v1.1).
+- `shot.py` — `_MASQUER_SECRETS_JS` + `_RESTAURER_SECRETS_JS` : floutage `blur(8px)` des champs `input[type="password"]` et `autocomplete*="password"` en `try/finally` autour des 3 points de capture (finale, SoM, action `capturer`). Mesure de sécurité silencieuse.
+- `shot.py` — `_DOM_STATS_JS` : 6 compteurs sémantiques (boutons, inputs, listes_deroulantes, formulaires, liens, dialogues) injectés dans `result["dom_stats"]` uniquement en mode `--no-capture`.
+
+**Roadmap inscrite :**
+- `V1_12_0_DX_SECURITE_SONDE.md` (livré cette session)
+- `V1_13_0_SHADOW_DOM_SOM.md` — Shadow DOM, flag `--shadow-dom`, session dédiée
+- Parking lot : `attendre_stabilite` (MutationObserver opt-in), contrat déclaratif syntaxique
+
+**Tests :** T-E1 VERT, T-E2 VERT, T-E3 VERT, T-E4 VERT, T-F1 VERT, T-F2 VERT, T-F3 VERT. Preflight exit 0 / smoke tests 3/3.
+
+**Commit :** `0babfb7` — feat(v1.12.0)
+
+**71 frictions / 40 sessions.**
+
+---
+
 ## 2026-06-23 — Session 39 (v1.11.1 — persistance session FR-74/FR-75)
 
 **Contexte d'entrée :** v1.11.0 en production. Backlog vide. FR-74 et FR-75 remontées par Gemini 3.5 Flash (audit découverte interface Sillage) via Claude Sillage.
