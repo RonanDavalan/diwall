@@ -20,7 +20,7 @@ Format du scénario :
 Le vault est résolu par lib/vault.py (DIWALL_VAULT_DIR > diwall.conf > ~/Vaults/Diwall/).
 Jamais de mot de passe dans les fichiers de scénario.
 """
-__version__ = "1.11.1"
+__version__ = "1.12.0"
 
 import argparse
 import json

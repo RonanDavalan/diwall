@@ -1,6 +1,7 @@
 # Diwall — Interactions guide (SoM, selectors, dialogs, assertions)
 
-Version 1.0 — June 2026 (extracted from GUIDE_LLM.md v2.5 + v1.11.0 additions)
+<!-- notice-version: 1.1 -->
+Version 1.1 — June 2026
 
 Load this notice when: timeout on `cliquer`, CSS/showModal dialog, SoM IDs, strict mode
 violation, nth-match error, evaluer assertions, DOM mutations.
@@ -288,5 +289,36 @@ If an action returns `succes: false` or a Playwright error, you must:
 2. Re-read the relevant section of this guide
 3. Declare the analysis: cause identified, rule violated
 4. Propose the correction
+
+---
+
+## Current limit — Shadow DOM and Web Components
+
+Diwall's SoM injection uses `document.querySelectorAll()`, which does **not** traverse Shadow
+DOM boundaries. Elements encapsulated inside a Shadow Root (Web Components built with Angular,
+Lit, Stencil, etc.) are invisible to Diwall's numbering.
+
+**Practical impact:**
+- `cliquer_som` and `remplir_som` cannot target elements inside Shadow Roots
+- The SoM overlay shows no number for Web Component interactive elements
+- `a11y_tree` may also be incomplete for components with shadow content
+
+**Workaround — open Shadow DOM via evaluer:**
+```json
+{
+  "type": "evaluer",
+  "script": "document.querySelector('my-component').shadowRoot.querySelector('button').click()"
+}
+```
+Verify the root is accessible first:
+```json
+{"type": "evaluer", "script": "document.querySelector('my-component').shadowRoot !== null"}
+```
+
+**Coming in v1.13.0:** `--shadow-dom` flag — recursive SoM traversal of open Shadow Roots,
+disabled by default to preserve indexing consistency on standard DOM projects.
+
+**Permanent limit — closed Shadow Roots:** `{mode: 'closed'}` Shadow Roots are inaccessible
+from any external script, including Playwright. This is a browser security boundary.
 
 **No `actions_v2.json` / `_v3.json` in `/tmp/` without this step.**
