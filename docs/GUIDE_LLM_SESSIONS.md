@@ -111,18 +111,35 @@ It collects all `evaluations[]` and runs assertions if `attendu`, `contient`, or
 
 When a login form saves a cookie in the browser, you can persist the session.
 
+**Two known bugs (FR-74 + FR-75 — fix pending) — read before using:**
+
+- **FR-74 — silent session deletion:** `shot.py` deletes the session file at the end of
+  every run *unless* `--sauver-session` is specified in the *same* call. A bare
+  `--reprendre-session` without `--sauver-session` leaves no session file after the call.
+  Result: forced re-authentication on every subsequent call.
+
+- **FR-75 — `/tmp/diwall/` wipe destroys sessions:** on startup, `shot.py` wipes the
+  `/tmp/diwall/` output directory. Any session file stored there is deleted *before*
+  the next run reads it → `FileNotFoundError` on `--reprendre-session`.
+
+**Safe pattern until the fix is shipped:**
+
 ```bash
-# First call — authenticate and save session
+# Rule 1 — store session file OUTSIDE /tmp/diwall/
+# Rule 2 — always repeat --sauver-session on every --reprendre-session call
+
+# First call — login and save
 /opt/diwall/venv/bin/python3 /opt/diwall/shot.py \
   --url https://target.local/login \
   --actions login_actions.json \
-  --sauver-session /tmp/diwall/session.json \
+  --sauver-session ~/diwall-session.json \
   --som
 
-# Subsequent calls — reuse session
+# All subsequent calls — resume AND re-save every time
 /opt/diwall/venv/bin/python3 /opt/diwall/shot.py \
   --url https://target.local/dashboard \
-  --reprendre-session /tmp/diwall/session.json \
+  --reprendre-session ~/diwall-session.json \
+  --sauver-session ~/diwall-session.json \
   --som
 ```
 

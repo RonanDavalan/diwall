@@ -4,6 +4,20 @@ Historique des décisions et découvertes par session, dans l'ordre chronologiqu
 
 ---
 
+## 2026-06-23 — Session 39 (v1.12.0 — persistance session FR-74/FR-75)
+
+**Contexte d'entrée :** v1.11.0 en production. Backlog vide. FR-74 et FR-75 remontées par Gemini 3.5 Flash (audit découverte interface Sillage) via Claude Sillage.
+
+**Décision technique :**
+
+- `_nettoyer_session_ephemere` désactivée dans `shot.py` — suppression silencieuse du fichier `--reprendre-session` retirée. Cause racine commune à FR-74 et FR-75 : la suppression en fin de run empêchait tout usage enchaîné de `--reprendre-session`. Shot.py n'effectue aucun `rmtree` sur `/tmp/diwall/` — la cause FR-75 attribuée à un "nettoyage au démarrage" était une mauvaise attribution du testeur ; c'était FR-74 avec un chemin dans `/tmp/diwall/`.
+
+**Tests :** T-A1 VERT, T-B1 VERT. Preflight exit 0.
+
+**71 frictions / 39 sessions.**
+
+---
+
 ## 2026-06-23 — Session 38 (v1.11.0 — ergonomie et guide)
 
 **Contexte d'entrée :** v1.10.2 en production. REX Sillage : 6 frictions terrain remontées par LLM partenaire (CSS/showModal, screenshot timeout, stdout fragile, GUIDE_LLM monolithique, assertions rigides, vérification titre de page).
