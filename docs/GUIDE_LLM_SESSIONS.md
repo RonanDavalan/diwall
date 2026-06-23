@@ -1,7 +1,7 @@
 # Diwall — Sessions guide (vault, credentials, SPA, MFA, multi-page)
 
-<!-- notice-version: 1.1 -->
-Version 1.1 — June 2026
+<!-- notice-version: 1.2 -->
+Version 1.2 — June 2026 (v1.14.0) — auth_indicator_negative
 
 Load this notice when: vault credentials, `--secrets`, session persistence, SPA navigation,
 multi-page flows, MFA/TOTP, auth_indicator, --no-capture.
@@ -218,6 +218,21 @@ visible when the user is authenticated. shot.py checks for it on every capture.
 
 Output includes `auth_status: "active"` when the selector is found, `"inactive"` otherwise.
 If `auth_indicator` is not set: `auth_status` is absent from the output.
+
+**`auth_indicator_negative` — disambiguation for ambiguous selectors (v1.14.0)**
+
+On some interfaces, the positive selector (e.g. `.user-menu`) is visible even on the
+login page (persistent header). Add `auth_indicator_negative` to cross-check:
+
+```json
+{
+  "auth_indicator": ".user-menu",
+  "auth_indicator_negative": ".btn-login"
+}
+```
+
+Logic: `auth_status = "active"` if positive selector visible **AND** negative selector
+absent or not visible. Use `--auth-indicator-negative` on the CLI for shot.py direct calls.
 
 ---
 
