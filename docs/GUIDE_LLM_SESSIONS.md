@@ -126,7 +126,7 @@ When a login form saves a cookie in the browser, you can persist the session.
   --som
 ```
 
-**Note (v1.12.0):** `shot.py` no longer deletes the session file at end of run (FR-74/FR-75).
+**Note (v1.11.1):** `shot.py` no longer deletes the session file at end of run (FR-74/FR-75).
 `--reprendre-session` without `--sauver-session` is now safe across chained calls.
 Add `--sauver-session` only if you want to explicitly refresh the on-disk session state.
 

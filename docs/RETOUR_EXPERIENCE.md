@@ -2382,7 +2382,7 @@ défaut lors d'une simple reprise (`--reprendre-session` sans `--sauver-session`
 La suppression devrait être réservée aux sessions générées à la volée (sans chemin explicite).
 Ou ajouter une option `--keep-session`.
 
-**Corrections (v1.12.0 — session 39, 23/06/2026) :** `_nettoyer_session_ephemere` désactivée dans
+**Corrections (v1.11.1 — session 39, 23/06/2026) :** `_nettoyer_session_ephemere` désactivée dans
 `shot.py` — la suppression silencieuse est retirée. T-A1 VERT.
 
 ---
@@ -2406,7 +2406,7 @@ du nettoyage. Le testeur a contourné en passant le chemin de session hors de `/
 **Analyse post-correction (session 39) :** shot.py n'effectue aucun `rmtree` sur `/tmp/diwall/`.
 La cause racine est identique à FR-74 — `_nettoyer_session_ephemere` supprimait le fichier en
 fin de run. FR-75 est une manifestation de FR-74 avec un chemin dans `/tmp/diwall/`.
-**Corrections (v1.12.0 — session 39, 23/06/2026) :** même correctif que FR-74. T-B1 VERT.
+**Corrections (v1.11.1 — session 39, 23/06/2026) :** même correctif que FR-74. T-B1 VERT.
 
 ---
 

@@ -4,7 +4,7 @@ Historique des décisions et découvertes par session, dans l'ordre chronologiqu
 
 ---
 
-## 2026-06-23 — Session 39 (v1.12.0 — persistance session FR-74/FR-75)
+## 2026-06-23 — Session 39 (v1.11.1 — persistance session FR-74/FR-75)
 
 **Contexte d'entrée :** v1.11.0 en production. Backlog vide. FR-74 et FR-75 remontées par Gemini 3.5 Flash (audit découverte interface Sillage) via Claude Sillage.
 
