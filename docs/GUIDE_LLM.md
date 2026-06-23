@@ -1,6 +1,6 @@
 # Diwall — LLM Guide (index)
 
-Version 3.0 — June 2026 (v1.11.0) — restructured as a short index
+Version 3.1 — June 2026 (v1.12.0) — error routing table added
 
 **You are a language model. This is the entry point. Read it fully, then load
 the notice that matches your task.**
@@ -134,13 +134,37 @@ If `boussole` does not match your expectation: stop and investigate before any m
 
 ---
 
+## Error routing — load by symptom
+
+Already in an error? Route by symptom, not by task type:
+
+| Symptom | Notice |
+|---|---|
+| `TimeoutError` on `cliquer`, `cliquer_som`, `remplir`, `remplir_som` | `GUIDE_LLM_INTERACTIONS.md` |
+| `showModal()` / CSS-hidden element / `force: true` questions | `GUIDE_LLM_INTERACTIONS.md` |
+| Strict mode violation, `:nth-match()`, DOM locator error | `GUIDE_LLM_INTERACTIONS.md` |
+| SoM ID mismatch, element numbered but not clickable | `GUIDE_LLM_INTERACTIONS.md` |
+| `evaluer` assertion failed (`attendu` / `contient` / `motif`) | `GUIDE_LLM_INTERACTIONS.md` |
+| `exit 42` (VaultFermeError) — vault not mounted | `GUIDE_LLM_SESSIONS.md` |
+| `exit 43` (VaultNonConfigureError) — `diwall.conf` absent | `GUIDE_LLM_SESSIONS.md` |
+| `--secrets` file, multi-vault, credential resolution | `GUIDE_LLM_SESSIONS.md` |
+| `--reprendre-session` issues, SPA navigation, auth expiry | `GUIDE_LLM_SESSIONS.md` |
+| `TimeoutError` on `page.screenshot()`, capture hangs | `GUIDE_LLM_MONITORING.md` |
+| `watch.py` pixel diff, verdicts, `--screenshot-timeout` | `GUIDE_LLM_MONITORING.md` |
+| Long-running operations, `interval_capture`, journal.py | `GUIDE_LLM_MONITORING.md` |
+
+---
+
 ## Notice index — load on demand
 
-| Notice | Load when |
-|---|---|
-| `GUIDE_LLM_INTERACTIONS.md` | Timeout on `cliquer`, CSS/showModal dialog, SoM IDs, strict mode violation, nth-match error, evaluer assertions, DOM mutations |
-| `GUIDE_LLM_SESSIONS.md` | Vault credentials, `--secrets`, session persistence, SPA navigation, multi-page flows, MFA/TOTP, auth_indicator, --no-capture |
-| `GUIDE_LLM_MONITORING.md` | watch.py, pixel diff, long-running operations, `--screenshot-timeout`, interval_capture, journal.py |
+| Notice | Load when | Version |
+|---|---|---|
+| `GUIDE_LLM_INTERACTIONS.md` | Timeout on `cliquer`, CSS/showModal dialog, SoM IDs, strict mode violation, nth-match error, evaluer assertions, DOM mutations | v1.1 |
+| `GUIDE_LLM_SESSIONS.md` | Vault credentials, `--secrets`, session persistence, SPA navigation, multi-page flows, MFA/TOTP, auth_indicator, --no-capture | v1.1 |
+| `GUIDE_LLM_MONITORING.md` | watch.py, pixel diff, long-running operations, `--screenshot-timeout`, interval_capture, journal.py | v1.1 |
+
+> **Version check:** the version column is canonical. If your local copy of a notice shows
+> a lower version, reload it. Notice versions increment independently of Diwall releases.
 
 ```bash
 cat /opt/diwall/docs/GUIDE_LLM_INTERACTIONS.md

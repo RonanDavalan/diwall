@@ -1,6 +1,7 @@
 # Diwall — Monitoring guide (watch.py, long ops, screenshot timeouts, journal)
 
-Version 1.1 — June 2026 (extracted from GUIDE_LLM.md v2.5 + v1.11.0 additions)
+<!-- notice-version: 1.1 -->
+Version 1.1 — June 2026
 
 Load this notice when: watch.py, pixel diff, long-running operations, `--screenshot-timeout`,
 interval_capture, journal.py, FN7/FN8/FN9.

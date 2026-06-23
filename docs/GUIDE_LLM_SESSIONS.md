@@ -1,6 +1,7 @@
 # Diwall — Sessions guide (vault, credentials, SPA, MFA, multi-page)
 
-Version 1.0 — June 2026 (extracted from GUIDE_LLM.md v2.5)
+<!-- notice-version: 1.1 -->
+Version 1.1 — June 2026
 
 Load this notice when: vault credentials, `--secrets`, session persistence, SPA navigation,
 multi-page flows, MFA/TOTP, auth_indicator, --no-capture.
@@ -292,3 +293,36 @@ the beginning of every scenario that requires a logged-in session.
 | Credential fill | `valeur: "depuis_vault"` + `vault_cle` — never shell |
 | Non-default vault | `--secrets /path/to/creds.json` |
 | OTP in real-time | `attendre_mfa_ntfy` or manual `remplir_som` |
+
+---
+
+## Pre-condition pattern — Securing scenario entry
+
+Before any **mutating action** (delete, submit, write), add an `evaluer` assertion as the
+first action to verify you are on the expected page. This guards against orphaned actions
+when a session expired in the background or a redirect landed on the wrong page.
+
+**Pattern — URL check:**
+```json
+{"type": "evaluer", "script": "window.location.href", "contient": "/dashboard"}
+```
+
+**Pattern — title check:**
+```json
+{"type": "evaluer", "script": "document.title", "contient": "Dashboard"}
+```
+
+**Pattern — absence of error banner:**
+```json
+{"type": "evaluer", "script": "document.querySelector('.alert-danger')?.textContent ?? null", "attendu": null}
+```
+
+**Pattern — selector present (readable state):**
+```json
+{"type": "attendre_selecteur_present", "selecteur": ".user-logged-in"}
+```
+
+**Fail-fast behaviour:** if the assertion fails, `rpa.py` exits immediately (exit 1) with a
+structured diagnostic before any mutating action runs.
+
+Place the guard as action index 0 in any scenario that performs deletions or sensitive writes.

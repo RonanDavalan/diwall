@@ -9,7 +9,7 @@ import sys
 import time
 from datetime import datetime, timezone
 
-__version__ = "1.11.1"
+__version__ = "1.12.0"
 
 # Permet d'importer lib/ depuis le même répertoire que shot.py
 sys.path.insert(0, os.path.dirname(os.path.abspath(__file__)))
@@ -131,6 +131,40 @@ _SOM_TROUVER_JS = """(id) => {
     return {x: Math.round(r.left + r.width / 2), y: Math.round(r.top + r.height / 2), tag: el.tagName};
 }"""
 
+# ── Sécurité visuelle — masquage des champs sensibles ────────────────────────
+_MASQUER_SECRETS_JS = """() => {
+    var SENS = [
+        'input[type="password"]',
+        'input[autocomplete="current-password"]',
+        'input[autocomplete="new-password"]',
+        'input[autocomplete*="password"]'
+    ].join(',');
+    document.querySelectorAll(SENS).forEach(function(f) {
+        f.setAttribute('data-dw-blur', f.style.filter || '');
+        f.style.filter = 'blur(8px)';
+    });
+}"""
+
+_RESTAURER_SECRETS_JS = """() => {
+    document.querySelectorAll('[data-dw-blur]').forEach(function(f) {
+        f.style.filter = f.getAttribute('data-dw-blur') || '';
+        f.removeAttribute('data-dw-blur');
+    });
+}"""
+
+# ── Statistiques DOM structurelles (--no-capture) ────────────────────────────
+_DOM_STATS_JS = """() => {
+    var q = function(s) { return document.querySelectorAll(s).length; };
+    return {
+        boutons:            q('button, [role="button"], [role="menuitem"]'),
+        inputs:             q('input:not([type="hidden"]), textarea'),
+        listes_deroulantes: q('select'),
+        formulaires:        q('form'),
+        liens:              q('a[href]'),
+        dialogues:          q('dialog')
+    };
+}"""
+
 
 def _injecter_som(page, output_dir, nom="state_som", screenshot_timeout=120_000):
     """Injecte le Set-of-Mark, capture la vue annotée, nettoie le DOM.
@@ -140,7 +174,11 @@ def _injecter_som(page, output_dir, nom="state_som", screenshot_timeout=120_000)
     """
     elements = page.evaluate(_SOM_INJECTER_JS)
     chemin_som = chemin_png(output_dir, nom)
-    page.screenshot(path=chemin_som, full_page=False, timeout=screenshot_timeout)
+    page.evaluate(_MASQUER_SECRETS_JS)
+    try:
+        page.screenshot(path=chemin_som, full_page=False, timeout=screenshot_timeout)
+    finally:
+        page.evaluate(_RESTAURER_SECRETS_JS)
     page.evaluate(_SOM_RETIRER_JS)
     hors_vp = page.evaluate(_SOM_COMPTER_HORS_VIEWPORT_JS)
     return chemin_som, elements, hors_vp
@@ -539,7 +577,11 @@ def executer_actions(page, actions, output_dir, timeout, mode_llm="local",
                                         screenshot_timeout=screenshot_timeout)
             else:
                 p = chemin_png(output_dir, f"capture_{nom}")
-                page.screenshot(path=p, full_page=True, timeout=screenshot_timeout)
+                page.evaluate(_MASQUER_SECRETS_JS)
+                try:
+                    page.screenshot(path=p, full_page=True, timeout=screenshot_timeout)
+                finally:
+                    page.evaluate(_RESTAURER_SECRETS_JS)
             intermediaires.append(p)
 
         elif t == "cliquer_som":
@@ -913,7 +955,11 @@ def main():
 
             # ── Capture finale ────────────────────────────────────────────────
             if not args.no_capture:
-                page.screenshot(path=sortie, full_page=True, timeout=args.screenshot_timeout)
+                page.evaluate(_MASQUER_SECRETS_JS)
+                try:
+                    page.screenshot(path=sortie, full_page=True, timeout=args.screenshot_timeout)
+                finally:
+                    page.evaluate(_RESTAURER_SECRETS_JS)
 
             # ── SoM ───────────────────────────────────────────────────────────
             capture_som, elements_som, hors_vp_som = None, [], 0
@@ -940,6 +986,14 @@ def main():
                                 {"width": args.largeur, "height": args.hauteur})
                 session_file = args.sauver_session
 
+            # ── Stats DOM (--no-capture) ──────────────────────────────────────
+            dom_stats = None
+            if args.no_capture:
+                try:
+                    dom_stats = page.evaluate(_DOM_STATS_JS)
+                except Exception:
+                    pass
+
             browser.close()
 
         result = {
@@ -955,6 +1009,8 @@ def main():
         }
         if not args.no_capture:
             result["capture"] = sortie
+        if args.no_capture and dom_stats is not None:
+            result["dom_stats"] = dom_stats
         if auth_status is not None:
             result["auth_status"] = auth_status
         if interm:
