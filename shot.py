@@ -9,7 +9,7 @@ import sys
 import time
 from datetime import datetime, timezone
 
-__version__ = "1.11.0"
+__version__ = "1.12.0"
 
 # Permet d'importer lib/ depuis le même répertoire que shot.py
 sys.path.insert(0, os.path.dirname(os.path.abspath(__file__)))
@@ -204,19 +204,12 @@ def _construire_diwall_meta(profil, horodatage, modeles_appeles, url_finale):
 
 
 def _nettoyer_session_ephemere(chemin_session, explicitement_demandee):
-    """Supprime un fichier de session éphémère si non demandé explicitement.
+    """Désactivé (FR-74/FR-75) — ne supprime plus le fichier de session.
 
-    Un fichier de session contient des jetons d'authentification actifs.
-    S'il n'a pas été demandé via --sauver-session, il n'a pas vocation à
-    persister après le run. Best-effort : un échec de suppression est ignoré.
+    Ancien comportement : supprimait --reprendre-session si --sauver-session
+    était absent → FileNotFoundError sur les appels successifs. Le fichier
+    appartient à l'opérateur ; shot.py n'a pas à le détruire.
     """
-    if explicitement_demandee or not chemin_session:
-        return
-    try:
-        if os.path.isfile(chemin_session):
-            os.unlink(chemin_session)
-    except OSError:
-        pass
 
 
 def _journaliser_run(result, actions, intention, cible_url, resultat, erreur=None):

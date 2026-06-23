@@ -2364,4 +2364,58 @@ et émet : "→ `attendre` attend un sélecteur CSS (`selecteur`). Pour un déla
 1 friction nouvelle (#73 — `capturer` expire pendant opération serveur synchrone longue). Remontée par <LLM_PARTENAIRE> lors d'un parcours complet persona « Pierre ».
 Corrections : GUIDE_LLM.md FN7 corrigé (affirmation fausse supprimée, pattern `pause`+`interval_capture` ajouté) ; rpa.py hint ciblé `attendre`+`ms` → suggère `pause` (note connexe FR-73/FR-69).
 
+---
+
+## 74. Session éphémère détruite entre deux appels successifs
+
+**Session : 38 — Testeur : Gemini 3.5 Flash — Mission : audit découverte interface Sillage — 23/06/2026**
+
+`shot.py` supprime silencieusement le fichier de session passé via `--reprendre-session` à
+la fin de l'exécution, **sauf si `--sauver-session` est également spécifié dans le même appel**.
+
+Comportement observé : un agent effectuant plusieurs lectures successives (page A → page B)
+en réutilisant la même session perd l'accès à sa session après le premier appel si elle n'est
+pas explicitement resauvegardée. Résultat : ré-authentification forcée à chaque étape.
+
+**Piste suggérée par le testeur :** ne jamais supprimer un fichier de session existant par
+défaut lors d'une simple reprise (`--reprendre-session` sans `--sauver-session`).
+La suppression devrait être réservée aux sessions générées à la volée (sans chemin explicite).
+Ou ajouter une option `--keep-session`.
+
+**Corrections (v1.12.0 — session 39, 23/06/2026) :** `_nettoyer_session_ephemere` désactivée dans
+`shot.py` — la suppression silencieuse est retirée. T-A1 VERT.
+
+---
+
+## 75. Nettoyage de `/tmp/diwall/` détruit la session qui y est stockée
+
+**Session : 38 — Testeur : Gemini 3.5 Flash — Mission : audit découverte interface Sillage — 23/06/2026**
+
+À chaque démarrage, `shot.py` nettoie son dossier de sortie par défaut `/tmp/diwall/`.
+Si l'utilisateur a sauvegardé sa session dans ce répertoire (chemin naturel :
+`--sauver-session /tmp/diwall/session.json`), le fichier est effacé par le run suivant
+**avant** que Playwright n'ait pu le lire.
+
+Comportement observé : `FileNotFoundError` sur `--reprendre-session /tmp/diwall/session.json`
+alors que le fichier avait bien été créé par l'appel précédent.
+
+**Piste suggérée par le testeur :** protéger les fichiers `.json` du nettoyage automatique
+de `/tmp/diwall/`, ou imposer un sous-dossier dédié (ex. `/tmp/diwall/sessions/`) exclu
+du nettoyage. Le testeur a contourné en passant le chemin de session hors de `/tmp/diwall/`.
+
+**Analyse post-correction (session 39) :** shot.py n'effectue aucun `rmtree` sur `/tmp/diwall/`.
+La cause racine est identique à FR-74 — `_nettoyer_session_ephemere` supprimait le fichier en
+fin de run. FR-75 est une manifestation de FR-74 avec un chemin dans `/tmp/diwall/`.
+**Corrections (v1.12.0 — session 39, 23/06/2026) :** même correctif que FR-74. T-B1 VERT.
+
+---
+
+## Synthèse session 38
+
+2 frictions nouvelles (#74 et #75 — gestion de session entre appels successifs).
+Remontées par Gemini 3.5 Flash lors de la mission « audit découverte interface Sillage »
+(première mission Famille A exécutée par un testeur LLM externe au projet).
+
+**71 frictions sur 38 sessions.**
+
 **69 frictions sur 37 sessions.**
