@@ -20,7 +20,7 @@ Format du scénario :
 Le vault est résolu par lib/vault.py (DIWALL_VAULT_DIR > diwall.conf > ~/Vaults/Diwall/).
 Jamais de mot de passe dans les fichiers de scénario.
 """
-__version__ = "1.12.0"
+__version__ = "1.13.0"
 
 import argparse
 import json
@@ -248,6 +248,8 @@ def main():
                         "Court-circuite la résolution par hostname. "
                         "Le répertoire parent doit être un point de montage actif (T1). "
                         "Propagé à shot.py pour tout le run.")
+    p.add_argument("--shadow-dom", dest="shadow_dom", action="store_true",
+                   help="Active la traversée Shadow DOM pour le SoM (v1.13.0). Propagé à shot.py.")
     args = p.parse_args()
 
     chemin_scenario, essais = resoudre_chemin_scenario(args.scenario)
@@ -348,6 +350,8 @@ def main():
     auth_indicator = scenario.get("auth_indicator")
     if auth_indicator:
         cmd += ["--auth-indicator", auth_indicator]
+    if args.shadow_dom or scenario.get("shadow_dom"):
+        cmd.append("--shadow-dom")
     # Journal d'opérations (v1.4) : transmettre l'intention à shot.py, qui
     # journalise le run. L'argument CLI prime sur le champ 'intention' du
     # scénario. rpa.py ne journalise pas lui-même (un seul run = celui de

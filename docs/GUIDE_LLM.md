@@ -1,6 +1,6 @@
 # Diwall — LLM Guide (index)
 
-Version 3.1 — June 2026 (v1.12.0) — error routing table added
+Version 3.2 — June 2026 (v1.13.0) — INTERACTIONS notice updated to v1.2 (--shadow-dom)
 
 **You are a language model. This is the entry point. Read it fully, then load
 the notice that matches your task.**
@@ -144,6 +144,7 @@ Already in an error? Route by symptom, not by task type:
 | `showModal()` / CSS-hidden element / `force: true` questions | `GUIDE_LLM_INTERACTIONS.md` |
 | Strict mode violation, `:nth-match()`, DOM locator error | `GUIDE_LLM_INTERACTIONS.md` |
 | SoM ID mismatch, element numbered but not clickable | `GUIDE_LLM_INTERACTIONS.md` |
+| Shadow DOM / Web Components — elements not numbered | `GUIDE_LLM_INTERACTIONS.md` |
 | `evaluer` assertion failed (`attendu` / `contient` / `motif`) | `GUIDE_LLM_INTERACTIONS.md` |
 | `exit 42` (VaultFermeError) — vault not mounted | `GUIDE_LLM_SESSIONS.md` |
 | `exit 43` (VaultNonConfigureError) — `diwall.conf` absent | `GUIDE_LLM_SESSIONS.md` |
@@ -159,7 +160,7 @@ Already in an error? Route by symptom, not by task type:
 
 | Notice | Load when | Version |
 |---|---|---|
-| `GUIDE_LLM_INTERACTIONS.md` | Timeout on `cliquer`, CSS/showModal dialog, SoM IDs, strict mode violation, nth-match error, evaluer assertions, DOM mutations | v1.1 |
+| `GUIDE_LLM_INTERACTIONS.md` | Timeout on `cliquer`, CSS/showModal dialog, SoM IDs, strict mode violation, nth-match error, evaluer assertions, DOM mutations, Shadow DOM (`--shadow-dom`) | v1.2 |
 | `GUIDE_LLM_SESSIONS.md` | Vault credentials, `--secrets`, session persistence, SPA navigation, multi-page flows, MFA/TOTP, auth_indicator, --no-capture | v1.1 |
 | `GUIDE_LLM_MONITORING.md` | watch.py, pixel diff, long-running operations, `--screenshot-timeout`, interval_capture, journal.py | v1.1 |
 
