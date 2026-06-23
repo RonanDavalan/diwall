@@ -1,6 +1,6 @@
 # Diwall — Guide opérateur humain
 
-Version 1.1 — June 2026
+Version 1.2 — June 2026 (v1.14.0)
 
 ---
 
@@ -113,16 +113,21 @@ par rapport à l'emplacement du fichier `.diwall.conf`.
 ## Capturer une page et l'analyser
 
 ```bash
-# Capture simple
+# Vérification rapide (pas de PNG — ~2 s, lecture seule)
+/opt/diwall/venv/bin/python3 /opt/diwall/shot.py \
+  --url https://target.local/ \
+  --mode fast
+# → retourne url_courante, titre_page, a11y_tree dans le JSON
+
+# Capture complète avec éléments numérotés
 /opt/diwall/venv/bin/python3 /opt/diwall/shot.py \
   --url https://target.local/ \
   --som --a11y
-
-# Lire le résultat (chemin de la capture dans le JSON)
 # La capture PNG est dans /tmp/diwall/capture_<ts>.png
 ```
 
 **Ce que vous obtenez :**
+- `boussole.url_courante` + `boussole.titre_page` : URL et titre effectifs après navigation
 - `capture` : chemin du PNG de la page telle qu'elle s'affiche
 - `capture_som` : PNG annoté avec les numéros des éléments cliquables
 - `a11y_tree` : structure de la page en texte (titres, champs, boutons)
@@ -251,6 +256,8 @@ CAPTURE=$(python3 -c "import json; d=json.load(open('/tmp/out.json')); print(d['
 | Login suivi d'une redirection Django vers le dashboard | Ne pas utiliser `naviguer` dans une session reprise Django — passer l'URL via `--url` |
 | Formulaire `<select>` non rempli | Utiliser `remplir_som` (pas `remplir`) avec l'ID SoM du `<select>` |
 | Clic sans effet sur un bouton hors viewport | Ajouter `{"type":"defiler","selecteur":"#le-bouton"}` avant le clic |
+| `auth_status: "active"` même sur la page de login | Le sélecteur positif est ambigu (header persistant) — ajouter `--auth-indicator-negative .btn-login` |
+| Éléments Web Components non numérotés par SoM | Ajouter `--shadow-dom` (Angular, Lit, Stencil) |
 
 ---
 

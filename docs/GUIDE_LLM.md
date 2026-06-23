@@ -1,6 +1,6 @@
 # Diwall — LLM Guide (index)
 
-Version 3.2 — June 2026 (v1.13.0) — INTERACTIONS notice updated to v1.2 (--shadow-dom)
+Version 3.3 — June 2026 (v1.14.0) — boussole enrichie, --mode fast|full, auth_indicator_negative, sensor decision tree
 
 **You are a language model. This is the entry point. Read it fully, then load
 the notice that matches your task.**
@@ -122,15 +122,41 @@ Every shot.py and rpa.py output includes a `boussole` object. Read it first:
 
 ```json
 "boussole": {
+  "utilisateur": "operator",
+  "ip_locale": "__IP_LAN__",
+  "repertoire": "/opt/diwall",
   "url_courante": "https://target.local/dashboard",
   "titre_page": "Dashboard — My App",
-  "session_derive": false,
   "auth_status": "active",
-  "som_hors_viewport": 0
+  "som_hors_viewport": 3,
+  "session_derive": { "url_sauvegardee": "...", "url_reprise": "..." }
 }
 ```
 
+Conditional keys (absent when inactive):
+- `session_derive` — only with `--reprendre-session` if URL diverged
+- `auth_status` — only with `--auth-indicator`
+- `som_hors_viewport` — only if > 0 and SoM was active
+- `shadow_dom_actif` — only with `--shadow-dom`
+
 If `boussole` does not match your expectation: stop and investigate before any mutating action.
+
+---
+
+## Choosing a capture mode
+
+| Goal | Recommended command |
+|---|---|
+| Check authentication state | `--mode fast --auth-indicator <sel>` |
+| Read DOM state / extract JS data | `--mode fast` + `evaluer` actions |
+| Observe visual rendering | default (or `--mode full`) |
+| Number and click elements | `--som` (+ `--mode full` implicit) |
+| Detect visual regression | `watch.py --comparer-pixel` |
+| Test Web Components (Angular, Lit…) | `--som --shadow-dom` |
+
+`--mode fast` = `--no-capture --a11y`. Saves ~2 s per run (no PNG written).  
+`--mode full` = default behavior. Produces a PNG and the full JSON context.  
+`--som` remains opt-in with either mode.
 
 ---
 
@@ -161,8 +187,8 @@ Already in an error? Route by symptom, not by task type:
 | Notice | Load when | Version |
 |---|---|---|
 | `GUIDE_LLM_INTERACTIONS.md` | Timeout on `cliquer`, CSS/showModal dialog, SoM IDs, strict mode violation, nth-match error, evaluer assertions, DOM mutations, Shadow DOM (`--shadow-dom`) | v1.2 |
-| `GUIDE_LLM_SESSIONS.md` | Vault credentials, `--secrets`, session persistence, SPA navigation, multi-page flows, MFA/TOTP, auth_indicator, --no-capture | v1.1 |
-| `GUIDE_LLM_MONITORING.md` | watch.py, pixel diff, long-running operations, `--screenshot-timeout`, interval_capture, journal.py | v1.1 |
+| `GUIDE_LLM_SESSIONS.md` | Vault credentials, `--secrets`, session persistence, SPA navigation, multi-page flows, MFA/TOTP, auth_indicator, auth_indicator_negative, --no-capture | v1.2 |
+| `GUIDE_LLM_MONITORING.md` | watch.py, pixel diff, long-running operations, `--screenshot-timeout`, interval_capture, journal.py | v1.2 |
 
 > **Version check:** the version column is canonical. If your local copy of a notice shows
 > a lower version, reload it. Notice versions increment independently of Diwall releases.

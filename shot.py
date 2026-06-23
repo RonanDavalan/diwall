@@ -9,7 +9,7 @@ import sys
 import time
 from datetime import datetime, timezone
 
-__version__ = "1.13.0"
+__version__ = "1.14.0"
 
 # Permet d'importer lib/ depuis le même répertoire que shot.py
 sys.path.insert(0, os.path.dirname(os.path.abspath(__file__)))
@@ -539,6 +539,13 @@ def parse_args():
                    help="Active la traversée récursive des Shadow Roots ouverts pour le SoM "
                         "(v1.13.0). Désactivé par défaut. À utiliser sur Angular, Lit, Stencil. "
                         "Sans effet sur les Shadow Roots fermés (limitation navigateur).")
+    p.add_argument("--auth-indicator-negative", dest="auth_indicator_negative", default=None,
+                   help="Sélecteur CSS dont la présence indique l'ABSENCE d'authentification "
+                        "(v1.14.0). À utiliser avec --auth-indicator pour les interfaces à "
+                        "sélecteur positif ambigu (ex. menu persistant sur la page de login).")
+    p.add_argument("--mode", choices=["fast", "full"], default=None,
+                   help="Raccourci de mode : fast = --no-capture --a11y | "
+                        "full = comportement par défaut (v1.14.0).")
     return p.parse_args()
 
 
@@ -971,6 +978,13 @@ def main():
         pass  # best-effort — certains environnements refusent, ce n'est pas bloquant
 
     args = parse_args()
+
+    # ── Résolution de --mode (avant toute validation) ─────────────────────────
+    if args.mode == "fast":
+        args.no_capture = True
+        args.a11y = True
+    # --mode full : aucun changement (comportement courant)
+
     t0 = time.time()
     horodatage = datetime.now(timezone.utc).astimezone().isoformat()
 
@@ -1124,6 +1138,9 @@ def main():
             if args.auth_indicator:
                 try:
                     visible = page.locator(args.auth_indicator).is_visible()
+                    if visible and args.auth_indicator_negative:
+                        neg_visible = page.locator(args.auth_indicator_negative).is_visible()
+                        visible = not neg_visible
                     auth_status = "active" if visible else "inactive"
                 except Exception:
                     auth_status = "inactive"
@@ -1142,6 +1159,13 @@ def main():
                     dom_stats = page.evaluate(_DOM_STATS_JS)
                 except Exception:
                     pass
+
+            # ── Titre de page (boussole enrichie) ─────────────────────────────
+            titre_page = ""
+            try:
+                titre_page = page.title()
+            except Exception:
+                pass
 
             browser.close()
 
@@ -1184,8 +1208,16 @@ def main():
         if derive_session:
             result["derive_session"] = derive_session
         result["boussole"] = _boussole()
+        result["boussole"]["url_courante"] = url_finale
+        result["boussole"]["titre_page"] = titre_page
         if args.shadow_dom:
             result["boussole"]["shadow_dom_actif"] = True
+        if args.reprendre_session and derive_session is not None:
+            result["boussole"]["session_derive"] = derive_session
+        if auth_status is not None:
+            result["boussole"]["auth_status"] = auth_status
+        if hors_vp_som > 0:
+            result["boussole"]["som_hors_viewport"] = hors_vp_som
         print(json.dumps(result, ensure_ascii=False))
         _journaliser_run(result, actions, args.intention, url_finale, "succes")
         _nettoyer_session_ephemere(

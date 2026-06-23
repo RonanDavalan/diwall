@@ -4,6 +4,29 @@ Historique des décisions et découvertes par session, dans l'ordre chronologiqu
 
 ---
 
+## 2026-06-23 — Session 41 (v1.14.0 — Boussole opérationnelle et lisibilité du signal)
+
+**Contexte d'entrée :** v1.13.0 livrée. Spec v1.14.0 validée (PHASE_PLANIFICATION + PHASE_DOCUMENTATION closes).
+
+**Décisions techniques :**
+
+- Boussole enrichie : `url_courante` + `titre_page` toujours présents, 3 champs conditionnels (`session_derive`, `auth_status`, `som_hors_viewport`). Correctif de la dérive documentaire (guide montrait la boussole cible, code ne la produisait pas).
+- `--auth-indicator-negative` : sélecteur inverse pour désambiguïser `auth_status` sur les interfaces à header persistant. Logique AND(positif\_visible, NOT négatif\_visible).
+- `--mode fast|full` : raccourci `fast = --no-capture --a11y`, résolu avant les validations en cascade.
+- Arbre de décision capteur dans `GUIDE_LLM.md` v3.3.
+- `GUIDE_LLM_SESSIONS.md` v1.2 — section `auth_indicator_negative`.
+- `GUIDE_LLM_MONITORING.md` v1.2 — note sur les champs conditionnels de la boussole.
+- `FAQ_LLM.md` v1.1 — Shadow DOM mis à jour (livré en v1.13.0, pas "not yet"), version table complète, Q/A boussole enrichie, --mode fast, auth_indicator_negative.
+- `GUIDE_EXPLORATION.md` v1.1 — `--mode fast` en exploration légère, `--shadow-dom` dans le checklist.
+- `GUIDE_HUMAIN.md` v1.2 — `--mode fast` dans les exemples, points d'attention Shadow DOM + auth_indicator_negative.
+- `scenarios/schema.json` — propriété `auth_indicator_negative` optionnelle ajoutée.
+
+**Tests :** T-A1 à T-C3 (10/10) VERTS. Preflight exit 0.
+
+**71 frictions / 41 sessions.**
+
+---
+
 ## 2026-06-23 — Session 40 bis (v1.13.0 — Shadow DOM SoM traversal)
 
 **Contexte d'entrée :** v1.12.0 livrée. Spec v1.13.0 validée en session 40 (PHASE_DOCUMENTATION close).

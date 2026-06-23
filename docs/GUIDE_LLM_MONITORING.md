@@ -1,10 +1,28 @@
 # Diwall — Monitoring guide (watch.py, long ops, screenshot timeouts, journal)
 
-<!-- notice-version: 1.1 -->
-Version 1.1 — June 2026
+<!-- notice-version: 1.2 -->
+Version 1.2 — June 2026 (v1.14.0) — boussole conditional fields note
 
 Load this notice when: watch.py, pixel diff, long-running operations, `--screenshot-timeout`,
 interval_capture, journal.py, FN7/FN8/FN9.
+
+---
+
+## Boussole JSON — conditional keys
+
+The `boussole` object always includes `utilisateur`, `ip_locale`, `repertoire`,
+`url_courante`, `titre_page` (empty string if unavailable). Additional keys are
+conditional:
+
+| Key | Present when |
+|---|---|
+| `session_derive` | `--reprendre-session` active and URL diverged from saved URL |
+| `auth_status` | `--auth-indicator` active |
+| `som_hors_viewport` | SoM active and at least one interactive element is off-screen |
+| `shadow_dom_actif` | `--shadow-dom` active |
+
+Do not assert the absence of conditional keys as a failure signal. Check `auth_status`
+value (`"active"` / `"inactive"`), not its presence alone.
 
 ---
 

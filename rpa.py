@@ -20,7 +20,7 @@ Format du scénario :
 Le vault est résolu par lib/vault.py (DIWALL_VAULT_DIR > diwall.conf > ~/Vaults/Diwall/).
 Jamais de mot de passe dans les fichiers de scénario.
 """
-__version__ = "1.13.0"
+__version__ = "1.14.0"
 
 import argparse
 import json
@@ -250,6 +250,12 @@ def main():
                         "Propagé à shot.py pour tout le run.")
     p.add_argument("--shadow-dom", dest="shadow_dom", action="store_true",
                    help="Active la traversée Shadow DOM pour le SoM (v1.13.0). Propagé à shot.py.")
+    p.add_argument("--auth-indicator-negative", dest="auth_indicator_negative", default=None,
+                   help="Sélecteur CSS dont la présence indique l'ABSENCE d'auth (v1.14.0). "
+                        "Propagé à shot.py.")
+    p.add_argument("--mode", choices=["fast", "full"], default=None,
+                   help="Raccourci de mode : fast = --no-capture --a11y | full = défaut (v1.14.0). "
+                        "Propagé à shot.py.")
     args = p.parse_args()
 
     chemin_scenario, essais = resoudre_chemin_scenario(args.scenario)
@@ -352,6 +358,11 @@ def main():
         cmd += ["--auth-indicator", auth_indicator]
     if args.shadow_dom or scenario.get("shadow_dom"):
         cmd.append("--shadow-dom")
+    auth_indicator_negative = args.auth_indicator_negative or scenario.get("auth_indicator_negative")
+    if auth_indicator_negative:
+        cmd += ["--auth-indicator-negative", auth_indicator_negative]
+    if args.mode:
+        cmd += ["--mode", args.mode]
     # Journal d'opérations (v1.4) : transmettre l'intention à shot.py, qui
     # journalise le run. L'argument CLI prime sur le champ 'intention' du
     # scénario. rpa.py ne journalise pas lui-même (un seul run = celui de

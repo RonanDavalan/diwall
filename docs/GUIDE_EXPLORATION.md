@@ -1,6 +1,6 @@
 # Diwall — Guide d'exploration et de cartographie
 
-Version 1.0 — June 2026
+Version 1.1 — June 2026 (v1.14.0)
 
 **Ce document est destiné aux modèles de langage utilisant Diwall.**
 
@@ -25,14 +25,31 @@ La solution : **deux modes distincts, deux objectifs distincts.**
 
 **Règle** : lecture seule. Aucune action mutante.
 
-**Invocation type :**
+**Invocations types :**
+
+Exploration légère — vérifier la structure sans PNG (rapide, ~2 s économisées) :
+```bash
+/opt/diwall/venv/bin/python3 /opt/diwall/shot.py \
+  --url https://target.local/ \
+  --mode fast
+```
+
+Exploration complète — PNG annotés + arbre d'accessibilité :
 ```bash
 /opt/diwall/venv/bin/python3 /opt/diwall/shot.py \
   --url https://target.local/ \
   --som --a11y
 ```
 
+Application Web Components (Angular, Lit, Stencil) :
+```bash
+/opt/diwall/venv/bin/python3 /opt/diwall/shot.py \
+  --url https://target.local/ \
+  --som --a11y --shadow-dom
+```
+
 **Ce qu'on extrait :**
+- `boussole.url_courante` + `boussole.titre_page` → confirmation de l'URL effective et du titre de la page
 - `capture_som` → PNG annoté avec IDs numériques des éléments interactifs
 - `elements_som` → liste JSON des éléments (tag, role, texte, id)
 - `a11y_tree` → arbre d'accessibilité YAML (champs, boutons, titres, structure)
@@ -42,6 +59,7 @@ La solution : **deux modes distincts, deux objectifs distincts.**
 2. Les IDs SoM ou attributs stables (`name`, `id`, `aria-label`, `data-*`)
 3. Les éléments bloquants (bandeaux cookie, overlays, headers sticky)
 4. Les comportements de navigation (SPA ou rechargement full HTTP ?)
+5. Si l'interface est une SPA Angular/Lit : présence de Shadow Roots (activer `--shadow-dom`)
 
 **Sortie attendue** : un fichier de scénario JSON dans `scenarios/` ou
 `_CADRE/SPECIFICATIONS/PROCEDURES_LLM/instance/`.
@@ -174,11 +192,14 @@ Le gabarit de référence est `SKILL_TEMPLATE.md` dans `_CADRE/SPECIFICATIONS/PR
 
 Avant de rédiger un scénario :
 
-- [ ] `shot.py --som --a11y` lancé sur l'URL cible
+- [ ] `shot.py --mode fast` lancé sur l'URL cible pour vérifier URL et titre (boussole)
+- [ ] `shot.py --som --a11y` lancé pour la carte visuelle complète
+- [ ] Si Angular / Lit / Web Components : relancer avec `--shadow-dom` pour les éléments dans les Shadow Roots
 - [ ] PNG annoté lu et éléments identifiés
 - [ ] Sélecteurs stables notés (attributs `name`, `id`, `aria-label`)
 - [ ] Overlays bloquants repérés et leurs sélecteurs CSS notés
-- [ ] Comportement SPA ou full-HTTP déterminé (`url_finale` vs `a11y_tree` heading)
+- [ ] Comportement SPA ou full-HTTP déterminé (`boussole.url_courante` vs `a11y_tree` heading)
+- [ ] Si auth_indicator nécessaire : tester `--auth-indicator <sel>` [+ `--auth-indicator-negative <sel>` si sélecteur ambigu]
 - [ ] Credentials vérifiés dans le vault pour ce domaine (`urlparse(url).hostname`)
 - [ ] Scénario JSON rédigé et sauvegardé dans `scenarios/`
 - [ ] Fiche `SKILL_<nom>.md` créée dans le `_CADRE/` du projet utilisateur (pas dans le `_CADRE/` de Diwall)
