@@ -4,6 +4,28 @@ Historique des décisions et découvertes par session, dans l'ordre chronologiqu
 
 ---
 
+## 2026-06-23 — Session 40 bis (v1.13.0 — Shadow DOM SoM traversal)
+
+**Contexte d'entrée :** v1.12.0 livrée. Spec v1.13.0 validée en session 40 (PHASE_DOCUMENTATION close).
+
+**Décisions techniques :**
+
+- `--shadow-dom` flag opt-in dans `shot.py` et `rpa.py`. Désactivé par défaut.
+- Walker JS `queryShadowAll` récursif — descend les Shadow Roots ouverts en document order.
+- Les trois fonctions SoM partagent strictement le même walker (cohérence indexation inviolable).
+- `boussole.shadow_dom_actif: true` conditionnel dans la sortie JSON.
+- Propagation depuis scénario via `shadow_dom: true` en propriété racine.
+- Closed Shadow Roots ignorés silencieusement (catch dans le walker).
+- `GUIDE_LLM_INTERACTIONS.md` v1.2 — documentation complète `--shadow-dom`.
+- `GUIDE_LLM.md` v3.2 — notice index v1.2, ligne de routage Shadow DOM.
+- `scenarios/schema.json` — propriété `shadow_dom` optionnelle ajoutée.
+
+**Tests :** T-A1 VERT, T-A2 VERT, T-B1 VERT, T-B2 VERT, T-C1 VERT, T-C2 VERT, T-C3 VERT. Preflight exit 0.
+
+**71 frictions / 40 sessions.**
+
+---
+
 ## 2026-06-23 — Session 40 (v1.12.0 — DX, sécurité visuelle et sonde rapide)
 
 **Contexte d'entrée :** v1.11.1 en production. Backlog vide. Campagne de retours multi-modèles (DeepSeek, Qwen, Grok) consolidée par Gemini. PHASE_PLANIFICATION trilatérale, puis PHASE_DOCUMENTATION + PHASE_EXECUTION en session unique.

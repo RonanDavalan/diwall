@@ -9,7 +9,7 @@ import sys
 import time
 from datetime import datetime, timezone
 
-__version__ = "1.12.0"
+__version__ = "1.13.0"
 
 # Permet d'importer lib/ depuis le même répertoire que shot.py
 sys.path.insert(0, os.path.dirname(os.path.abspath(__file__)))
@@ -131,6 +131,145 @@ _SOM_TROUVER_JS = """(id) => {
     return {x: Math.round(r.left + r.width / 2), y: Math.round(r.top + r.height / 2), tag: el.tagName};
 }"""
 
+# ── Set-of-Mark variantes Shadow DOM (--shadow-dom, v1.13.0) ─────────────────
+# Identiques aux variantes standard, avec le walker queryShadowAll en préambule
+# et queryShadowAll(SELECTORS, document) à la place de document.querySelectorAll.
+# Les trois fonctions partagent strictement le même walker — garantie de cohérence
+# de l'indexation injection / compter / trouver.
+_SOM_INJECTER_JS_SHADOW = """() => {
+    function queryShadowAll(selectors, root) {
+        var result = [];
+        try {
+            root.querySelectorAll(selectors).forEach(function(el) { result.push(el); });
+            root.querySelectorAll('*').forEach(function(el) {
+                if (el.shadowRoot) {
+                    queryShadowAll(selectors, el.shadowRoot).forEach(function(e) { result.push(e); });
+                }
+            });
+        } catch(ignore) {}
+        return result;
+    }
+    const SELECTORS = [
+        'a[href]', 'button', 'input:not([type="hidden"])',
+        'select', 'textarea', 'summary',
+        '[role="button"]', '[role="link"]', '[role="tab"]',
+        '[role="checkbox"]', '[role="menuitem"]', '[role="radio"]',
+        '[role="combobox"]', '[role="spinbutton"]', '[role="searchbox"]'
+    ].join(',');
+    const vw = window.innerWidth, vh = window.innerHeight;
+    const container = document.createElement('div');
+    container.id = '__som__';
+    container.style.cssText = 'position:fixed;top:0;left:0;width:0;height:0;pointer-events:none;z-index:2147483647;overflow:visible;';
+    document.body.appendChild(container);
+    const items = [];
+    let num = 1;
+    queryShadowAll(SELECTORS, document).forEach(el => {
+        let p = el.parentElement; while (p) { if (p.tagName === 'DIALOG' && !p.hasAttribute('open')) return; p = p.parentElement; }
+        const s = window.getComputedStyle(el);
+        if (s.display === 'none' || s.visibility === 'hidden' || s.opacity === '0') return;
+        const r = el.getBoundingClientRect();
+        if (r.width < 2 || r.height < 2) return;
+        if (r.right < 0 || r.bottom < 0 || r.left > vw || r.top > vh) return;
+        const box = document.createElement('div');
+        box.style.cssText = [
+            'position:fixed', 'box-sizing:border-box',
+            'border:2px solid #e53e3e', 'border-radius:3px',
+            `left:${Math.round(r.left)}px`, `top:${Math.round(r.top)}px`,
+            `width:${Math.round(r.width)}px`, `height:${Math.round(r.height)}px`,
+        ].join(';');
+        const lbl = document.createElement('span');
+        const topOffset = r.top < 20 ? Math.round(r.height) + 2 : -18;
+        lbl.style.cssText = [
+            'position:absolute', `top:${topOffset}px`, 'left:-2px',
+            'background:#e53e3e', 'color:#fff',
+            'font:bold 11px/1 monospace', 'padding:2px 4px',
+            'border-radius:2px', 'white-space:nowrap',
+        ].join(';');
+        lbl.textContent = String(num);
+        box.appendChild(lbl);
+        container.appendChild(box);
+        items.push({
+            id: num, tag: el.tagName,
+            role: el.getAttribute('role') || el.tagName.toLowerCase(),
+            texte: (el.innerText || el.value || el.placeholder || el.getAttribute('aria-label') || '').trim().slice(0, 60),
+            type: el.type || null,
+        });
+        num++;
+    });
+    return items;
+}"""
+
+_SOM_COMPTER_HORS_VIEWPORT_JS_SHADOW = """() => {
+    function queryShadowAll(selectors, root) {
+        var result = [];
+        try {
+            root.querySelectorAll(selectors).forEach(function(el) { result.push(el); });
+            root.querySelectorAll('*').forEach(function(el) {
+                if (el.shadowRoot) {
+                    queryShadowAll(selectors, el.shadowRoot).forEach(function(e) { result.push(e); });
+                }
+            });
+        } catch(ignore) {}
+        return result;
+    }
+    const SELECTORS = [
+        'a[href]', 'button', 'input:not([type="hidden"])',
+        'select', 'textarea', 'summary',
+        '[role="button"]', '[role="link"]', '[role="tab"]',
+        '[role="checkbox"]', '[role="menuitem"]', '[role="radio"]',
+        '[role="combobox"]', '[role="spinbutton"]', '[role="searchbox"]'
+    ].join(',');
+    const vw = window.innerWidth, vh = window.innerHeight;
+    let n = 0;
+    queryShadowAll(SELECTORS, document).forEach(el => {
+        let p = el.parentElement; while (p) { if (p.tagName === 'DIALOG' && !p.hasAttribute('open')) return; p = p.parentElement; }
+        const s = window.getComputedStyle(el);
+        if (s.display === 'none' || s.visibility === 'hidden' || s.opacity === '0') return;
+        const r = el.getBoundingClientRect();
+        if (r.width < 2 || r.height < 2) return;
+        if (r.right >= 0 && r.bottom >= 0 && r.left <= vw && r.top <= vh) return;
+        n++;
+    });
+    return n;
+}"""
+
+_SOM_TROUVER_JS_SHADOW = """(id) => {
+    function queryShadowAll(selectors, root) {
+        var result = [];
+        try {
+            root.querySelectorAll(selectors).forEach(function(el) { result.push(el); });
+            root.querySelectorAll('*').forEach(function(el) {
+                if (el.shadowRoot) {
+                    queryShadowAll(selectors, el.shadowRoot).forEach(function(e) { result.push(e); });
+                }
+            });
+        } catch(ignore) {}
+        return result;
+    }
+    const SELECTORS = [
+        'a[href]', 'button', 'input:not([type="hidden"])',
+        'select', 'textarea', 'summary',
+        '[role="button"]', '[role="link"]', '[role="tab"]',
+        '[role="checkbox"]', '[role="menuitem"]', '[role="radio"]',
+        '[role="combobox"]', '[role="spinbutton"]', '[role="searchbox"]'
+    ].join(',');
+    const vw = window.innerWidth, vh = window.innerHeight;
+    const items = [];
+    queryShadowAll(SELECTORS, document).forEach(el => {
+        let p = el.parentElement; while (p) { if (p.tagName === 'DIALOG' && !p.hasAttribute('open')) return; p = p.parentElement; }
+        const s = window.getComputedStyle(el);
+        if (s.display === 'none' || s.visibility === 'hidden' || s.opacity === '0') return;
+        const r = el.getBoundingClientRect();
+        if (r.width < 2 || r.height < 2) return;
+        if (r.right < 0 || r.bottom < 0 || r.left > vw || r.top > vh) return;
+        items.push(el);
+    });
+    const el = items[id - 1];
+    if (!el) return null;
+    const r = el.getBoundingClientRect();
+    return {x: Math.round(r.left + r.width / 2), y: Math.round(r.top + r.height / 2), tag: el.tagName};
+}"""
+
 # ── Sécurité visuelle — masquage des champs sensibles ────────────────────────
 _MASQUER_SECRETS_JS = """() => {
     var SENS = [
@@ -166,13 +305,15 @@ _DOM_STATS_JS = """() => {
 }"""
 
 
-def _injecter_som(page, output_dir, nom="state_som", screenshot_timeout=120_000):
+def _injecter_som(page, output_dir, nom="state_som", screenshot_timeout=120_000, shadow_dom=False):
     """Injecte le Set-of-Mark, capture la vue annotée, nettoie le DOM.
 
     Retourne (chemin_som, elements_som, hors_vp) où hors_vp est le
     nombre d'éléments interactifs présents dans le DOM mais hors viewport.
     """
-    elements = page.evaluate(_SOM_INJECTER_JS)
+    som_injecter = _SOM_INJECTER_JS_SHADOW if shadow_dom else _SOM_INJECTER_JS
+    som_compter  = _SOM_COMPTER_HORS_VIEWPORT_JS_SHADOW if shadow_dom else _SOM_COMPTER_HORS_VIEWPORT_JS
+    elements = page.evaluate(som_injecter)
     chemin_som = chemin_png(output_dir, nom)
     page.evaluate(_MASQUER_SECRETS_JS)
     try:
@@ -180,7 +321,7 @@ def _injecter_som(page, output_dir, nom="state_som", screenshot_timeout=120_000)
     finally:
         page.evaluate(_RESTAURER_SECRETS_JS)
     page.evaluate(_SOM_RETIRER_JS)
-    hors_vp = page.evaluate(_SOM_COMPTER_HORS_VIEWPORT_JS)
+    hors_vp = page.evaluate(som_compter)
     return chemin_som, elements, hors_vp
 
 
@@ -394,6 +535,10 @@ def parse_args():
                    help="Chemin absolu vers un fichier JSON de credentials (v1.10). "
                         "Court-circuite la résolution par hostname pour tout le run. "
                         "Le répertoire parent doit être un point de montage actif (T1).")
+    p.add_argument("--shadow-dom", dest="shadow_dom", action="store_true",
+                   help="Active la traversée récursive des Shadow Roots ouverts pour le SoM "
+                        "(v1.13.0). Désactivé par défaut. À utiliser sur Angular, Lit, Stencil. "
+                        "Sans effet sur les Shadow Roots fermés (limitation navigateur).")
     return p.parse_args()
 
 
@@ -437,9 +582,10 @@ def charger_actions(source):
 
 def executer_actions(page, actions, output_dir, timeout, mode_llm="local",
                      interval_capture_default=0, modeles_appeles=None,
-                     secrets_chemin=None, screenshot_timeout=120_000):
+                     secrets_chemin=None, screenshot_timeout=120_000, shadow_dom=False):
     from playwright.sync_api import TimeoutError as PWTimeoutError
 
+    _som_trouver = _SOM_TROUVER_JS_SHADOW if shadow_dom else _SOM_TROUVER_JS
     intermediaires = []
     stream_captures = []
     evaluations = []
@@ -574,7 +720,8 @@ def executer_actions(page, actions, output_dir, timeout, mode_llm="local",
             nom = a.get("nom", "etape")
             if a.get("som"):
                 p, _, _ = _injecter_som(page, output_dir, f"capture_som_{nom}",
-                                        screenshot_timeout=screenshot_timeout)
+                                        screenshot_timeout=screenshot_timeout,
+                                        shadow_dom=shadow_dom)
             else:
                 p = chemin_png(output_dir, f"capture_{nom}")
                 page.evaluate(_MASQUER_SECRETS_JS)
@@ -588,7 +735,7 @@ def executer_actions(page, actions, output_dir, timeout, mode_llm="local",
             som_id = a.get("id")
             if som_id is None:
                 raise ValueError("cliquer_som requiert un champ 'id'")
-            coord = page.evaluate(_SOM_TROUVER_JS, som_id)
+            coord = page.evaluate(_som_trouver, som_id)
             if coord is None:
                 raise ValueError(f"cliquer_som : élément SoM {som_id!r} non trouvé sur la page")
             page.mouse.click(coord["x"], coord["y"])
@@ -615,7 +762,7 @@ def executer_actions(page, actions, output_dir, timeout, mode_llm="local",
                 else:
                     from lib.vault import lire_totp, domaine_depuis_url
                     valeur = lire_totp(domaine_depuis_url(page.url))
-            coord = page.evaluate(_SOM_TROUVER_JS, som_id)
+            coord = page.evaluate(_som_trouver, som_id)
             if coord is None:
                 raise ValueError(f"remplir_som : élément SoM {som_id!r} non trouvé sur la page")
             if coord.get("tag", "").upper() == "SELECT":
@@ -732,7 +879,7 @@ def executer_actions(page, actions, output_dir, timeout, mode_llm="local",
                 topic = lire_credential(domaine_depuis_url(page.url), "ntfy_topic")
             ntfy_lib.publier_attente(topic, page.url)
             code = ntfy_lib.attendre_code(topic, timeout_s=timeout_mfa)
-            coord = page.evaluate(_SOM_TROUVER_JS, id_som)
+            coord = page.evaluate(_som_trouver, id_som)
             if coord is None:
                 raise ValueError(f"attendre_mfa_ntfy : élément SoM {id_som!r} non trouvé")
             page.mouse.click(coord["x"], coord["y"])
@@ -950,6 +1097,7 @@ def main():
                 modeles_appeles=modeles_appeles,
                 secrets_chemin=getattr(args, "secrets", None),
                 screenshot_timeout=args.screenshot_timeout,
+                shadow_dom=args.shadow_dom,
             )
             url_finale = page.url  # mise à jour après actions
 
@@ -965,7 +1113,8 @@ def main():
             capture_som, elements_som, hors_vp_som = None, [], 0
             if args.som and not args.no_capture:
                 capture_som, elements_som, hors_vp_som = _injecter_som(
-                    page, args.output_dir, screenshot_timeout=args.screenshot_timeout)
+                    page, args.output_dir, screenshot_timeout=args.screenshot_timeout,
+                    shadow_dom=args.shadow_dom)
 
             # ── A11y ──────────────────────────────────────────────────────────
             a11y_tree = _snapshot_a11y(page) if args.a11y else None
@@ -1035,6 +1184,8 @@ def main():
         if derive_session:
             result["derive_session"] = derive_session
         result["boussole"] = _boussole()
+        if args.shadow_dom:
+            result["boussole"]["shadow_dom_actif"] = True
         print(json.dumps(result, ensure_ascii=False))
         _journaliser_run(result, actions, args.intention, url_finale, "succes")
         _nettoyer_session_ephemere(

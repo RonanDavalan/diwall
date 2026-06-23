@@ -13,6 +13,8 @@
     "intention":      { "type": "string" },
     "auth_indicator": { "type": "string", "minLength": 1,
                         "description": "CSS selector visible only when authenticated — adds auth_status to shot.py JSON output (v1.9)" },
+    "shadow_dom": { "type": "boolean",
+                    "description": "Enable Shadow DOM traversal for SoM injection (--shadow-dom, v1.13.0). Disabled by default. Use on Angular, Lit, Stencil applications." },
     "url":         { "type": "string", "format": "uri" },
     "actions": {
       "type": "array",

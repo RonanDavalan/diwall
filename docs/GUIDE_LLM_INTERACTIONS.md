@@ -1,7 +1,7 @@
 # Diwall — Interactions guide (SoM, selectors, dialogs, assertions)
 
-<!-- notice-version: 1.1 -->
-Version 1.1 — June 2026
+<!-- notice-version: 1.2 -->
+Version 1.2 — June 2026
 
 Load this notice when: timeout on `cliquer`, CSS/showModal dialog, SoM IDs, strict mode
 violation, nth-match error, evaluer assertions, DOM mutations.
@@ -292,33 +292,67 @@ If an action returns `succes: false` or a Playwright error, you must:
 
 ---
 
-## Current limit — Shadow DOM and Web Components
+## Shadow DOM and Web Components — `--shadow-dom` (v1.13.0)
 
-Diwall's SoM injection uses `document.querySelectorAll()`, which does **not** traverse Shadow
-DOM boundaries. Elements encapsulated inside a Shadow Root (Web Components built with Angular,
-Lit, Stencil, etc.) are invisible to Diwall's numbering.
+By default, Diwall's SoM injection uses `document.querySelectorAll()`, which does **not**
+traverse Shadow DOM boundaries. Elements encapsulated inside a Shadow Root (Web Components
+built with Angular, Lit, Stencil, FAST, etc.) are invisible to the numbering.
 
-**Practical impact:**
-- `cliquer_som` and `remplir_som` cannot target elements inside Shadow Roots
-- The SoM overlay shows no number for Web Component interactive elements
-- `a11y_tree` may also be incomplete for components with shadow content
+### Enabling Shadow DOM traversal
 
-**Workaround — open Shadow DOM via evaluer:**
+```bash
+/opt/diwall/venv/bin/python3 /opt/diwall/shot.py \
+  --url https://target.local/ --shadow-dom --som
+```
+
+Or in a scenario file (field `shadow_dom: true` at the root level):
 ```json
 {
-  "type": "evaluer",
-  "script": "document.querySelector('my-component').shadowRoot.querySelector('button').click()"
+  "url": "https://target.local/",
+  "shadow_dom": true,
+  "actions": [...]
 }
 ```
-Verify the root is accessible first:
+
+When active, `boussole` includes `"shadow_dom_actif": true`.
+
+### What changes with `--shadow-dom`
+
+All three SoM functions (`_SOM_INJECTER_JS`, `_SOM_COMPTER_HORS_VIEWPORT_JS`,
+`_SOM_TROUVER_JS`) switch to a recursive `queryShadowAll` walker that descends into
+every open Shadow Root in document order. The indexing is consistent across the three
+functions — the element numbered K by injection is always the element returned for `id: K`
+by the finder.
+
+`cliquer_som` and `remplir_som` work normally on shadow elements once `--shadow-dom` is active.
+
+### When to enable it
+
+Use `--shadow-dom` when:
+- The target page uses Angular, Lit, Stencil, FAST, or similar Web Component frameworks
+- You see interactive elements in `a11y_tree` that receive no SoM number
+- `cliquer_som` reports "element not found" for elements visually present on screen
+
+Do **not** enable it on standard DOM projects (no Web Components): no benefit, slight
+performance cost from the recursive tree walk.
+
+### Fallback for ad-hoc shadow access (without --shadow-dom)
+
+If only one or two elements are in a shadow root:
+```json
+{"type": "evaluer", "script": "document.querySelector('my-component').shadowRoot.querySelector('button').click()"}
+```
+
+Check root accessibility first:
 ```json
 {"type": "evaluer", "script": "document.querySelector('my-component').shadowRoot !== null"}
 ```
 
-**Coming in v1.13.0:** `--shadow-dom` flag — recursive SoM traversal of open Shadow Roots,
-disabled by default to preserve indexing consistency on standard DOM projects.
+### Permanent limit — closed Shadow Roots
 
-**Permanent limit — closed Shadow Roots:** `{mode: 'closed'}` Shadow Roots are inaccessible
-from any external script, including Playwright. This is a browser security boundary.
+Shadow Roots created with `{mode: 'closed'}` are inaccessible from any external script,
+including Playwright and Diwall. This is a browser security boundary — `--shadow-dom` has
+no effect on them. Closed Shadow Roots are rare in public-facing Web Components; the
+majority use open mode.
 
 **No `actions_v2.json` / `_v3.json` in `/tmp/` without this step.**
