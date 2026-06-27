@@ -1,0 +1,47 @@
+{
+  "$schema": "https://raw.githubusercontent.com/RonanDavalan/diwall/main/scenarios/schema.json",
+  "nom": "valider_c2b_bandeau_licence",
+  "description": "C2-b : vérifier que le bandeau licence est absent quand un jeton actif est présent (état 'actif' = null bandeau dans layout.php). Valide aussi l'absence d'erreur PHP. Pré-condition : jeton de licence signé actif dans /opt/sillage/statut/ exp. 2027-12-31.",
+  "url": "https://__HOST_ADMIN__/?vue=login",
+  "actions": [
+
+    {"type": "capturer", "nom": "01_page_login"},
+
+    {"type": "remplir", "selecteur": "input[name=\"identifiant\"]", "valeur": "depuis_vault", "vault_cle": "username_maitre"},
+    {"type": "remplir", "selecteur": "input[name=\"password\"]",    "valeur": "depuis_vault", "vault_cle": "password_maitre"},
+    {"type": "cliquer", "selecteur": "button.login-bouton"},
+    {"type": "attendre_absence", "selecteur": "input[name=\"identifiant\"]", "delai_initial_ms": 500},
+
+    {"type": "evaluer",
+     "script": "!window.location.href.includes('vue=login')",
+     "attendu": true},
+
+    {"type": "naviguer", "url": "https://__HOST_ADMIN__/?vue=tableau_de_bord"},
+    {"type": "attendre_selecteur_present", "selecteur": "main"},
+
+    {"type": "capturer", "nom": "02_tableau_de_bord_bandeau"},
+
+    {"type": "evaluer",
+     "script": "!document.body.innerText.includes('Warning') && !document.body.innerText.includes('Fatal error')",
+     "attendu": true},
+
+    {"type": "evaluer",
+     "script": "document.querySelector('[role=\"alert\"]') === null",
+     "attendu": true},
+
+    {"type": "evaluer",
+     "script": "Array.from(document.querySelectorAll('[role=\"status\"]')).every(el => !el.textContent.includes('essai') && !el.textContent.includes('locataire'))",
+     "attendu": true},
+
+    {"type": "evaluer",
+     "script": "!document.body.innerText.toLowerCase().includes('clonages sont désactivés')",
+     "attendu": true},
+
+    {"type": "capturer", "nom": "03_assertions_licence_ok"},
+
+    {"type": "naviguer", "url": "https://__HOST_ADMIN__/?action=logout"},
+    {"type": "attendre_selecteur_present", "selecteur": "input[name=\"identifiant\"]"},
+    {"type": "capturer", "nom": "04_fin_logout"}
+
+  ]
+}

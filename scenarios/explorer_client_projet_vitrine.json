@@ -1,8 +1,8 @@
 {
   "$schema": "https://raw.githubusercontent.com/RonanDavalan/diwall/main/scenarios/schema.json",
   "nom": "explorer_client_projet_vitrine",
-  "description": "Exploration de la vue client projet-vitrine pour identifier les domaines affichés, les clones visibles, et l'état des boutons supprimer.",
-  "url": "https://sillage.ike4.local/?vue=client&client=projet-vitrine",
+  "description": "Exploration de la vue client __CLIENT_SANCTUARISE__ pour identifier les domaines affichés, les clones visibles, et l'état des boutons supprimer.",
+  "url": "https://__HOST_ADMIN__/?vue=client&client=__CLIENT_SANCTUARISE__",
   "actions": [
     {
       "type": "evaluer",

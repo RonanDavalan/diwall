@@ -29,7 +29,7 @@ cd "$REPO_ROOT"
 # Séparateur ';;;' choisi pour ne pas entrer en collision avec les '|' des
 # alternations regex. Maintenue en tête du script (pas d'input externe).
 PATTERNS=(
-    "host admin LAN;;;\\bsillage\\.ike4\\.local\\b;;;substituer par __HOST_ADMIN__"
+    "host admin LAN;;;\\bsillage\\.ike4\\.local\\b;;;substituer par __HOST_ADMIN__ (URLs) ou depuis_vault (credentials)"
     "vitrine opérateur;;;\\bsillage\\.davalan\\.fr\\b;;;substituer par __HOST_ADMIN__"
     "host clone WP;;;\\bclone\\.davalan\\.fr\\b;;;substituer par __HOST_ADMIN__"
     "domaine opérateur;;;\\bdavalan\\.fr\\b;;;substituer par __DOMAINE_OPERATEUR__"
@@ -44,6 +44,7 @@ PATTERNS=(
     "IP LAN 10.x.x.x;;;\\b10\\.[0-9]+\\.[0-9]+\\.[0-9]+\\b;;;substituer par __IP_LAN__"
     "IP LAN 172.16-31.x.x;;;\\b172\\.(1[6-9]|2[0-9]|3[0-1])\\.[0-9]+\\.[0-9]+\\b;;;substituer par __IP_LAN__"
     "IP VPS nominale;;;\\b87\\.106\\.213\\.110\\b;;;substituer par __IP_VPS__"
+    "mot de passe en clair scénario;;;Diwall2026!;;;remplacer par depuis_vault + vault_cle: password (règle n°6 CLAUDE.md)"
 )
 
 # ── Exceptions documentées ────────────────────────────────────────────────────
@@ -57,8 +58,8 @@ EXCEPTIONS=(
 )
 
 # ── Découverte du périmètre ───────────────────────────────────────────────────
-# Tous les fichiers .md du dépôt, en excluant .git, venv, node_modules.
-mapfile -d '' FICHIERS < <(find . -type f -name '*.md' \
+# Fichiers .md du dépôt + scénarios JSON — en excluant .git, venv, node_modules.
+mapfile -d '' FICHIERS < <(find . -type f \( -name '*.md' -o \( -name '*.json' -path './scenarios/*' \) \) \
     -not -path './.git/*' \
     -not -path './venv/*' \
     -not -path './node_modules/*' \
@@ -68,7 +69,7 @@ NB_FICHIERS=${#FICHIERS[@]}
 
 echo "=== Diwall preflight publication ==="
 echo "Dépôt   : $REPO_ROOT"
-echo "Périmètre : $NB_FICHIERS fichiers .md (hors .git/, venv/, node_modules/)"
+echo "Périmètre : $NB_FICHIERS fichiers .md + scenarios/*.json (hors .git/, venv/, node_modules/)"
 echo "Patterns : ${#PATTERNS[@]} interdits"
 echo
 

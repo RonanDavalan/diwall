@@ -2,33 +2,12 @@
   "$schema": "https://raw.githubusercontent.com/RonanDavalan/diwall/main/scenarios/schema.json",
   "nom": "valider_admin_maitre_c1b",
   "description": "Validation C1b — UI admin maître : section Locataires invisible pour tenant ordinaire, visible pour maître ; créer/réinitialiser/supprimer un locataire avec mdp temporaire one-shot.",
-  "url": "https://sillage.ike4.local/?vue=login",
+  "url": "https://__HOST_ADMIN__/?vue=login",
   "actions": [
 
     {"type": "capturer", "nom": "01_page_login"},
 
-    {"type": "remplir", "selecteur": "input[name=\"identifiant\"]", "valeur": "diwall-test"},
-    {"type": "remplir", "selecteur": "input[name=\"password\"]",    "valeur": "Diwall2026!"},
-    {"type": "cliquer", "selecteur": "button.login-bouton"},
-    {"type": "attendre_absence", "selecteur": "input[name=\"identifiant\"]", "delai_initial_ms": 500},
-
-    {"type": "evaluer",
-     "script": "!window.location.href.includes('vue=login')",
-     "attendu": true},
-
-    {"type": "naviguer", "url": "https://sillage.ike4.local/?vue=tenant"},
-    {"type": "attendre_selecteur_present", "selecteur": "[data-sillage=\"toggle-creer-locataire\"]"},
-    {"type": "capturer", "nom": "02_page_tenant_non_maitre"},
-
-    {"type": "evaluer",
-     "script": "Array.from(document.querySelectorAll('h3')).every(h => h.textContent.trim().toLowerCase() !== 'locataires')",
-     "attendu": true},
-
-    {"type": "naviguer", "url": "https://sillage.ike4.local/?action=logout"},
-    {"type": "attendre_selecteur_present", "selecteur": "input[name=\"identifiant\"]"},
-    {"type": "capturer", "nom": "03_logout_avant_login_maitre"},
-
-    {"type": "remplir", "selecteur": "input[name=\"identifiant\"]", "valeur": "ronan-davalan"},
+    {"type": "remplir", "selecteur": "input[name=\"identifiant\"]", "valeur": "depuis_vault", "vault_cle": "username"},
     {"type": "remplir", "selecteur": "input[name=\"password\"]",    "valeur": "depuis_vault", "vault_cle": "password"},
     {"type": "cliquer", "selecteur": "button.login-bouton"},
     {"type": "attendre_absence", "selecteur": "input[name=\"identifiant\"]", "delai_initial_ms": 500},
@@ -37,7 +16,28 @@
      "script": "!window.location.href.includes('vue=login')",
      "attendu": true},
 
-    {"type": "naviguer", "url": "https://sillage.ike4.local/?vue=tenant"},
+    {"type": "naviguer", "url": "https://__HOST_ADMIN__/?vue=tenant"},
+    {"type": "attendre_selecteur_present", "selecteur": "[data-sillage=\"toggle-creer-locataire\"]"},
+    {"type": "capturer", "nom": "02_page_tenant_non_maitre"},
+
+    {"type": "evaluer",
+     "script": "Array.from(document.querySelectorAll('h3')).every(h => h.textContent.trim().toLowerCase() !== 'locataires')",
+     "attendu": true},
+
+    {"type": "naviguer", "url": "https://__HOST_ADMIN__/?action=logout"},
+    {"type": "attendre_selecteur_present", "selecteur": "input[name=\"identifiant\"]"},
+    {"type": "capturer", "nom": "03_logout_avant_login_maitre"},
+
+    {"type": "remplir", "selecteur": "input[name=\"identifiant\"]", "valeur": "depuis_vault", "vault_cle": "username_maitre"},
+    {"type": "remplir", "selecteur": "input[name=\"password\"]",    "valeur": "depuis_vault", "vault_cle": "password_maitre"},
+    {"type": "cliquer", "selecteur": "button.login-bouton"},
+    {"type": "attendre_absence", "selecteur": "input[name=\"identifiant\"]", "delai_initial_ms": 500},
+
+    {"type": "evaluer",
+     "script": "!window.location.href.includes('vue=login')",
+     "attendu": true},
+
+    {"type": "naviguer", "url": "https://__HOST_ADMIN__/?vue=tenant"},
     {"type": "attendre_selecteur_present", "selecteur": "[data-sillage=\"toggle-creer-locataire\"]"},
     {"type": "capturer", "nom": "04_page_tenant_maitre_avant_creation"},
 
@@ -77,7 +77,7 @@
 
     {"type": "capturer", "nom": "07_locataire_test_c1b_dans_tableau"},
 
-    {"type": "naviguer", "url": "https://sillage.ike4.local/?vue=tenant"},
+    {"type": "naviguer", "url": "https://__HOST_ADMIN__/?vue=tenant"},
     {"type": "attendre_selecteur_present", "selecteur": "[data-sillage=\"toggle-creer-locataire\"]"},
 
     {"type": "evaluer",
@@ -120,7 +120,7 @@
      "script": "!Array.from(document.querySelectorAll('td')).some(td => td.textContent.trim() === 'test-c1b')",
      "attendu": true},
 
-    {"type": "naviguer", "url": "https://sillage.ike4.local/?action=logout"},
+    {"type": "naviguer", "url": "https://__HOST_ADMIN__/?action=logout"},
     {"type": "attendre_selecteur_present", "selecteur": "input[name=\"identifiant\"]"},
 
     {"type": "capturer", "nom": "14_fin_logout"}

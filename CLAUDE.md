@@ -99,3 +99,18 @@ En mode `--reprendre-session`, `--actions /fichier.json` **et** `--action '[{...
 sont tous les deux supportés. Avant v1.8.0, `--actions` était silencieusement ignoré.
 
 Si vous utilisez une version antérieure à v1.8.0, vérifiez avec `grep __version__ /opt/diwall/shot.py`.
+
+---
+
+## Règle n°6 — Scénarios : credentials toujours via vault
+
+Tout champ dont le sélecteur contient `password` **doit** utiliser `depuis_vault`.
+Jamais de valeur en clair, même pour un tenant de test ou un environnement de développement.
+
+```json
+{"type": "remplir", "selecteur": "input[name=\"password\"]", "valeur": "depuis_vault", "vault_cle": "password"}
+```
+
+**Pourquoi :** un mot de passe en clair dans un scénario JSON est commité sur GitHub public
+dès le premier `git add scenarios/`. Le preflight scanne désormais `scenarios/*.json` —
+toute valeur en clair bloquera la publication (exit 1).

@@ -1,0 +1,152 @@
+{
+  "$schema": "https://raw.githubusercontent.com/RonanDavalan/diwall/main/scenarios/schema.json",
+  "nom": "valider_portabilite_jalon_f",
+  "description": "Validation Jalon F UI complet — F1 (colonne Télécharger + href sécurisé), F2 (dialog purge + options TTL + annuler), F3 (dialog export), F4 (code appairage). Pré-condition opérateur : créer une archive factice dans /var/tmp/ avant le test. Credentials via vault.",
+  "url": "https://__HOST_ADMIN__/?vue=login",
+  "actions": [
+
+    {"type": "evaluer",
+     "script": "document.querySelector('input[name=\"identifiant\"]') !== null && document.querySelector('input[name=\"password\"]') !== null",
+     "attendu": true},
+
+    {"type": "capturer", "nom": "01_page_login"},
+
+    {"type": "remplir", "selecteur": "input[name=\"identifiant\"]", "valeur": "depuis_vault", "vault_cle": "username"},
+    {"type": "remplir", "selecteur": "input[name=\"password\"]",    "valeur": "depuis_vault", "vault_cle": "password"},
+    {"type": "cliquer", "selecteur": "button.login-bouton"},
+    {"type": "attendre_selecteur_present", "selecteur": "footer"},
+
+    {"type": "evaluer",
+     "script": "!window.location.href.includes('vue=login')",
+     "attendu": true},
+
+    {"type": "capturer", "nom": "02_dashboard"},
+
+    {"type": "naviguer", "url": "https://__HOST_ADMIN__/?vue=portabilite"},
+    {"type": "attendre_selecteur_present", "selecteur": "h2"},
+
+    {"type": "evaluer",
+     "script": "document.querySelector('h2') !== null && document.querySelector('h2').textContent.includes('Portabilité')",
+     "attendu": true},
+
+    {"type": "evaluer",
+     "script": "!document.body.innerText.includes('Warning') && !document.body.innerText.includes('Fatal error') && !document.body.innerText.includes('Parse error')",
+     "attendu": true},
+
+    {"type": "capturer", "nom": "03_page_portabilite"},
+
+    {"type": "evaluer",
+     "script": "document.querySelector('[data-sillage=\"btn-ouvrir-purger-archives\"]') !== null",
+     "attendu": true},
+
+    {"type": "evaluer",
+     "script": "document.querySelector('[data-sillage=\"btn-generer-code\"]') !== null",
+     "attendu": true},
+
+    {"type": "evaluer",
+     "script": "document.querySelector('[data-sillage=\"btn-ouvrir-exporter-tenant\"]') !== null",
+     "attendu": true},
+
+    {"type": "evaluer",
+     "script": "document.querySelector('[data-sillage=\"select-granularite\"]') !== null",
+     "attendu": true},
+
+    {"type": "capturer", "nom": "04_elements_presents"},
+
+    {"type": "evaluer",
+     "script": "document.querySelector('table') !== null",
+     "attendu": true},
+
+    {"type": "evaluer",
+     "script": "document.querySelector('[data-sillage=\"lien-telecharger-archive\"]') !== null",
+     "attendu": true},
+
+    {"type": "evaluer",
+     "script": "document.querySelector('[data-sillage=\"lien-telecharger-archive\"]').href.includes('action=telecharger_archive')",
+     "attendu": true},
+
+    {"type": "evaluer",
+     "script": "document.querySelector('[data-sillage=\"lien-telecharger-archive\"]').href.includes('fichier=')",
+     "attendu": true},
+
+    {"type": "evaluer",
+     "script": "!document.querySelector('[data-sillage=\"lien-telecharger-archive\"]').href.includes('%2F')",
+     "attendu": true},
+
+    {"type": "capturer", "nom": "05_tableau_archives_f1"},
+
+    {"type": "cliquer", "selecteur": "[data-sillage=\"btn-ouvrir-purger-archives\"]"},
+    {"type": "attendre_selecteur_present", "selecteur": "#dialog-purger-archives[open]"},
+
+    {"type": "evaluer",
+     "script": "document.querySelector('#dialog-purger-archives[open]') !== null",
+     "attendu": true},
+
+    {"type": "evaluer",
+     "script": "document.querySelector('[data-sillage=\"select-ttl-purge\"]') !== null",
+     "attendu": true},
+
+    {"type": "evaluer",
+     "script": "Array.from(document.querySelectorAll('[data-sillage=\"select-ttl-purge\"] option')).map(o => o.value)",
+     "attendu": ["86400", "172800", "604800"]},
+
+    {"type": "evaluer",
+     "script": "document.querySelector('[data-sillage=\"select-ttl-purge\"]').value",
+     "attendu": "172800"},
+
+    {"type": "evaluer",
+     "script": "document.querySelector('[data-sillage=\"btn-annuler-purger-archives\"]') !== null",
+     "attendu": true},
+
+    {"type": "evaluer",
+     "script": "document.querySelector('[data-sillage=\"btn-confirmer-purger-archives\"]') !== null",
+     "attendu": true},
+
+    {"type": "capturer", "nom": "06_dialog_purge_f2"},
+
+    {"type": "cliquer", "selecteur": "[data-sillage=\"btn-annuler-purger-archives\"]"},
+    {"type": "attendre_absence", "selecteur": "#dialog-purger-archives[open]", "delai_initial_ms": 200},
+
+    {"type": "evaluer",
+     "script": "document.querySelector('#dialog-purger-archives[open]') === null",
+     "attendu": true},
+
+    {"type": "capturer", "nom": "07_dialog_purge_annule"},
+
+    {"type": "cliquer", "selecteur": "[data-sillage=\"btn-ouvrir-exporter-tenant\"]"},
+    {"type": "attendre_selecteur_present", "selecteur": "#dialog-exporter-tenant[open]"},
+
+    {"type": "evaluer",
+     "script": "document.querySelector('#dialog-exporter-tenant[open]') !== null",
+     "attendu": true},
+
+    {"type": "evaluer",
+     "script": "document.querySelector('#dialog-exporter-tenant input[name=\"avec_historique\"]') !== null",
+     "attendu": true},
+
+    {"type": "cliquer", "selecteur": "[data-sillage=\"btn-annuler-exporter-tenant\"]"},
+    {"type": "attendre_absence", "selecteur": "#dialog-exporter-tenant[open]", "delai_initial_ms": 200},
+
+    {"type": "capturer", "nom": "08_dialog_export_tenant_f3"},
+
+    {"type": "cliquer", "selecteur": "[data-sillage=\"btn-generer-code\"]"},
+    {"type": "attendre_selecteur_present", "selecteur": "footer"},
+
+    {"type": "evaluer",
+     "script": "document.querySelector('#code-appairage') !== null",
+     "attendu": true},
+
+    {"type": "evaluer",
+     "script": "document.querySelector('#code-appairage').textContent.trim().length > 20",
+     "attendu": true},
+
+    {"type": "capturer", "nom": "09_code_appairage_f4"},
+
+    {"type": "evaluer",
+     "script": "!document.body.innerText.includes('Warning') && !document.body.innerText.includes('Fatal error') && !document.body.innerText.includes('Parse error')",
+     "attendu": true},
+
+    {"type": "capturer", "nom": "10_validation_complete"}
+
+  ]
+}

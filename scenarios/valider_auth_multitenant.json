@@ -2,7 +2,7 @@
   "$schema": "https://raw.githubusercontent.com/RonanDavalan/diwall/main/scenarios/schema.json",
   "nom": "valider_auth_multitenant",
   "description": "Validation Chantier 1a — login identifiant+mdp multi-tenant, message générique, session, logout, protection accès direct.",
-  "url": "https://sillage.ike4.local/?vue=login",
+  "url": "https://__HOST_ADMIN__/?vue=login",
   "actions": [
 
     {"type": "capturer", "nom": "01_page_login"},
@@ -43,8 +43,8 @@
      "script": "window.location.href.includes('err=1')",
      "attendu": true},
 
-    {"type": "remplir", "selecteur": "input[name=\"identifiant\"]", "valeur": "diwall-test"},
-    {"type": "remplir", "selecteur": "input[name=\"password\"]",    "valeur": "Diwall2026!"},
+    {"type": "remplir", "selecteur": "input[name=\"identifiant\"]", "valeur": "depuis_vault", "vault_cle": "username"},
+    {"type": "remplir", "selecteur": "input[name=\"password\"]",    "valeur": "depuis_vault", "vault_cle": "password"},
     {"type": "cliquer", "selecteur": "button.login-bouton"},
     {"type": "attendre_absence", "selecteur": "input[name=\"identifiant\"]"},
 
@@ -54,7 +54,7 @@
 
     {"type": "capturer", "nom": "03_dashboard_apres_login"},
 
-    {"type": "naviguer", "url": "https://sillage.ike4.local/?action=logout"},
+    {"type": "naviguer", "url": "https://__HOST_ADMIN__/?action=logout"},
     {"type": "attendre_selecteur_present", "selecteur": "input[name=\"identifiant\"]"},
 
     {"type": "evaluer",
@@ -63,7 +63,7 @@
 
     {"type": "capturer", "nom": "04_retour_login_apres_logout"},
 
-    {"type": "naviguer", "url": "https://sillage.ike4.local/"},
+    {"type": "naviguer", "url": "https://__HOST_ADMIN__/"},
     {"type": "attendre_selecteur_present", "selecteur": "input[name=\"identifiant\"]"},
 
     {"type": "evaluer",

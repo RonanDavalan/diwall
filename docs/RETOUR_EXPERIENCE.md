@@ -2039,8 +2039,8 @@ soumet. C'est la **première action POST** de toute la session Playwright.
 
 **Séquence défaillante** :
 ```json
-{"type": "remplir", "selecteur": "input[name=\"identifiant\"]", "valeur": "diwall-test"},
-{"type": "remplir", "selecteur": "input[name=\"password\"]",    "valeur": "Diwall2026!"},
+{"type": "remplir", "selecteur": "input[name=\"identifiant\"]", "valeur": "depuis_vault", "vault_cle": "username"},
+{"type": "remplir", "selecteur": "input[name=\"password\"]",    "valeur": "depuis_vault", "vault_cle": "password"},
 {"type": "cliquer", "selecteur": "button.login-bouton"},
 {"type": "attendre_absence", "selecteur": "input[name=\"identifiant\"]"}
 ← TimeoutError 10000ms, 24 polls, element still present
@@ -2419,3 +2419,35 @@ Remontées par Gemini 3.5 Flash lors de la mission « audit découverte interfac
 **71 frictions sur 38 sessions.**
 
 **69 frictions sur 37 sessions.**
+
+---
+
+## Inter-session Sillage — 25 juin 2026 — FR-76 : `naviguer` post-submit inutilisable
+
+**Contexte :** validation Diwall C4 (dispatcher compilé shc) sur Sillage. Scénario `valider_c4_cloner_clone_davalan_fr.json` — clonage WP via `evaluer click()` sur le bouton submit d'un `<dialog>` natif.
+
+### FR-76 — `naviguer` après `evaluer click()` sur submit → ERR_ABORTED ou Timeout
+
+**Description :** après un `evaluer` qui déclenche un `.click()` sur un bouton `<button type="submit">` (submit de formulaire), toute action `naviguer` suivante échoue.
+
+Deux symptômes selon la stratégie :
+- Avec `attendre_navigation` + `naviguer` : `ERR_ABORTED at <url-cible>` (Playwright annule la navigation car il est en mid-navigation SSE)
+- Avec `pause 1500` + `naviguer` : `TimeoutError 10000ms exceeded` (la page SSE ne signale jamais "load complete")
+
+Dans les deux cas, `url_au_moment_capture` = `?vue=login` — la page SSE a probablement invalidé ou consommé la session PHP pendant l'attente.
+
+**Contexte technique :** `?action=cloner` → PHP lance en background (`nohup &`) → redirige vers `?vue=log&...` qui stream SSE. La page SSE ne se ferme jamais (streaming infini). `page.goto()` attend l'événement `load` qui n'arrive pas.
+
+**Impact :** la documentation FN17 de Sillage indiquait comme contournement : « immédiatement après le clic de submit, enchaîner un `naviguer` vers une page stable ». Ce contournement est **incorrect** — `naviguer` échoue aussi.
+
+**Solution réelle validée :** terminer le scénario immédiatement après l'`evaluer click()`. Diwall retourne `succes: true` avec `url_finale` = page d'avant le submit (le JS click est exécuté mais Playwright n'a pas encore tracké la navigation). Valider la mutation via SSH.
+
+**Exemple de scénario valide :**
+```json
+{"type": "evaluer", "script": "document.querySelector('[data-sillage=\"btn-confirmer-cloner-domaine\"]').click(); 'soumis'", "attendu": "soumis"}
+```
+→ Le scénario se termine ici. `succes: true`. Vérifier le clone via SSH.
+
+**Rappel FN8 :** même si Diwall retourne `succes: false` sur une étape suivante, la mutation serveur est déjà partie (le `evaluer click()` a exécuté le JS immédiatement).
+
+**Version :** Diwall v1.14.0 / rpa.py. Non testé sur les versions antérieures.
