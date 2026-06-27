@@ -254,3 +254,26 @@ Diwall files are owned by group `diwall`. If you run as a service account:
 sudo usermod -aG diwall <account>
 sg diwall -c "/opt/diwall/venv/bin/python3 /opt/diwall/shot.py --url …"
 ```
+
+---
+
+## WAF and Cloudflare blocking — known friction (v1.14.1)
+
+Diwall operates as a standard Playwright browser with no user-agent spoofing or
+anti-detection patches. Sites that deploy WAF (Cloudflare, CloudFront, proprietary WAF)
+may return a 403 before any content loads.
+
+This is a friction of the current web landscape — WAF systems cannot distinguish the
+intent behind a request. It is not a Diwall design constraint.
+
+**Observed rates (REX 2026-06-27, 23 commercial sites):**
+- 39% returned 403 immediately (Cloudflare / CloudFront)
+- 26% timed out silently (TCP/TLS-level block)
+- 22% returned 404 (URL guessed incorrectly)
+- 8.7% accessible (Vinted, Micromania)
+
+**Practical guidance:**
+- Prefer sites that render content server-side (SSR) over heavy SPA with WAF
+- Cloudflare-protected sites (Back Market, Fnac, Darty, Cdiscount, eBay…) are likely to block
+- If a site returns 403 immediately on `--mode fast`, it is WAF-blocked — do not retry
+- SearXNG (local instance) is the recommended entry point for URL discovery
