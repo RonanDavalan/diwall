@@ -2451,3 +2451,40 @@ Dans les deux cas, `url_au_moment_capture` = `?vue=login` — la page SSE a prob
 **Rappel FN8 :** même si Diwall retourne `succes: false` sur une étape suivante, la mutation serveur est déjà partie (le `evaluer click()` a exécuté le JS immédiatement).
 
 **Version :** Diwall v1.14.0 / rpa.py. Non testé sur les versions antérieures.
+
+---
+
+## Session recherche commerciale multi-sites — 27 juin 2026 — FR-77 : WAF bloquent 39 % des sites e-commerce
+
+**Contexte :** utilisation de Diwall pour une recherche d'achat en ligne sur des sites francophones de commerce (consoles de jeu reconditionnées, budget ≤ 200 €). 23 sites ciblés. Opérateur : Qwen (via OpenCode). Machine : neo. Version : Diwall v1.14.0.
+
+### FR-77 — Blocage WAF systématique sur les grands sites e-commerce
+
+**Description :** la majorité des sites de grande distribution et des plateformes de reconditionnement bloquent Playwright via WAF (Cloudflare, CloudFront ou WAF propriétaire) avant même que le contenu soit chargé.
+
+**Statistiques observées sur 23 sites :**
+
+| Résultat | Nb sites | Pourcentage |
+|---|---|---|
+| Bloqués 403 (WAF) | 9 | 39 % |
+| Timeout / pas de réponse HTTP | 6 | 26 % |
+| URL invalide 404 | 5 | 22 % |
+| Accessibles (HTTP 200 + contenu) | 2 | 8,7 % |
+
+Sites accessibles : Vinted, Micromania. Sites bloqués : Back Market, Cdiscount, Fnac, Darty, Cultura, eBay, Recommerce, GameCash, et al.
+
+**Cause racine :** Playwright expose `navigator.webdriver = true` par défaut. Les WAF modernes détectent ce signal et bloquent sans inspecter l'intention derrière la requête. Diwall ne dissimule pas ce signal — c'est un choix de transparence, pas une contrainte.
+
+**Impact :** pour les cas d'usage de recherche commerciale sur des sites protégés par WAF, Diwall ne peut pas accéder au contenu. Ce n'est pas un bug Diwall — c'est une friction du paysage web actuel.
+
+**Ce qui fonctionne :** sites SSR sans WAF (Vinted, Micromania), instances locales (SearXNG), applications internes sur réseau privé.
+
+**Ce qui ne fonctionne pas :** grandes enseignes e-commerce (Fnac, Darty, Boulanger, Amazon, Back Market…) et marketplaces (eBay, Cdiscount).
+
+**Non-solution :** retenter la requête, changer le User-Agent manuellement, ajouter des délais — ces approches ne contournent pas Cloudflare Bot Management.
+
+**Recommandation documentée dans GUIDE_LLM.md (v1.14.1) :** si un site retourne 403 immédiatement en `--mode fast`, il est WAF-bloqué. Ne pas retenter. Utiliser SearXNG pour la découverte, puis visiter manuellement les sites bloqués.
+
+**Backlog v1.15.x (requiert PHASE_PLANIFICATION) :** stealth mode (`playwright-stealth`), distinction `timeout_network` / `timeout_dom`, persistance session inter-appels. Voir `10_ROADMAP.md`.
+
+**Version :** Diwall v1.14.0 / shot.py.
