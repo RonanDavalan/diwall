@@ -1,0 +1,93 @@
+{
+  "$schema": "https://raw.githubusercontent.com/RonanDavalan/diwall/main/scenarios/schema.json",
+  "nom": "valider_incarnation_l1_l2",
+  "description": "Validation SIG-001 axe C — bouton Accéder sur page_tenant, flux incarnation L1→L2, bannière mode incarnation, bouton Quitter. Credentials via vault (username_maitre = tenant L1, client_sanctuarise = tenant L2). Note : les assertions sur textContent vérifient les valeurs affichées par l'instance — les remplacer par les identifiants réels lors de l'exécution.",
+  "url": "https://__HOST_ADMIN__/?vue=login",
+  "actions": [
+
+    {"type": "evaluer",
+     "script": "document.querySelector('input[name=\"identifiant\"]') !== null",
+     "attendu": true},
+
+    {"type": "capturer", "nom": "01_page_login"},
+
+    {"type": "remplir", "selecteur": "input[name=\"identifiant\"]", "valeur": "depuis_vault", "vault_cle": "username_maitre"},
+    {"type": "remplir", "selecteur": "input[name=\"password\"]", "valeur": "depuis_vault", "vault_cle": "password_maitre"},
+    {"type": "cliquer", "selecteur": "button.login-bouton"},
+    {"type": "attendre_absence", "selecteur": "input[name=\"identifiant\"]", "delai_initial_ms": 500},
+
+    {"type": "evaluer",
+     "script": "!window.location.href.includes('vue=login')",
+     "attendu": true},
+
+    {"type": "naviguer", "url": "https://__HOST_ADMIN__/?vue=tenant"},
+    {"type": "attendre_selecteur_present", "selecteur": "table"},
+
+    {"type": "evaluer",
+     "script": "!document.body.innerText.includes('Warning') && !document.body.innerText.includes('Fatal error')",
+     "attendu": true},
+
+    {"type": "capturer", "nom": "02_page_tenant"},
+
+    {"type": "evaluer",
+     "script": "document.querySelector('[data-sillage^=\"btn-incarner-\"]') !== null",
+     "attendu": true},
+
+    {"type": "evaluer",
+     "script": "document.querySelector('[data-sillage=\"btn-incarner-__CLIENT_SANCTUARISE__\"]') !== null",
+     "attendu": true},
+
+    {"type": "capturer", "nom": "03_bouton_acceder_present"},
+
+    {"type": "cliquer", "selecteur": "[data-sillage=\"btn-incarner-__CLIENT_SANCTUARISE__\"]"},
+    {"type": "attendre_navigation"},
+
+    {"type": "evaluer",
+     "script": "window.location.pathname.includes('acces-client')",
+     "attendu": true},
+
+    {"type": "evaluer",
+     "script": "!document.body.innerText.includes('invalide ou expiré') && !document.body.innerText.includes('Fatal error')",
+     "attendu": true},
+
+    {"type": "capturer", "nom": "04_apres_incarnation"},
+
+    {"type": "evaluer",
+     "script": "document.querySelector('[data-sillage=\"banniere-incarnation\"]') !== null",
+     "attendu": true},
+
+    {"type": "evaluer",
+     "script": "document.querySelector('[data-sillage=\"banniere-incarnation\"]').textContent.includes('__CLIENT_SANCTUARISE__')",
+     "attendu": true},
+
+    {"type": "evaluer",
+     "script": "document.querySelector('[data-sillage=\"banniere-incarnation\"]').textContent.includes('__TENANT_MAITRE__')",
+     "attendu": true},
+
+    {"type": "evaluer",
+     "script": "document.querySelector('[data-sillage=\"btn-quitter-incarnation\"]') !== null",
+     "attendu": true},
+
+    {"type": "capturer", "nom": "05_banniere_incarnation"},
+
+    {"type": "cliquer", "selecteur": "[data-sillage=\"btn-quitter-incarnation\"]"},
+    {"type": "attendre_navigation"},
+
+    {"type": "evaluer",
+     "script": "window.location.pathname === '/index.php' || window.location.pathname === '/'",
+     "attendu": true},
+
+    {"type": "evaluer",
+     "script": "!document.body.innerText.includes('Fatal error')",
+     "attendu": true},
+
+    {"type": "capturer", "nom": "06_retour_l1_apres_quitter"},
+
+    {"type": "evaluer",
+     "script": "document.querySelector('input[name=\"identifiant\"]') === null",
+     "attendu": true},
+
+    {"type": "capturer", "nom": "07_session_l1_intacte"}
+
+  ]
+}

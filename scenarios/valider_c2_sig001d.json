@@ -1,0 +1,40 @@
+{
+  "$schema": "https://raw.githubusercontent.com/RonanDavalan/diwall/main/scenarios/schema.json",
+  "nom": "valider_c2_sig001d",
+  "description": "Validation C2 + SIG-001-D : chemins /opt/sillage/statut/ dans layout.php (pas d'erreur PHP), bouton volume 'Calculer' distinct du ↺ Cloner.",
+  "url": "https://__HOST_ADMIN__/?vue=login",
+  "actions": [
+
+    {"type": "capturer", "nom": "01_page_login"},
+
+    {"type": "remplir", "selecteur": "input[name=\"identifiant\"]", "valeur": "depuis_vault", "vault_cle": "username_maitre"},
+    {"type": "remplir", "selecteur": "input[name=\"password\"]",    "valeur": "depuis_vault", "vault_cle": "password_maitre"},
+    {"type": "cliquer", "selecteur": "button.login-bouton"},
+    {"type": "attendre_absence", "selecteur": "input[name=\"identifiant\"]", "delai_initial_ms": 500},
+
+    {"type": "evaluer",
+     "script": "!window.location.href.includes('vue=login')",
+     "attendu": true},
+
+    {"type": "naviguer", "url": "https://__HOST_ADMIN__/?vue=tableau_de_bord"},
+    {"type": "attendre_selecteur_present", "selecteur": "[data-sillage=\"lien-portabilite-tenant\"]"},
+    {"type": "capturer", "nom": "02_tableau_de_bord_post_C2"},
+
+    {"type": "evaluer",
+     "script": "!document.body.innerText.includes('Warning') && !document.body.innerText.includes('Fatal error')",
+     "attendu": true},
+
+    {"type": "evaluer",
+     "script": "Array.from(document.querySelectorAll('[data-sillage=\"btn-rafraichir-metriques\"]')).every(b => b.textContent.trim() !== '↺')",
+     "attendu": true},
+
+    {"type": "evaluer",
+     "script": "Array.from(document.querySelectorAll('[data-sillage=\"btn-rafraichir-metriques\"]')).every(b => b.textContent.trim() === 'Calculer')",
+     "attendu": true},
+
+    {"type": "naviguer", "url": "https://__HOST_ADMIN__/?action=logout"},
+    {"type": "attendre_selecteur_present", "selecteur": "input[name=\"identifiant\"]"},
+    {"type": "capturer", "nom": "03_fin_logout"}
+
+  ]
+}

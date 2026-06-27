@@ -1,0 +1,67 @@
+{
+  "$schema": "https://raw.githubusercontent.com/RonanDavalan/diwall/main/scenarios/schema.json",
+  "nom": "valider_sig001_axes_abe",
+  "description": "Validation SIG-001 axes A/B/E : redécouverte déplacée vers page_tenant (master), menu Exporter dans Actions groupées, listes blanches export-lot étendues.",
+  "url": "https://__HOST_ADMIN__/?vue=login",
+  "actions": [
+
+    {"type": "capturer", "nom": "01_login"},
+    {"type": "remplir", "selecteur": "input[name=\"identifiant\"]", "valeur": "depuis_vault", "vault_cle": "username_maitre"},
+    {"type": "remplir", "selecteur": "input[name=\"password\"]",    "valeur": "depuis_vault", "vault_cle": "password_maitre"},
+    {"type": "cliquer", "selecteur": "button.login-bouton"},
+    {"type": "attendre_absence", "selecteur": "input[name=\"identifiant\"]", "delai_initial_ms": 500},
+
+    {"type": "evaluer",
+     "script": "!window.location.href.includes('vue=login')",
+     "attendu": true},
+
+    {"type": "naviguer", "url": "https://__HOST_ADMIN__/?vue=portabilite"},
+    {"type": "attendre_selecteur_present", "selecteur": "h2, h1, main"},
+    {"type": "capturer", "nom": "02_portabilite_sans_redecouvrir"},
+
+    {"type": "evaluer",
+     "script": "document.getElementById('dialog-redecouvrir') === null",
+     "attendu": true},
+
+    {"type": "evaluer",
+     "script": "!document.body.innerText.includes('Redécouvrir l\\'installation')",
+     "attendu": true},
+
+    {"type": "naviguer", "url": "https://__HOST_ADMIN__/?vue=tenant"},
+    {"type": "attendre_selecteur_present", "selecteur": "main, h2, h1"},
+    {"type": "capturer", "nom": "03_tenant_avec_redecouvrir"},
+
+    {"type": "evaluer",
+     "script": "document.getElementById('dialog-redecouvrir') !== null",
+     "attendu": true},
+
+    {"type": "evaluer",
+     "script": "document.querySelector('[data-sillage=\"btn-ouvrir-redecouvrir\"]') !== null",
+     "attendu": true},
+
+    {"type": "naviguer", "url": "https://__HOST_ADMIN__/?vue=domaine&client=__CLIENT_SANCTUARISE__&domaine=__DOMAINE_TEST__&module=wordpress"},
+    {"type": "attendre_selecteur_present", "selecteur": "main, h2, h1"},
+    {"type": "capturer", "nom": "04_domaine_avec_select_lot"},
+
+    {"type": "evaluer",
+     "script": "document.querySelector('[data-sillage=\"select-action-lot\"]') !== null",
+     "attendu": true},
+
+    {"type": "evaluer",
+     "script": "Array.from(document.querySelectorAll('[data-sillage=\"select-action-lot\"] option')).map(o => o.value).includes('exporter')",
+     "attendu": true},
+
+    {"type": "evaluer",
+     "script": "Array.from(document.querySelectorAll('[data-sillage=\"select-action-lot\"] option')).map(o => o.value).includes('supprimer')",
+     "attendu": true},
+
+    {"type": "evaluer",
+     "script": "!document.body.innerText.includes('Warning') && !document.body.innerText.includes('Fatal error') && !document.body.innerText.includes('Parse error')",
+     "attendu": true},
+
+    {"type": "naviguer", "url": "https://__HOST_ADMIN__/?action=logout"},
+    {"type": "attendre_selecteur_present", "selecteur": "input[name=\"identifiant\"]"},
+    {"type": "capturer", "nom": "05_fin_logout"}
+
+  ]
+}
