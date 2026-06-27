@@ -4,6 +4,27 @@ Historique des décisions et découvertes par session, dans l'ordre chronologiqu
 
 ---
 
+## 2026-06-27 — Session 42 (v1.14.1 — Neutralisation scénarios + doctrine anti-fuite)
+
+**Travail effectué :**
+
+- Audit anomalies inter-session : 5 scénarios non trackés + `Diwall2026!` en clair dans scénarios déjà commités depuis session 31.
+- Neutralisation complète de 8 fichiers de scénarios : credentials → `depuis_vault`, hosts internes → `__HOST_ADMIN__`, identifiants nominatifs → clés vault.
+- `CLAUDE.md` : Règle n°6 ajoutée — tout champ `password` dans un scénario doit utiliser `depuis_vault`.
+- `scripts/preflight-publication.sh` : périmètre étendu aux `scenarios/*.json`, pattern `Diwall2026!` ajouté.
+- `docs/GUIDE_LLM.md` : note WAF ajoutée — les sites e-commerce protégés par Cloudflare/CloudFront retournent 403 systématiquement ; friction du paysage web actuel, pas contrainte Diwall.
+- `docs/RETOUR_EXPERIENCE.md` : FR-77 — REX session recherche commerciale multi-sites (23 sites, 8,7 % d'accessibilité, 39 % blocage WAF).
+- `__version__` : 1.14.0 → 1.14.1 dans shot.py / rpa.py / journal.py.
+- Déploiement production `/opt/diwall/` : 13 fichiers mis à jour.
+
+**Décision technique :** pas de réécriture d'historique git pour `Diwall2026!` (commit explicatif transparent préféré — password factice, app dev local sans authentification requise, nettoyage par principe).
+
+**Commits :** `7eb9820` (neutralisation), `1832773` (docs + bump). Tag `v1.14.1`. Release GitHub publiée.
+
+**Backlog v1.15.x inscrit dans `_CADRE/SPECIFICATIONS/10_ROADMAP.md` :** stealth mode, distinction `timeout_network`/`timeout_dom`, persistance session inter-appels — chacun requiert PHASE_PLANIFICATION.
+
+---
+
 ## 2026-06-23 — Session 41 (v1.14.0 — Boussole opérationnelle et lisibilité du signal)
 
 **Contexte d'entrée :** v1.13.0 livrée. Spec v1.14.0 validée (PHASE_PLANIFICATION + PHASE_DOCUMENTATION closes).
