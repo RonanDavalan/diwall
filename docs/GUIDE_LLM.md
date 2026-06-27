@@ -270,10 +270,10 @@ intent behind a request. It is not a Diwall design constraint.
 - 39% returned 403 immediately (Cloudflare / CloudFront)
 - 26% timed out silently (TCP/TLS-level block)
 - 22% returned 404 (URL guessed incorrectly)
-- 8.7% accessible (Vinted, Micromania)
+- 8.7% accessible (SSR sites without WAF)
 
 **Practical guidance:**
 - Prefer sites that render content server-side (SSR) over heavy SPA with WAF
-- Cloudflare-protected sites (Back Market, Fnac, Darty, Cdiscount, eBay…) are likely to block
+- Major e-commerce platforms and marketplaces are likely to block (Cloudflare / CloudFront)
 - If a site returns 403 immediately on `--mode fast`, it is WAF-blocked — do not retry
 - SearXNG (local instance) is the recommended entry point for URL discovery

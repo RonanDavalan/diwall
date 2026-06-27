@@ -2471,15 +2471,15 @@ Dans les deux cas, `url_au_moment_capture` = `?vue=login` — la page SSE a prob
 | URL invalide 404 | 5 | 22 % |
 | Accessibles (HTTP 200 + contenu) | 2 | 8,7 % |
 
-Sites accessibles : Vinted, Micromania. Sites bloqués : Back Market, Cdiscount, Fnac, Darty, Cultura, eBay, Recommerce, GameCash, et al.
+Sites accessibles : 2 sites SSR sans WAF. Sites bloqués : grandes enseignes et marketplaces e-commerce (9 sites).
 
 **Cause racine :** Playwright expose `navigator.webdriver = true` par défaut. Les WAF modernes détectent ce signal et bloquent sans inspecter l'intention derrière la requête. Diwall ne dissimule pas ce signal — c'est un choix de transparence, pas une contrainte.
 
 **Impact :** pour les cas d'usage de recherche commerciale sur des sites protégés par WAF, Diwall ne peut pas accéder au contenu. Ce n'est pas un bug Diwall — c'est une friction du paysage web actuel.
 
-**Ce qui fonctionne :** sites SSR sans WAF (Vinted, Micromania), instances locales (SearXNG), applications internes sur réseau privé.
+**Ce qui fonctionne :** sites SSR sans protection WAF, instances locales (SearXNG), applications internes sur réseau privé.
 
-**Ce qui ne fonctionne pas :** grandes enseignes e-commerce (Fnac, Darty, Boulanger, Amazon, Back Market…) et marketplaces (eBay, Cdiscount).
+**Ce qui ne fonctionne pas :** grandes enseignes e-commerce et marketplaces protégées par WAF.
 
 **Non-solution :** retenter la requête, changer le User-Agent manuellement, ajouter des délais — ces approches ne contournent pas Cloudflare Bot Management.
 
