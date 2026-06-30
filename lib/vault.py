@@ -19,11 +19,14 @@ mais non monté. Détection via /proc/mounts — agnostique du mode d'ouverture
 (Plasma Vault, script, montage manuel).
 """
 
+import hashlib
 import json
 import os
 from urllib.parse import urlparse
 
 _CONF_PATH = "/opt/diwall/diwall.conf"
+
+_CHAMPS_CHECKSUM = ("username", "password", "totp_cle")
 
 
 class VaultFermeError(Exception):
@@ -33,6 +36,14 @@ class VaultFermeError(Exception):
     L'opérateur doit monter le coffre via scripts/mount-vault.sh ou Plasma Vault.
     """
     CODE_SORTIE = 42
+
+
+class VaultChecksumError(VaultFermeError):
+    """Le checksum SHA256 du fichier vault ne correspond pas aux données lues.
+
+    Indique une corruption silencieuse (FUSE) ou une modification non autorisée.
+    Code de sortie recommandé : 42 (hérité de VaultFermeError).
+    """
 
 
 class VaultNonConfigureError(Exception):
@@ -196,6 +207,30 @@ def _trouver_fichier_vault(vault_dir: str, domaine: str, port: int | None = None
     )
 
 
+def _verifier_checksum(data: dict, chemin: str) -> None:
+    """Vérifie le checksum SHA256 si la clé 'checksum' est présente dans data.
+
+    Le checksum couvre les champs sensibles (username, password, totp_cle)
+    sérialisés JSON en ordre lexicographique, encodés UTF-8.
+    Aucune action si 'checksum' absent (opt-in strict).
+    """
+    attendu = data.get("checksum")
+    if not attendu:
+        return
+    champs = {k: data[k] for k in sorted(_CHAMPS_CHECKSUM) if k in data}
+    calcule = "sha256:" + hashlib.sha256(
+        json.dumps(champs, sort_keys=True).encode("utf-8")
+    ).hexdigest()
+    if calcule != attendu:
+        raise VaultChecksumError(
+            f"Intégrité vault compromise : checksum invalide.\n"
+            f"  Fichier   : {chemin}\n"
+            f"  Attendu   : {attendu}\n"
+            f"  Calculé   : {calcule}\n"
+            f"Possible corruption FUSE silencieuse. Vérifiez le fichier vault."
+        )
+
+
 def domaine_depuis_url(url: str) -> str:
     hostname = urlparse(url).hostname or ""
     return hostname.lower()
@@ -220,6 +255,7 @@ def lire_credential(domaine: str, cle: str, port: int | None = None) -> str:
     chemin = _trouver_fichier_vault(vault_dir, domaine, port)
     with open(chemin, encoding="utf-8") as f:
         data = json.load(f)
+    _verifier_checksum(data, chemin)
     if cle not in data:
         raise KeyError(
             f"Clé '{cle}' absente du vault '{domaine}' ({chemin})\n"
@@ -290,6 +326,7 @@ def lire_credential_fichier(chemin: str, cle: str) -> str:
         )
     with open(chemin, encoding="utf-8") as f:
         data = json.load(f)
+    _verifier_checksum(data, chemin)
     if cle not in data:
         raise KeyError(
             f"Clé '{cle}' absente du fichier secrets ({chemin})\n"

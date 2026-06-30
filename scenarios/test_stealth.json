@@ -1,0 +1,26 @@
+{
+  "$schema": "https://raw.githubusercontent.com/RonanDavalan/diwall/main/scenarios/schema.json",
+  "nom": "test_stealth",
+  "description": "Benchmark d'empreinte headless — mesure l'impact de --stealth sur la detection par bot.sannysoft.com et intoli.com. Lancer deux fois : sans puis avec --stealth. Comparer les captures.",
+  "url": "https://bot.sannysoft.com/",
+  "actions": [
+    {
+      "type": "attendre_navigation"
+    },
+    {
+      "type": "capturer",
+      "nom": "sannysoft"
+    },
+    {
+      "type": "naviguer",
+      "url": "https://intoli.com/blog/not-possible-to-block-chrome-headless/"
+    },
+    {
+      "type": "attendre_navigation"
+    },
+    {
+      "type": "capturer",
+      "nom": "intoli"
+    }
+  ]
+}

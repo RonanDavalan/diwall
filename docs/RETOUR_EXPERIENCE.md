@@ -2508,7 +2508,7 @@ n'est pas interdit de site web pour autant.
 
 **Le contrat éthique — deux volets inséparables :**
 
-1. **Droit à l'accès :** Claude navigue pour Ronan Davalan, depuis son IP, avec son
+1. **Droit à l'accès :** Claude navigue pour l'opérateur, depuis son IP, avec son
    autorisation. Identité déclarée, usage transparent. Si un mauvais usage est constaté,
    que l'opérateur en soit tenu responsable — pas condamné par principe.
 
@@ -2523,6 +2523,6 @@ prétendre être "Paul sur Safari". Le mode furtif (`--stealth`, v1.15.0) retire
 marqueurs techniques automatiques — pas l'identité réelle.
 
 **Doctrine inscrite :** `_CADRE/SPECIFICATIONS/LEGITIMITE_ETRE_LLM.md` (privé) et
-manifeste public sur `diwall.davalan.fr` section Philosophie.
+manifeste public sur `__DOMAINE_OPERATEUR__` section Philosophie.
 
 **Version :** Diwall v1.15.0 (planifié). Session 43 — 30 juin 2026.

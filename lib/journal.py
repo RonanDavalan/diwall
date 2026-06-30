@@ -24,7 +24,18 @@ from datetime import datetime, timezone
 
 
 def _journal_path():
-    return os.environ.get("DIWALL_JOURNAL", "/var/log/diwall/operations.jsonl")
+    explicite = os.environ.get("DIWALL_JOURNAL")
+    if explicite:
+        return explicite
+    try:
+        from lib.vault import _lire_conf
+        conf = _lire_conf()
+        chemin = conf.get("journal", {}).get("chemin", "")
+        if chemin:
+            return os.path.expanduser(chemin)
+    except Exception:
+        pass
+    return "/var/log/diwall/operations.jsonl"
 
 
 def _preuves_dir():

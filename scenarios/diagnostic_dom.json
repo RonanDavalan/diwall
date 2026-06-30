@@ -15,6 +15,18 @@
     {
       "type": "evaluer",
       "script": "JSON.stringify(Array.from(document.querySelectorAll('select')).map(s=>({id:s.id,name:s.name,options:[...s.options].map(o=>o.value)})))"
+    },
+    {
+      "type": "evaluer",
+      "script": "JSON.stringify({React:!!(document.querySelector('[data-reactroot]')||Object.keys(window).some(k=>k.startsWith('__react'))||document.querySelector('*')&&Object.keys(document.querySelector('*')).some(k=>k.startsWith('__reactFiber'))),Vue:!!(window.Vue||document.querySelector('[__vue__]')||document.querySelector('*')&&'__vue__' in document.querySelector('*')),Angular:!!(document.querySelector('[ng-version]')||document.querySelector('*')&&'__ngContext' in document.querySelector('*'))})"
+    },
+    {
+      "type": "evaluer",
+      "script": "JSON.stringify(Array.from(document.querySelectorAll('*')).filter(el=>el.shadowRoot!==null).length)"
+    },
+    {
+      "type": "evaluer",
+      "script": "JSON.stringify(['data-testid','data-cy','data-qa'].reduce((acc,attr)=>{acc[attr]=document.querySelectorAll('['+attr+']').length;return acc},{}))"
     }
   ]
 }
