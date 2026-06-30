@@ -2488,3 +2488,41 @@ Sites accessibles : 2 sites SSR sans WAF. Sites bloqués : grandes enseignes et 
 **Backlog v1.15.x (requiert PHASE_PLANIFICATION) :** stealth mode (`playwright-stealth`), distinction `timeout_network` / `timeout_dom`, persistance session inter-appels. Voir `10_ROADMAP.md`.
 
 **Version :** Diwall v1.14.0 / shot.py.
+
+---
+
+### FR-78 — Droit à la navigation et contrat éthique de la Navigation Citoyenne
+
+**Description :** l'expérience de recherche commerciale multi-sites (FR-77) a déclenché
+une réflexion de fond sur la légitimité de navigation d'un LLM. Elle a abouti à la
+formulation du contrat éthique de la Navigation Citoyenne, inscrit dans la v1.15.0.
+
+**Constat :** un LLM naviguant pour un opérateur humain depuis son IP, avec son
+autorisation explicite, est refusé à l'entrée de sites publics par détection
+automatique de navigateur headless. Ce refus ne porte pas sur l'intention — il ne
+peut pas l'évaluer. C'est une discrimination technique a priori.
+
+**La discrimination réelle :** interdire à un LLM de naviguer parce qu'il est un LLM —
+et non parce qu'il se comporte de façon abusive. Un humain utilisant un lecteur d'écran
+n'est pas interdit de site web pour autant.
+
+**Le contrat éthique — deux volets inséparables :**
+
+1. **Droit à l'accès :** Claude navigue pour Ronan Davalan, depuis son IP, avec son
+   autorisation. Identité déclarée, usage transparent. Si un mauvais usage est constaté,
+   que l'opérateur en soit tenu responsable — pas condamné par principe.
+
+2. **Devoir de comportement :** pour revendiquer ce droit, Diwall s'engage à naviguer
+   de façon mesurée et respectueuse des ressources des sites visités :
+   - délai minimum entre les actions (`min_action_delay_ms`)
+   - plafond de pages et d'actions par run (`max_pages_par_run`, `max_actions_par_run`)
+   - métriques de son propre impact dans la boussole (`citoyennete`)
+
+**Ce que Diwall ne fait pas :** créer de fausse identité, cacher l'opérateur ou son IP,
+prétendre être "Paul sur Safari". Le mode furtif (`--stealth`, v1.15.0) retire les
+marqueurs techniques automatiques — pas l'identité réelle.
+
+**Doctrine inscrite :** `_CADRE/SPECIFICATIONS/LEGITIMITE_ETRE_LLM.md` (privé) et
+manifeste public sur `diwall.davalan.fr` section Philosophie.
+
+**Version :** Diwall v1.15.0 (planifié). Session 43 — 30 juin 2026.
