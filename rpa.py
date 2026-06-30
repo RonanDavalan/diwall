@@ -20,7 +20,7 @@ Format du scénario :
 Le vault est résolu par lib/vault.py (DIWALL_VAULT_DIR > diwall.conf > ~/Vaults/Diwall/).
 Jamais de mot de passe dans les fichiers de scénario.
 """
-__version__ = "1.14.1"
+__version__ = "1.15.0"
 
 import argparse
 import json
@@ -256,6 +256,8 @@ def main():
     p.add_argument("--mode", choices=["fast", "full"], default=None,
                    help="Raccourci de mode : fast = --no-capture --a11y | full = défaut (v1.14.0). "
                         "Propagé à shot.py.")
+    p.add_argument("--stealth", action="store_true",
+                   help="Active le mode furtif playwright-stealth (v1.15.0). Propagé à shot.py.")
     args = p.parse_args()
 
     chemin_scenario, essais = resoudre_chemin_scenario(args.scenario)
@@ -363,6 +365,8 @@ def main():
         cmd += ["--auth-indicator-negative", auth_indicator_negative]
     if args.mode:
         cmd += ["--mode", args.mode]
+    if args.stealth:
+        cmd.append("--stealth")
     # Journal d'opérations (v1.4) : transmettre l'intention à shot.py, qui
     # journalise le run. L'argument CLI prime sur le champ 'intention' du
     # scénario. rpa.py ne journalise pas lui-même (un seul run = celui de

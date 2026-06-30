@@ -9,7 +9,7 @@ import sys
 import time
 from datetime import datetime, timezone
 
-__version__ = "1.14.1"
+__version__ = "1.15.0"
 
 # Permet d'importer lib/ depuis le même répertoire que shot.py
 sys.path.insert(0, os.path.dirname(os.path.abspath(__file__)))
@@ -546,6 +546,10 @@ def parse_args():
     p.add_argument("--mode", choices=["fast", "full"], default=None,
                    help="Raccourci de mode : fast = --no-capture --a11y | "
                         "full = comportement par défaut (v1.14.0).")
+    p.add_argument("--stealth", action="store_true",
+                   help="Active le mode furtif via playwright-stealth (v1.15.0). "
+                        "Supprime navigator.webdriver et normalise les attributs techniques. "
+                        "Ne change pas l'IP ni l'opérateur — restauration d'équité de traitement.")
     return p.parse_args()
 
 
@@ -589,7 +593,9 @@ def charger_actions(source):
 
 def executer_actions(page, actions, output_dir, timeout, mode_llm="local",
                      interval_capture_default=0, modeles_appeles=None,
-                     secrets_chemin=None, screenshot_timeout=120_000, shadow_dom=False):
+                     secrets_chemin=None, screenshot_timeout=120_000, shadow_dom=False,
+                     min_action_delay_ms=0, max_pages_par_run=0, max_actions_par_run=0,
+                     t_debut=None):
     from playwright.sync_api import TimeoutError as PWTimeoutError
 
     _som_trouver = _SOM_TROUVER_JS_SHADOW if shadow_dom else _SOM_TROUVER_JS
@@ -600,6 +606,11 @@ def executer_actions(page, actions, output_dir, timeout, mode_llm="local",
     run_id = int(time.time())
     if modeles_appeles is None:
         modeles_appeles = []
+    pages_visitees = 0
+    actions_executees = 0
+    plafond_atteint = None
+    if t_debut is None:
+        t_debut = time.time()
 
     def _resoudre_intervalle(action):
         """Retourne (secondes>0) si capture périodique active, sinon 0."""
@@ -620,7 +631,19 @@ def executer_actions(page, actions, output_dir, timeout, mode_llm="local",
         t = a.get("type")
         iv = _resoudre_intervalle(a)
 
+        actions_executees += 1
+        if max_actions_par_run > 0 and actions_executees > max_actions_par_run:
+            plafond_atteint = "max_actions_par_run"
+            actions_executees -= 1
+            break
+
         if t == "naviguer":
+            pages_visitees += 1
+            if max_pages_par_run > 0 and pages_visitees > max_pages_par_run:
+                plafond_atteint = "max_pages_par_run"
+                pages_visitees -= 1
+                actions_executees -= 1
+                break
             page.goto(a["url"], timeout=timeout)
 
         elif t == "attendre":
@@ -957,7 +980,32 @@ def executer_actions(page, actions, output_dir, timeout, mode_llm="local",
         else:
             raise ValueError(f"Type d'action inconnu : {t!r}")
 
-    return intermediaires, stream_captures, evaluations, modeles_appeles
+        if min_action_delay_ms > 0:
+            time.sleep(min_action_delay_ms / 1000.0)
+
+    citoyennete = {
+        "pages_visitees": pages_visitees,
+        "actions_executees": actions_executees,
+        "duree_totale_ms": int((time.time() - t_debut) * 1000),
+    }
+    if plafond_atteint:
+        citoyennete["plafond_atteint"] = plafond_atteint
+    return intermediaires, stream_captures, evaluations, modeles_appeles, citoyennete
+
+
+def _conf_navigation():
+    """Lit les paramètres [navigation] depuis /opt/diwall/diwall.conf (JSON)."""
+    try:
+        from lib.vault import _lire_conf
+        conf = _lire_conf()
+        nav = conf.get("navigation", {})
+        return {
+            "min_action_delay_ms": int(nav.get("min_action_delay_ms", 0)),
+            "max_pages_par_run": int(nav.get("max_pages_par_run", 0)),
+            "max_actions_par_run": int(nav.get("max_actions_par_run", 0)),
+        }
+    except Exception:
+        return {"min_action_delay_ms": 0, "max_pages_par_run": 0, "max_actions_par_run": 0}
 
 
 def main():
@@ -985,6 +1033,7 @@ def main():
         args.a11y = True
     # --mode full : aucun changement (comportement courant)
 
+    conf_nav = _conf_navigation()
     t0 = time.time()
     horodatage = datetime.now(timezone.utc).astimezone().isoformat()
 
@@ -1086,6 +1135,12 @@ def main():
                 url_cible = args.url
 
             page = ctx.new_page()
+            if args.stealth:
+                try:
+                    from playwright_stealth import stealth_sync
+                    stealth_sync(page)
+                except ImportError:
+                    sys.stderr.write("playwright-stealth non installé — --stealth ignoré\n")
             page.on("pageerror", lambda err: erreurs_js.append(str(err)))
 
             # ── Navigation ────────────────────────────────────────────────────
@@ -1105,13 +1160,17 @@ def main():
                 page.wait_for_selector(args.attendre_selecteur, timeout=args.timeout)
 
             # ── Actions ───────────────────────────────────────────────────────
-            interm, stream_captures, evaluations, modeles_appeles = executer_actions(
+            interm, stream_captures, evaluations, modeles_appeles, citoyennete = executer_actions(
                 page, actions, args.output_dir, args.timeout, args.llm,
                 interval_capture_default=args.interval_capture,
                 modeles_appeles=modeles_appeles,
                 secrets_chemin=getattr(args, "secrets", None),
                 screenshot_timeout=args.screenshot_timeout,
                 shadow_dom=args.shadow_dom,
+                min_action_delay_ms=conf_nav["min_action_delay_ms"],
+                max_pages_par_run=conf_nav["max_pages_par_run"],
+                max_actions_par_run=conf_nav["max_actions_par_run"],
+                t_debut=t0,
             )
             url_finale = page.url  # mise à jour après actions
 
@@ -1212,6 +1271,10 @@ def main():
         result["boussole"]["titre_page"] = titre_page
         if args.shadow_dom:
             result["boussole"]["shadow_dom_actif"] = True
+        if args.stealth:
+            result["boussole"]["stealth_actif"] = True
+        result["citoyennete"] = citoyennete
+        result["boussole"]["citoyennete"] = citoyennete
         if args.reprendre_session and derive_session is not None:
             result["boussole"]["session_derive"] = derive_session
         if auth_status is not None:

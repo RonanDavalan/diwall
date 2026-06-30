@@ -149,7 +149,15 @@ done
 SAMPLE="$DEST/diwall-sample.conf"
 sudo tee "$SAMPLE" > /dev/null << 'CONF_EOF'
 {
-  "vault_dir": "~/Vaults/Diwall"
+  "vault_dir": "~/Vaults/Diwall",
+  "navigation": {
+    "min_action_delay_ms": 800,
+    "max_pages_par_run": 10,
+    "max_actions_par_run": 30
+  },
+  "journal": {
+    "chemin": "~/Vaults/Diwall/operations.jsonl"
+  }
 }
 CONF_EOF
 echo "  Écrit   : diwall-sample.conf (modèle générique)"

@@ -2523,6 +2523,6 @@ prétendre être "Paul sur Safari". Le mode furtif (`--stealth`, v1.15.0) retire
 marqueurs techniques automatiques — pas l'identité réelle.
 
 **Doctrine inscrite :** `_CADRE/SPECIFICATIONS/LEGITIMITE_ETRE_LLM.md` (privé) et
-manifeste public sur `diwall.davalan.fr` section Philosophie.
+manifeste public sur `__DOMAINE_OPERATEUR__` section Philosophie.
 
 **Version :** Diwall v1.15.0 (planifié). Session 43 — 30 juin 2026.
