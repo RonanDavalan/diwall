@@ -41,6 +41,13 @@ otherwise the default vault in `diwall.conf` is used.
 **If the vault is closed** (gocryptfs not mounted): shot.py exits with `VaultFermeError(42)`.
 Do not try to mount the vault yourself — ask the operator to run the mount script.
 
+**Critical — unmounted vault and write operations:**
+`VaultFermeError` only protects reads. If a vault is not mounted, its directory
+exists on disk but is empty and unencrypted. Any file written there is stored
+in plain text. Before creating or updating a credential file, confirm the vault
+is mounted: the directory must be non-empty. If in doubt, stop and ask the
+operator to verify — never write credentials assuming the vault is open.
+
 ---
 
 ## `--secrets` — specifying a non-default vault
