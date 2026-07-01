@@ -4,6 +4,28 @@ History of decisions and discoveries by session, in reverse chronological order.
 
 ---
 
+## 2026-07-01 — Session 46 (v1.15.1 — Security hardening)
+
+**Work done:**
+
+- Static audit: 11 security vectors identified and fixed (commit `544f66f`).
+- `shot.py`: `_prendre_capture()` centralises all PNG captures with guaranteed secret masking.
+  `_valider_schema_url()` rejects non-HTTP schemes (exit 2). `--no-evaluer` flag blocks `evaluer` at runtime.
+  `--ignore-tls-errors` replaces hardcoded `ignore_https_errors=True`. `_valider_actions_vault()` validates
+  inline actions. `_MASQUER_SECRETS_JS` extended to 9 selectors.
+- `lib/journal.py`: `_ecrire_ligne()` uses `os.open(..., 0o640)` + `chown` diwall group.
+  `_sanitiser_url_journal()` strips query string and fragment. Fallback `/tmp/diwall/` at 700/600.
+  `enregistrer_operation()` logs `evaluer` script and return value in `evaluations[]`.
+- `rpa.py`: `--no-evaluer` and `--ignore-tls-errors` propagated to `shot.py`. URL scheme validation added.
+- `scripts/preflight-publication.sh`: scope extended to `.py`/`.sh`/`.yaml`. Structural JSON credential
+  check replaces hardcoded password string. Auto-exclusion of the script itself.
+- `docs/GUIDE_LLM_INTERACTIONS.md`: `evaluer` security restriction documented (forbidden targets, audit trail).
+- `docs/GUIDE_LLM_SESSIONS.md`: `--ignore-tls-errors` section added.
+
+**Validation:** 12/12 tests green. Preflight exit 0 (60 files scanned). Zero direct `page.screenshot()` outside `_prendre_capture()`.
+
+---
+
 ## 2026-07-01 — Session 44 (v1.15.0 — Navigation Citoyenne + operational manual)
 
 **Work done:**
