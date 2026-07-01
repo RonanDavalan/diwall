@@ -2,7 +2,7 @@
 """Vérificateur lib/journal.py — lot v1.4, étapes 1-3 (offline).
 
 Exécution :
-    PYTHONPATH=/home/ron/git/Diwall/Diwall python3 verifier.py
+    PYTHONPATH=~/git/Diwall/Diwall python3 verifier.py
 
 Reproduit T1, T2, T3 de §10 de
 _CADRE/SPECIFICATIONS/35_JOURNAL_OPERATIONS.md.

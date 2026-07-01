@@ -8,8 +8,9 @@ import socket
 import sys
 import time
 from datetime import datetime, timezone
+from urllib.parse import urlparse
 
-__version__ = "1.15.0"
+__version__ = "1.15.1"
 
 # Permet d'importer lib/ depuis le même répertoire que shot.py
 sys.path.insert(0, os.path.dirname(os.path.abspath(__file__)))
@@ -276,7 +277,12 @@ _MASQUER_SECRETS_JS = """() => {
         'input[type="password"]',
         'input[autocomplete="current-password"]',
         'input[autocomplete="new-password"]',
-        'input[autocomplete*="password"]'
+        'input[autocomplete*="password"]',
+        'input[name*="password"]',
+        'input[name*="token"]',
+        'input[name*="secret"]',
+        'input[name*="otp"]',
+        'input[name*="totp"]'
     ].join(',');
     document.querySelectorAll(SENS).forEach(function(f) {
         f.setAttribute('data-dw-blur', f.style.filter || '');
@@ -290,6 +296,32 @@ _RESTAURER_SECRETS_JS = """() => {
         f.removeAttribute('data-dw-blur');
     });
 }"""
+
+
+def _prendre_capture(page, path, full_page=True, screenshot_timeout=120_000):
+    """Point unique pour toute capture PNG — masquage des secrets garanti."""
+    try:
+        page.evaluate(_MASQUER_SECRETS_JS)
+    except Exception:
+        pass
+    try:
+        page.screenshot(path=path, full_page=full_page, timeout=screenshot_timeout)
+    finally:
+        try:
+            page.evaluate(_RESTAURER_SECRETS_JS)
+        except Exception:
+            pass
+
+
+def _valider_schema_url(url):
+    """Rejette les URL dont le schéma n'est pas http ou https."""
+    if not url:
+        return
+    scheme = urlparse(url).scheme.lower()
+    if scheme not in {"http", "https"}:
+        raise ValueError(
+            f"URL scheme '{scheme}' interdit — seuls http et https sont acceptés. URL: {url}"
+        )
 
 # ── Statistiques DOM structurelles (--no-capture) ────────────────────────────
 _DOM_STATS_JS = """() => {
@@ -315,11 +347,7 @@ def _injecter_som(page, output_dir, nom="state_som", screenshot_timeout=120_000,
     som_compter  = _SOM_COMPTER_HORS_VIEWPORT_JS_SHADOW if shadow_dom else _SOM_COMPTER_HORS_VIEWPORT_JS
     elements = page.evaluate(som_injecter)
     chemin_som = chemin_png(output_dir, nom)
-    page.evaluate(_MASQUER_SECRETS_JS)
-    try:
-        page.screenshot(path=chemin_som, full_page=False, timeout=screenshot_timeout)
-    finally:
-        page.evaluate(_RESTAURER_SECRETS_JS)
+    _prendre_capture(page, chemin_som, full_page=False, screenshot_timeout=screenshot_timeout)
     page.evaluate(_SOM_RETIRER_JS)
     hors_vp = page.evaluate(som_compter)
     return chemin_som, elements, hors_vp
@@ -420,6 +448,7 @@ def _journaliser_run(result, actions, intention, cible_url, resultat, erreur=Non
         intention=intention,
         captures=captures,
         erreur=erreur,
+        evaluations=result.get("evaluations"),
     )
 
 
@@ -550,6 +579,12 @@ def parse_args():
                    help="Active le mode furtif via playwright-stealth (v1.15.0). "
                         "Supprime navigator.webdriver et normalise les attributs techniques. "
                         "Ne change pas l'IP ni l'opérateur — restauration d'équité de traitement.")
+    p.add_argument("--ignore-tls-errors", dest="ignore_tls_errors", action="store_true",
+                   help="Accepte les certificats TLS invalides (LAN dev/Step-CA uniquement). "
+                        "Ajoute tls_errors_ignored:true dans la boussole. (v1.15.1)")
+    p.add_argument("--no-evaluer", dest="no_evaluer", action="store_true",
+                   help="Désactive l'action 'evaluer' — recommandé en production sur cibles "
+                        "avec formulaires sensibles. (v1.15.1)")
     return p.parse_args()
 
 
@@ -572,8 +607,19 @@ def _preparer_stream_dir(output_dir, run_id):
 def _capture_periodique(page, stream_dir, action_index, t_ms, screenshot_timeout=120_000):
     """Prend une capture intermédiaire pendant une attente. Retourne le dict descriptif."""
     chemin = os.path.join(stream_dir, f"{action_index}_{t_ms}.png")
-    page.screenshot(path=chemin, full_page=False, timeout=screenshot_timeout)
+    _prendre_capture(page, chemin, full_page=False, screenshot_timeout=screenshot_timeout)
     return {"action_index": action_index, "t_ms": t_ms, "chemin": chemin}
+
+
+def _valider_actions_vault(actions):
+    """Vérifie que les actions remplir/remplir_som avec vault_cle utilisent depuis_vault."""
+    for i, a in enumerate(actions):
+        if a.get("type") in {"remplir", "remplir_som"}:
+            if a.get("vault_cle") and a.get("valeur") not in {"depuis_vault", "depuis_vault_totp"}:
+                raise ValueError(
+                    f"Action #{i} ({a['type']}) : vault_cle défini mais valeur n'est pas "
+                    f"'depuis_vault' ou 'depuis_vault_totp' — credential en clair interdit"
+                )
 
 
 def charger_actions(source):
@@ -587,15 +633,18 @@ def charger_actions(source):
             data = json.load(f)
     # Auto-détecte le format scénario {nom, url, actions:[…]} vs tableau direct
     if isinstance(data, dict) and "actions" in data:
-        return data["actions"]
-    return data
+        actions = data["actions"]
+    else:
+        actions = data
+    _valider_actions_vault(actions)
+    return actions
 
 
 def executer_actions(page, actions, output_dir, timeout, mode_llm="local",
                      interval_capture_default=0, modeles_appeles=None,
                      secrets_chemin=None, screenshot_timeout=120_000, shadow_dom=False,
                      min_action_delay_ms=0, max_pages_par_run=0, max_actions_par_run=0,
-                     t_debut=None):
+                     t_debut=None, no_evaluer=False):
     from playwright.sync_api import TimeoutError as PWTimeoutError
 
     _som_trouver = _SOM_TROUVER_JS_SHADOW if shadow_dom else _SOM_TROUVER_JS
@@ -644,6 +693,7 @@ def executer_actions(page, actions, output_dir, timeout, mode_llm="local",
                 pages_visitees -= 1
                 actions_executees -= 1
                 break
+            _valider_schema_url(a.get("url", ""))
             page.goto(a["url"], timeout=timeout)
 
         elif t == "attendre":
@@ -754,11 +804,7 @@ def executer_actions(page, actions, output_dir, timeout, mode_llm="local",
                                         shadow_dom=shadow_dom)
             else:
                 p = chemin_png(output_dir, f"capture_{nom}")
-                page.evaluate(_MASQUER_SECRETS_JS)
-                try:
-                    page.screenshot(path=p, full_page=True, timeout=screenshot_timeout)
-                finally:
-                    page.evaluate(_RESTAURER_SECRETS_JS)
+                _prendre_capture(page, p, full_page=True, screenshot_timeout=screenshot_timeout)
             intermediaires.append(p)
 
         elif t == "cliquer_som":
@@ -834,6 +880,8 @@ def executer_actions(page, actions, output_dir, timeout, mode_llm="local",
                 page.keyboard.type(valeur)
 
         elif t == "evaluer":
+            if no_evaluer:
+                raise ValueError("evaluer bloqué — --no-evaluer est actif sur ce run")
             script = a.get("script")
             if not script:
                 raise ValueError("evaluer requiert un champ 'script' (chaîne JS pour page.evaluate)")
@@ -854,7 +902,7 @@ def executer_actions(page, actions, output_dir, timeout, mode_llm="local",
 
             # Capture intermédiaire pour la localisation
             tmp = chemin_png(output_dir, "vision_tmp")
-            page.screenshot(path=tmp, timeout=screenshot_timeout)
+            _prendre_capture(page, tmp, full_page=False, screenshot_timeout=screenshot_timeout)
 
             from lib.vision import localiser_element
             result = localiser_element(tmp, description, mode_llm)
@@ -1058,6 +1106,7 @@ def main():
                 parsed = json.loads(args.action)
                 # Accepte un objet unique {"type":...} OU un tableau [{...},{...}]
                 actions = parsed if isinstance(parsed, list) else [parsed]
+                _valider_actions_vault(actions)
             elif args.actions:
                 # FR-54 : --actions (fichier) désormais supporté en Mode B
                 actions = charger_actions(args.actions)
@@ -1080,6 +1129,16 @@ def main():
                 "boussole": _boussole(),
             }))
             sys.exit(1)
+
+    # ── Validation schéma URL principale ────────────────────────────────────
+    try:
+        _valider_schema_url(args.url)
+    except ValueError as e:
+        print(json.dumps({
+            "succes": False, "erreur": "url_scheme_interdit",
+            "message": str(e), "horodatage": horodatage, "boussole": _boussole(),
+        }))
+        sys.exit(2)
 
     # ── Validation --no-capture ──────────────────────────────────────────────
     if args.no_capture and args.som:
@@ -1124,13 +1183,13 @@ def main():
                 ctx = browser.new_context(
                     storage_state=session["storage_state"],
                     viewport=viewport,
-                    ignore_https_errors=True,
+                    ignore_https_errors=args.ignore_tls_errors,
                 )
                 url_cible = args.url if args.url else session["url"]
             else:
                 ctx = browser.new_context(
                     viewport={"width": args.largeur, "height": args.hauteur},
-                    ignore_https_errors=True,
+                    ignore_https_errors=args.ignore_tls_errors,
                 )
                 url_cible = args.url
 
@@ -1171,16 +1230,13 @@ def main():
                 max_pages_par_run=conf_nav["max_pages_par_run"],
                 max_actions_par_run=conf_nav["max_actions_par_run"],
                 t_debut=t0,
+                no_evaluer=args.no_evaluer,
             )
             url_finale = page.url  # mise à jour après actions
 
             # ── Capture finale ────────────────────────────────────────────────
             if not args.no_capture:
-                page.evaluate(_MASQUER_SECRETS_JS)
-                try:
-                    page.screenshot(path=sortie, full_page=True, timeout=args.screenshot_timeout)
-                finally:
-                    page.evaluate(_RESTAURER_SECRETS_JS)
+                _prendre_capture(page, sortie, full_page=True, screenshot_timeout=args.screenshot_timeout)
 
             # ── SoM ───────────────────────────────────────────────────────────
             capture_som, elements_som, hors_vp_som = None, [], 0
@@ -1273,6 +1329,8 @@ def main():
             result["boussole"]["shadow_dom_actif"] = True
         if args.stealth:
             result["boussole"]["stealth_actif"] = True
+        if args.ignore_tls_errors:
+            result["boussole"]["tls_errors_ignored"] = True
         result["citoyennete"] = citoyennete
         result["boussole"]["citoyennete"] = citoyennete
         if args.reprendre_session and derive_session is not None:
@@ -1317,9 +1375,9 @@ def main():
             echec = chemin_png(args.output_dir, "echec")
             with sync_playwright() as pw:
                 b = pw.chromium.launch(headless=True)
-                pg = b.new_context(ignore_https_errors=True).new_page()
+                pg = b.new_context(ignore_https_errors=args.ignore_tls_errors).new_page()
                 pg.goto(url_cible, timeout=5000)
-                pg.screenshot(path=echec)
+                _prendre_capture(pg, echec, full_page=False)
                 b.close()
             capture_echec = echec
         except Exception:

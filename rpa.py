@@ -20,7 +20,7 @@ Format du scénario :
 Le vault est résolu par lib/vault.py (DIWALL_VAULT_DIR > diwall.conf > ~/Vaults/Diwall/).
 Jamais de mot de passe dans les fichiers de scénario.
 """
-__version__ = "1.15.0"
+__version__ = "1.15.1"
 
 import argparse
 import json
@@ -258,6 +258,10 @@ def main():
                         "Propagé à shot.py.")
     p.add_argument("--stealth", action="store_true",
                    help="Active le mode furtif playwright-stealth (v1.15.0). Propagé à shot.py.")
+    p.add_argument("--ignore-tls-errors", dest="ignore_tls_errors", action="store_true",
+                   help="Accepte les certificats TLS invalides (LAN dev/Step-CA). Propagé à shot.py. (v1.15.1)")
+    p.add_argument("--no-evaluer", dest="no_evaluer", action="store_true",
+                   help="Désactive l'action evaluer sur ce run. Propagé à shot.py. (v1.15.1)")
     args = p.parse_args()
 
     chemin_scenario, essais = resoudre_chemin_scenario(args.scenario)
@@ -301,6 +305,16 @@ def main():
             "boussole": _boussole(),
         }))
         sys.exit(1)
+
+    from urllib.parse import urlparse as _urlparse
+    _scheme = _urlparse(url).scheme.lower()
+    if _scheme not in {"http", "https"}:
+        print(json.dumps({
+            "succes": False, "erreur": "url_scheme_interdit",
+            "message": f"URL scheme '{_scheme}' interdit — seuls http et https sont acceptés. URL: {url}",
+            "boussole": _boussole(),
+        }))
+        sys.exit(2)
 
     # Pré-validation du coffre (fail-fast) SANS résoudre les valeurs : on
     # vérifie l'existence du coffre et des clés référencées, puis on passe
@@ -367,6 +381,10 @@ def main():
         cmd += ["--mode", args.mode]
     if args.stealth:
         cmd.append("--stealth")
+    if args.ignore_tls_errors:
+        cmd.append("--ignore-tls-errors")
+    if args.no_evaluer:
+        cmd.append("--no-evaluer")
     # Journal d'opérations (v1.4) : transmettre l'intention à shot.py, qui
     # journalise le run. L'argument CLI prime sur le champ 'intention' du
     # scénario. rpa.py ne journalise pas lui-même (un seul run = celui de

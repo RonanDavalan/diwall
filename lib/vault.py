@@ -110,7 +110,7 @@ def _coffre_est_monte(vault_dir: str) -> bool:
     """Vérifie si vault_dir est sous un point de montage FUSE actif via /proc/mounts.
 
     Accepte vault_dir = point de montage exact OU sous-dossier d'un montage FUSE
-    (ex. ~/Vaults/Sillage/Diwall/ est sous ~/Vaults/Sillage monté via gocryptfs).
+    (ex. ~/Vaults/<PROJET>/<NOM>/ est sous ~/Vaults/<PROJET> monté via gocryptfs).
     Restriction aux systèmes de fichiers FUSE pour ne pas ouvrir T1 aux disques
     persistants ordinaires (ext4, btrfs, etc.).
 

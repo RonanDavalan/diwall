@@ -2,7 +2,7 @@
 """Vérificateur des scénarios de test v1.3 et v1.3.2.
 
 Exécution :
-    PYTHONPATH=/home/ron/git/Diwall/Diwall python3 verifier.py
+    PYTHONPATH=~/git/Diwall/Diwall python3 verifier.py
 
 Ou depuis le répertoire de scénarios :
     ./verifier.py

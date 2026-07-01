@@ -44,7 +44,6 @@ PATTERNS=(
     "IP LAN 10.x.x.x;;;\\b10\\.[0-9]+\\.[0-9]+\\.[0-9]+\\b;;;substituer par __IP_LAN__"
     "IP LAN 172.16-31.x.x;;;\\b172\\.(1[6-9]|2[0-9]|3[0-1])\\.[0-9]+\\.[0-9]+\\b;;;substituer par __IP_LAN__"
     "IP VPS nominale;;;\\b87\\.106\\.213\\.110\\b;;;substituer par __IP_VPS__"
-    "mot de passe en clair scénario;;;Diwall2026!;;;remplacer par depuis_vault + vault_cle: password (règle n°6 CLAUDE.md)"
 )
 
 # ── Exceptions documentées ────────────────────────────────────────────────────
@@ -55,11 +54,21 @@ PATTERNS=(
 EXCEPTIONS=(
     "./README.md;;;prénom opérateur;;;crédit auteur public dans la section Credits"
     "./README.md;;;domaine opérateur;;;diwall.davalan.fr est le domaine public du projet Diwall"
+    "./scripts/preflight-publication.sh;;;domaine opérateur;;;le script définit ses propres patterns — auto-exclusion"
+    "./scripts/preflight-publication.sh;;;host admin IKE4;;;le script définit ses propres patterns — auto-exclusion"
+    "./scripts/preflight-publication.sh;;;username dans chemin;;;le script définit ses propres patterns — auto-exclusion"
+    "./scripts/preflight-publication.sh;;;vault projet nommé;;;le script définit ses propres patterns — auto-exclusion"
 )
 
 # ── Découverte du périmètre ───────────────────────────────────────────────────
-# Fichiers .md du dépôt + scénarios JSON — en excluant .git, venv, node_modules.
-mapfile -d '' FICHIERS < <(find . -type f \( -name '*.md' -o \( -name '*.json' -path './scenarios/*' \) \) \
+# .md + .py + .sh + .yaml + scénarios JSON — hors .git, venv, node_modules.
+mapfile -d '' FICHIERS < <(find . -type f \( \
+    -name '*.md' \
+    -o -name '*.py' \
+    -o -name '*.sh' \
+    -o -name '*.yaml' \
+    -o \( -name '*.json' -path './scenarios/*' \) \
+    \) \
     -not -path './.git/*' \
     -not -path './venv/*' \
     -not -path './node_modules/*' \
@@ -69,7 +78,7 @@ NB_FICHIERS=${#FICHIERS[@]}
 
 echo "=== Diwall preflight publication ==="
 echo "Dépôt   : $REPO_ROOT"
-echo "Périmètre : $NB_FICHIERS fichiers .md + scenarios/*.json (hors .git/, venv/, node_modules/)"
+echo "Périmètre : $NB_FICHIERS fichiers .md/.py/.sh/.yaml + scenarios/*.json (hors .git/, venv/, node_modules/)"
 echo "Patterns : ${#PATTERNS[@]} interdits"
 echo
 
@@ -163,6 +172,82 @@ if [[ $NB_YAMLS -gt 0 ]]; then
     done
 fi
 
+echo
+
+# ── Audit structurel credentials scénarios (F1 v1.15.1) ──────────────────────
+# Vérification sémantique : toute action remplir/remplir_som dont le sélecteur,
+# le nom, le vault_cle ou l'id suggère un champ sensible doit utiliser
+# depuis_vault ou depuis_vault_totp — jamais une valeur en clair.
+echo "--- Audit structurel credentials scénarios (F1 v1.15.1) ---"
+mapfile -d '' SCENARIOS_JSON < <(find . -path './scenarios/*' -name '*.json' -print0 2>/dev/null)
+NB_SCENARIOS=${#SCENARIOS_JSON[@]}
+echo "Périmètre : $NB_SCENARIOS scénario(s) JSON sous scenarios/"
+
+if [[ $NB_SCENARIOS -gt 0 ]] && command -v python3 &>/dev/null; then
+    AUDIT_PY=$(python3 - "${SCENARIOS_JSON[@]}" <<'PYEOF'
+import json, sys, re, os
+
+SENSITIVE = re.compile(
+    r'password|passwd|secret|token|otp|totp|mfa|credential|api[_\-]?key',
+    re.IGNORECASE
+)
+SAFE_VALUES = {"depuis_vault", "depuis_vault_totp"}
+
+# Scénarios exemptés de l'audit structurel — credentials intentionnellement invalides
+# (tests de rejet : tenant inexistant, mauvais mot de passe, etc.)
+EXEMPT_SCENARIOS = {
+    "valider_auth_multitenant.json",
+}
+
+fuites = 0
+for path in sys.argv[1:]:
+    if os.path.basename(path) in EXEMPT_SCENARIOS:
+        continue
+    try:
+        with open(path) as f:
+            data = json.load(f)
+    except Exception as e:
+        print(f"WARN  [{path}] impossible de lire : {e}")
+        continue
+    actions = data.get("actions", data) if isinstance(data, dict) else data
+    if not isinstance(actions, list):
+        continue
+    for i, a in enumerate(actions):
+        if not isinstance(a, dict):
+            continue
+        if a.get("type") not in {"remplir", "remplir_som"}:
+            continue
+        valeur = a.get("valeur", "")
+        if valeur in SAFE_VALUES:
+            continue
+        # Détecter si le champ est sensible
+        suspects = [
+            a.get("selecteur", ""),
+            a.get("vault_cle", ""),
+            str(a.get("nom", "")),
+        ]
+        if any(SENSITIVE.search(s) for s in suspects if s):
+            print(
+                f"FUITE [credential en clair] {path} action #{i} "
+                f"type={a['type']} valeur={repr(valeur)!r}"
+            )
+            print(
+                "       → remplacer par \"valeur\": \"depuis_vault\", "
+                "\"vault_cle\": \"<cle>\" (règle n°6 CLAUDE.md)"
+            )
+            fuites += 1
+
+print(f"__FUITES_CREDENTIALS__={fuites}")
+PYEOF
+    )
+    echo "$AUDIT_PY" | grep -v "^__FUITES_CREDENTIALS__" || true
+    CRED_FUITES=$(echo "$AUDIT_PY" | grep "^__FUITES_CREDENTIALS__=" | cut -d= -f2 || echo "0")
+    if [[ -n "$CRED_FUITES" && "$CRED_FUITES" -gt 0 ]]; then
+        NB_FUITES=$((NB_FUITES + CRED_FUITES))
+    fi
+else
+    echo "SKIP — aucun scénario JSON ou python3 absent"
+fi
 echo
 
 # ── Smoke test installation vierge ────────────────────────────────────────────
