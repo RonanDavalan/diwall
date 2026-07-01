@@ -131,6 +131,20 @@ Output appended to `evaluations[]` in JSON result:
 Non-JSON-serializable values fall back to `str(value)` with `"serialisation": "str"`.
 Never inject user input or URL parameters into the script.
 
+**Security restriction — `--no-evaluer` (v1.15.1):**
+`evaluer` executes arbitrary JavaScript in the browser context. In production scenarios
+involving authentication forms, financial data, or any sensitive interface, the operator
+may disable this action entirely by passing `--no-evaluer` to shot.py or rpa.py.
+
+When `--no-evaluer` is active, any `evaluer` action in the scenario raises an error
+and the run aborts. This flag is an operator-level decision — you cannot bypass it.
+
+**What this means for you:** if `evaluer` is available and you use it to read a value,
+you are responsible for ensuring your script does not extract sensitive data
+(passwords, tokens, cookies, session identifiers). Do not write scripts that return
+`document.cookie`, `localStorage`, or any authentication token — even if the intent
+is diagnostic. These values will appear in `evaluations[]` in the JSON output.
+
 ---
 
 ## Assertions on `evaluer` — three keys (rpa.py only)

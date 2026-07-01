@@ -15,12 +15,14 @@ Garanties :
 Spécification : _CADRE/SPECIFICATIONS/35_JOURNAL_OPERATIONS.md
 """
 import fcntl
+import grp
 import json
 import os
 import shutil
 import sys
 import uuid
 from datetime import datetime, timezone
+from urllib.parse import urlparse
 
 
 def _journal_path():
@@ -157,7 +159,7 @@ def archiver_preuves(operation_id, captures):
 # ── Écriture d'une entrée ────────────────────────────────────────────────────
 def enregistrer_operation(outil, version, cible_url, resultat, actions,
                           diwall_meta=None, intention=None, captures=None,
-                          erreur=None, mutatif=None):
+                          erreur=None, mutatif=None, evaluations=None):
     """Compose et écrit une entrée de journal. Best-effort, ne lève jamais.
 
     Réutilise les champs d'environnement de `diwall_meta` (v1.3.2) :
@@ -183,7 +185,7 @@ def enregistrer_operation(outil, version, cible_url, resultat, actions,
             "operation_id": operation_id,
             "outil": outil,
             "version": version,
-            "cible_url": cible_url,
+            "cible_url": _sanitiser_url_journal(cible_url),
             "resultat": resultat,
             "mutatif": mutatif,
             "hostname_executant": meta.get("hostname_executant"),
@@ -205,10 +207,27 @@ def enregistrer_operation(outil, version, cible_url, resultat, actions,
             entree["modeles_utilises"] = meta["modeles_utilises"]
         if erreur:
             entree["erreur"] = erreur
+        if evaluations:
+            entree["evaluations"] = [
+                {"script": e.get("script", "")[:500], "valeur_retournee": e.get("valeur")}
+                for e in evaluations
+                if isinstance(e, dict)
+            ]
 
         _ecrire_ligne(entree)
     except Exception as e:  # best-effort absolu : ne jamais casser le run
         print(f"⚠ journal : opération non journalisée ({e})", file=sys.stderr)
+
+
+def _sanitiser_url_journal(url):
+    """Conserve uniquement scheme://host/path — supprime toute query string et fragment."""
+    if not url:
+        return url
+    try:
+        p = urlparse(url)
+        return f"{p.scheme}://{p.netloc}{p.path}"
+    except Exception:
+        return "[url non parseable]"
 
 
 def _fallback_path():
@@ -216,6 +235,13 @@ def _fallback_path():
         "DIWALL_JOURNAL_FALLBACK",
         "/tmp/diwall/operations.fallback.jsonl",
     )
+
+
+def _gid_diwall():
+    try:
+        return grp.getgrnam("diwall").gr_gid
+    except KeyError:
+        return -1
 
 
 def _ecrire_ligne(entree):
@@ -227,14 +253,23 @@ def _ecrire_ligne(entree):
     d'une rotation logrotate (rename de l'inode courant), sans exiger
     copytruncate. Ne pas introduire un fd persistant de module sans relire
     cette note.
+
+    Permissions : 640 + groupe diwall (C2 v1.15.1).
     """
     path = _journal_path()
     repertoire = os.path.dirname(path)
     if repertoire:
-        os.makedirs(repertoire, exist_ok=True)
+        os.makedirs(repertoire, mode=0o2770, exist_ok=True)
     ligne = json.dumps(entree, ensure_ascii=False) + "\n"
     try:
-        with open(path, "a", encoding="utf-8") as f:
+        fd = os.open(path, os.O_CREAT | os.O_WRONLY | os.O_APPEND, 0o640)
+        gid = _gid_diwall()
+        if gid != -1 and not os.path.exists(path + ".chowned"):
+            try:
+                os.chown(fd, -1, gid)
+            except PermissionError:
+                pass
+        with os.fdopen(fd, "a", encoding="utf-8") as f:
             try:
                 fcntl.flock(f.fileno(), fcntl.LOCK_EX)
                 f.write(ligne)
@@ -247,8 +282,10 @@ def _ecrire_ligne(entree):
         # En cas d'échec du fallback lui-même, on abandonne silencieusement.
         try:
             fb = _fallback_path()
-            os.makedirs(os.path.dirname(fb) or ".", exist_ok=True)
-            with open(fb, "a", encoding="utf-8") as f:
+            fb_dir = os.path.dirname(fb) or "."
+            os.makedirs(fb_dir, mode=0o700, exist_ok=True)
+            fd_fb = os.open(fb, os.O_CREAT | os.O_WRONLY | os.O_APPEND, 0o600)
+            with os.fdopen(fd_fb, "a", encoding="utf-8") as f:
                 f.write(ligne)
                 f.flush()
             print(

@@ -318,6 +318,34 @@ the beginning of every scenario that requires a logged-in session.
 
 ---
 
+## `--ignore-tls-errors` — LAN and internal PKI targets (v1.15.1)
+
+By default, Playwright rejects invalid TLS certificates. This is the secure default.
+
+On internal networks using a self-signed CA (e.g. Step-CA, mkcert, corporate PKI)
+or a LAN device with a self-signed certificate, you may pass:
+
+```bash
+/opt/diwall/venv/bin/python3 /opt/diwall/shot.py \
+  --url https://router.local/ \
+  --ignore-tls-errors
+```
+
+Or via rpa.py:
+```bash
+/opt/diwall/venv/bin/python3 /opt/diwall/rpa.py \
+  --scenario /opt/diwall/scenarios/lan-check.json \
+  --ignore-tls-errors
+```
+
+When active, `boussole.tls_errors_ignored: true` appears in the JSON output.
+
+**Never use on public internet targets.** An invalid TLS certificate on a public
+target is a strong signal of a TLS interception attack (MITM). Do not pass this
+flag unless you have a specific, documented reason for a controlled LAN or dev environment.
+
+---
+
 ## Pre-condition pattern — Securing scenario entry
 
 Before any **mutating action** (delete, submit, write), add an `evaluer` assertion as the
