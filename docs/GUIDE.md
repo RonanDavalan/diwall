@@ -1,159 +1,159 @@
-# Diwall — Guide opérateur humain
+# Diwall — Human operator guide
 
 Version 1.2 — June 2026 (v1.14.0)
 
 ---
 
-## Pourquoi Diwall — ce que vous déléguez réellement
+## Why Diwall — what you actually delegate
 
-### Le problème que Diwall résout
+### The problem Diwall solves
 
-Quand vous travaillez avec un LLM sur une application web, il se produit une asymétrie
-de perception : le modèle lit le code, exécute les commandes, constate les sorties
-textuelles — mais il ne voit pas l'interface que vos utilisateurs voient. Vous, si.
+When you work with an LLM on a web application, a perception asymmetry occurs:
+the model reads code, runs commands, observes textual output — but it does not see
+the interface your users see. You do.
 
-Cette asymétrie crée une forme d'anxiété spécifique : vous ne savez pas si ce que
-le modèle vous décrit correspond à ce que vous verriez dans un navigateur. Pour être
-sûr, vous devez soit lui faire confiance sur parole, soit vérifier vous-même.
+This asymmetry creates a specific form of anxiety: you don't know whether what
+the model describes matches what you would see in a browser. To be sure, you must
+either trust it at its word, or verify it yourself.
 
-Diwall résout ce problème en créant un **référentiel visuel partagé** :
-le modèle capture l'interface avec un navigateur réel (Chromium headless),
-et vous avez accès aux mêmes captures PNG et aux mêmes arbres d'accessibilité.
-Vous ne prenez plus le modèle sur parole — vous constatez le même état que lui.
+Diwall solves this problem by creating a **shared visual reference**:
+the model captures the interface with a real browser (headless Chromium),
+and you have access to the same PNG captures and accessibility trees.
+You no longer take the model at its word — you observe the same state it does.
 
-### Ce que vous déléguez
+### What you delegate
 
-Diwall vous permet de déléguer la **vérification visuelle répétitive et anxiogène** :
+Diwall lets you delegate **repetitive and anxiety-inducing visual verification**:
 
-- Vérifier que 20 pages d'un site s'affichent correctement après un déploiement
-- Confirmer qu'un formulaire de connexion fonctionne sur la bonne interface
-- S'assurer qu'un déploiement n'a pas cassé l'affichage d'une vue critique
-- Valider visuellement qu'une correction est bien visible à l'écran
+- Checking that 20 pages of a site display correctly after a deployment
+- Confirming that a login form works on the right interface
+- Ensuring a deployment did not break the rendering of a critical view
+- Visually validating that a fix is correctly visible on screen
 
-Sans Diwall, ces vérifications vous incombent. Avec Diwall, le modèle les effectue
-et vous en rapporte le résultat — avec preuve visuelle à l'appui.
+Without Diwall, these verifications are your responsibility. With Diwall, the model
+performs them and reports the result — with visual proof.
 
-### Ce que vous conservez
+### What you keep
 
-Vous conservez **la validation de sens de haut niveau** : décider si le résultat
-que le modèle vous présente est acceptable, cohérent avec vos attentes, conforme
-à ce que vos utilisateurs doivent voir. Cette décision-là reste la vôtre.
+You keep **high-level sense validation**: deciding whether the result
+the model presents is acceptable, consistent with your expectations, and in line
+with what your users should see. That decision remains yours.
 
-### Quand Diwall est pertinent
+### When Diwall is the right tool
 
-| Cas d'usage | Diwall adapté ? |
+| Use case | Diwall suitable? |
 |---|---|
-| Validation visuelle post-déploiement | ✓ Oui |
-| Diagnostic d'un affichage cassé | ✓ Oui |
-| Navigation et saisie dans un formulaire (~30 s max) | ✓ Oui |
-| Délégation de vérifications répétitives | ✓ Oui |
-| Opération serveur longue (clonage ~2–5 min) | ✗ Non — timeout Playwright |
-| Suppression ou mutation en lot | ✗ Non — préférer un appel API direct |
-| Workflow avec besoin de rollback | ✗ Non — Diwall ne peut pas annuler |
+| Visual validation after deployment | ✓ Yes |
+| Diagnosing a broken rendering | ✓ Yes |
+| Navigation and form input (~30 s max) | ✓ Yes |
+| Delegating repetitive checks | ✓ Yes |
+| Long server operation (cloning ~2–5 min) | ✗ No — Playwright timeout |
+| Bulk deletion or mutation | ✗ No — prefer a direct API call |
+| Workflow requiring rollback | ✗ No — Diwall cannot undo |
 
-Pour les cas déconseillés, voir `docs/GUIDE_LLM.md` section "When NOT to use Diwall"
-(frictions FR-59 et FR-60 documentées).
-
----
-
-**Ce document est destiné aux opérateurs humains qui utilisent Diwall.**
-
-Il complète le `GUIDE_LLM.md` (destiné aux modèles) avec des exemples concrets,
-des procédures pas-à-pas, et des rappels sur les points qui font trébucher.
+For discouraged cases, see `docs/GUIDE_LLM.md` section "When NOT to use Diwall"
+(frictions FR-59 and FR-60 documented).
 
 ---
 
-## Prérequis avant de démarrer
+**This document is for human operators using Diwall.**
+
+It complements `GUIDE_LLM.md` (intended for models) with concrete examples,
+step-by-step procedures, and reminders on common stumbling points.
+
+---
+
+## Prerequisites before starting
 
 ```bash
-# 1. Vérifier que Diwall répond
+# 1. Verify Diwall responds
 /opt/diwall/venv/bin/python3 /opt/diwall/shot.py \
   --url https://example.com --som --a11y
-# → doit retourner {"succes": true, ...}
+# → must return {"succes": true, ...}
 
-# 2. Vérifier que le vault est monté (si gocryptfs)
+# 2. Verify the vault is mounted (if gocryptfs)
 ls ~/Vaults/Diwall/
-# → doit afficher les fichiers .json, pas le contenu chiffré
+# → must show .json files, not encrypted content
 
-# 3. Vérifier les credentials d'un domaine
+# 3. Verify credentials for a domain
 /opt/diwall/venv/bin/python3 -c "
 import sys; sys.path.insert(0, '/opt/diwall')
 from lib.vault import lire_credential
-print('OK' if lire_credential('target.local', 'password') else 'VIDE')
+print('OK' if lire_credential('target.local', 'password') else 'EMPTY')
 "
 ```
 
 ---
 
-## Configuration du vault par projet
+## Vault configuration per project
 
-Chaque projet peut avoir son propre vault. Deux méthodes :
+Each project can have its own vault. Two methods:
 
-**Méthode 1 — Variable d'environnement directe (one-shot) :**
+**Method 1 — Direct environment variable (one-shot):**
 ```bash
-DIWALL_VAULT_DIR=~/Vaults/MonProjet \
+DIWALL_VAULT_DIR=~/Vaults/MyProject \
   /opt/diwall/venv/bin/python3 /opt/diwall/shot.py --url …
 ```
 
-**Méthode 2 — Fichier `.diwall.conf` projet (recommandé pour un projet récurrent) :**
+**Method 2 — Project `.diwall.conf` file (recommended for recurring projects):**
 ```bash
-# Créer le fichier à la racine du projet
-echo '{"vault_dir": "../MonProjet-vault"}' > ~/git/MonProjet/.diwall.conf
+# Create the file at the project root
+echo '{"vault_dir": "../MyProject-vault"}' > ~/git/MyProject/.diwall.conf
 
-# Puis prefix à chaque invocation (ou export en début de session shell)
-export DIWALL_CONF=~/git/MonProjet/.diwall.conf
+# Then prefix each invocation (or export at the start of the shell session)
+export DIWALL_CONF=~/git/MyProject/.diwall.conf
 /opt/diwall/venv/bin/python3 /opt/diwall/shot.py --url …
 ```
 
-Le `vault_dir` dans `.diwall.conf` peut être un chemin relatif — il est résolu
-par rapport à l'emplacement du fichier `.diwall.conf`.
+The `vault_dir` in `.diwall.conf` can be a relative path — it is resolved
+relative to the location of the `.diwall.conf` file.
 
 ---
 
-## Capturer une page et l'analyser
+## Capturing a page and analysing it
 
 ```bash
-# Vérification rapide (pas de PNG — ~2 s, lecture seule)
+# Quick check (no PNG — ~2 s, read-only)
 /opt/diwall/venv/bin/python3 /opt/diwall/shot.py \
   --url https://target.local/ \
   --mode fast
-# → retourne url_courante, titre_page, a11y_tree dans le JSON
+# → returns url_courante, titre_page, a11y_tree in the JSON
 
-# Capture complète avec éléments numérotés
+# Full capture with numbered elements
 /opt/diwall/venv/bin/python3 /opt/diwall/shot.py \
   --url https://target.local/ \
   --som --a11y
-# La capture PNG est dans /tmp/diwall/capture_<ts>.png
+# The PNG capture is in /tmp/diwall/capture_<ts>.png
 ```
 
-**Ce que vous obtenez :**
-- `boussole.url_courante` + `boussole.titre_page` : URL et titre effectifs après navigation
-- `capture` : chemin du PNG de la page telle qu'elle s'affiche
-- `capture_som` : PNG annoté avec les numéros des éléments cliquables
-- `a11y_tree` : structure de la page en texte (titres, champs, boutons)
+**What you get:**
+- `boussole.url_courante` + `boussole.titre_page`: effective URL and title after navigation
+- `capture`: path to the PNG of the page as rendered
+- `capture_som`: annotated PNG with element numbers
+- `a11y_tree`: page structure in text (headings, fields, buttons)
 
 ---
 
-## Automatiser un formulaire de connexion
+## Automating a login form
 
-**Étape 1** — Préparer les credentials dans le vault.
+**Step 1** — Prepare credentials in the vault.
 
-Le fichier vault se nomme `<hostname>.json` où `hostname` = résultat de
-`urlparse(url).hostname`. Pour `https://app.example.com/`, le fichier est
+The vault file is named `<hostname>.json` where `hostname` = result of
+`urlparse(url).hostname`. For `https://app.example.com/`, the file is
 `app.example.com.json`.
 
 ```json
 {"username": "admin@example.com", "password": "my-secret"}
 ```
 
-**Étape 2** — Explorer la page de login.
+**Step 2** — Explore the login page.
 ```bash
 /opt/diwall/venv/bin/python3 /opt/diwall/shot.py \
   --url https://app.example.com/login/ --som --a11y
 ```
-Ouvrir le PNG annoté (`capture_som`) pour identifier les IDs SoM des champs.
+Open the annotated PNG (`capture_som`) to identify the SoM IDs of the fields.
 
-**Étape 3** — Écrire le scénario.
+**Step 3** — Write the scenario.
 ```bash
 cat > /tmp/login.json << 'EOF'
 {
@@ -164,13 +164,13 @@ cat > /tmp/login.json << 'EOF'
     {"type": "remplir_som", "id": 2, "valeur": "depuis_vault", "vault_cle": "password"},
     {"type": "cliquer_som", "id": 3},
     {"type": "pause",        "ms": 2000},
-    {"type": "capturer",     "nom": "apres-login"}
+    {"type": "capturer",     "nom": "after-login"}
   ]
 }
 EOF
 ```
 
-**Étape 4** — Exécuter.
+**Step 4** — Execute.
 ```bash
 /opt/diwall/venv/bin/python3 /opt/diwall/rpa.py \
   --scenario /tmp/login.json --som
@@ -178,9 +178,9 @@ EOF
 
 ---
 
-## Valider plusieurs pages en une seule invocation
+## Validating multiple pages in a single invocation
 
-Pour vérifier N pages d'un site authentifié sans rejouer le login à chaque fois :
+To check N pages of an authenticated site without replaying the login each time:
 
 ```bash
 cat > /tmp/audit.json << 'EOF'
@@ -204,9 +204,9 @@ EOF
 
 ---
 
-## Extraire une valeur de la page
+## Extracting a value from the page
 
-Pour lire un texte, un compteur ou n'importe quelle valeur du DOM :
+To read a text string, a counter, or any DOM value:
 
 ```bash
 cat > /tmp/extract.json << 'EOF'
@@ -214,29 +214,29 @@ cat > /tmp/extract.json << 'EOF'
 EOF
 /opt/diwall/venv/bin/python3 /opt/diwall/shot.py \
   --url https://target.local/ --actions /tmp/extract.json
-# → résultat dans evaluations[0].valeur
+# → result in evaluations[0].valeur
 ```
 
-**Important** : toujours écrire les scripts JS dans un fichier `--actions`,
-jamais en inline avec `--action` (le shell casse les guillemets imbriqués).
+**Important**: always write JS scripts to an `--actions` file,
+never inline with `--action` (the shell corrupts nested quotes).
 
 ---
 
-## Mettre en place une surveillance visuelle
+## Setting up visual monitoring
 
 ```bash
-# 1. Sauvegarder la référence visuelle
+# 1. Save the visual reference
 /opt/diwall/venv/bin/python3 /opt/diwall/watch.py \
-  --url https://target.local/ --sauver-reference --nom accueil
+  --url https://target.local/ --sauver-reference --nom home
 
-# 2. Comparer ultérieurement (pixel diff)
+# 2. Compare later (pixel diff)
 /opt/diwall/venv/bin/python3 /opt/diwall/watch.py \
   --url https://target.local/ \
-  --comparer-pixel /opt/diwall/references/target.local_accueil/reference.png \
-  --nom accueil
-# → verdict : stable / drift / regression (exit code 0 ou 1)
+  --comparer-pixel /opt/diwall/references/target.local_home/reference.png \
+  --nom home
+# → verdict: stable / drift / regression (exit code 0 or 1)
 
-# 3. Sur une page authentifiée : capturer d'abord avec rpa.py, puis enregistrer
+# 3. On an authenticated page: capture first with rpa.py, then save
 /opt/diwall/venv/bin/python3 /opt/diwall/rpa.py --scenario /tmp/login.json > /tmp/out.json
 CAPTURE=$(python3 -c "import json; d=json.load(open('/tmp/out.json')); print(d['captures_intermediaires'][-1])")
 /opt/diwall/venv/bin/python3 /opt/diwall/watch.py \
@@ -245,56 +245,56 @@ CAPTURE=$(python3 -c "import json; d=json.load(open('/tmp/out.json')); print(d['
 
 ---
 
-## Points d'attention courants
+## Common pitfalls
 
-| Situation | Ce qu'il faut faire |
+| Situation | What to do |
 |---|---|
-| `FileNotFoundError` sur le vault | Vérifier que le fichier JSON est nommé avec le FQDN complet (`urlparse(url).hostname`) |
-| `VaultFermeError` (exit 42) | Monter le vault : `bash scripts/mount-vault.sh` |
-| JSON invalide dans la sortie | Utiliser `2>/dev/null \| tail -1` pour extraire uniquement la ligne JSON |
-| Les IDs SoM sont différents d'une session à l'autre | Normal — les IDs SoM sont recalculés à chaque capture. Ne jamais les réutiliser cross-session |
-| Login suivi d'une redirection Django vers le dashboard | Ne pas utiliser `naviguer` dans une session reprise Django — passer l'URL via `--url` |
-| Formulaire `<select>` non rempli | Utiliser `remplir_som` (pas `remplir`) avec l'ID SoM du `<select>` |
-| Clic sans effet sur un bouton hors viewport | Ajouter `{"type":"defiler","selecteur":"#le-bouton"}` avant le clic |
-| `auth_status: "active"` même sur la page de login | Le sélecteur positif est ambigu (header persistant) — ajouter `--auth-indicator-negative .btn-login` |
-| Éléments Web Components non numérotés par SoM | Ajouter `--shadow-dom` (Angular, Lit, Stencil) |
+| `FileNotFoundError` on vault | Check that the JSON file is named with the full FQDN (`urlparse(url).hostname`) |
+| `VaultFermeError` (exit 42) | Mount the vault: `bash scripts/mount-vault.sh` |
+| Invalid JSON in output | Use `2>/dev/null \| tail -1` to extract only the JSON line |
+| SoM IDs differ between sessions | Expected — SoM IDs are recalculated on each capture. Never reuse them cross-session |
+| Login followed by Django redirect to dashboard | Do not use `naviguer` in a resumed Django session — pass the URL via `--url` |
+| `<select>` form field not filled | Use `remplir_som` (not `remplir`) with the SoM ID of the `<select>` |
+| Click has no effect on out-of-viewport button | Add `{"type":"defiler","selecteur":"#the-button"}` before the click |
+| `auth_status: "active"` even on the login page | Positive selector is ambiguous (persistent header) — add `--auth-indicator-negative .btn-login` |
+| Web Components elements not numbered by SoM | Add `--shadow-dom` (Angular, Lit, Stencil) |
 
 ---
 
-## Désinstaller Diwall
+## Uninstalling Diwall
 
-Le script `scripts/uninstall.sh` supprime l'installation proprement, dans l'ordre inverse
-de `install.sh`.
+The `scripts/uninstall.sh` script removes the installation cleanly, in the reverse
+order of `install.sh`.
 
 ```bash
-# Voir ce qui sera supprimé, sans rien faire
+# See what will be removed, without doing anything
 bash scripts/uninstall.sh --dry-run
 
-# Désinstallation complète (confirmation interactive)
+# Full uninstall (interactive confirmation)
 bash scripts/uninstall.sh
 
-# Sans confirmation (tests à froid, réinstallation enchaînée)
+# Without confirmation (cold tests, chained reinstall)
 bash scripts/uninstall.sh --confirme && bash scripts/install.sh
 ```
 
-**Ce qui est supprimé :**
+**What is removed:**
 
-| Élément | Détail |
+| Item | Detail |
 |---|---|
-| `/opt/diwall/` | Code, venv Python, configuration |
-| `/var/log/diwall/` | Journaux d'opérations |
-| Utilisateur système `diwall` | Créé exclusivement pour Diwall |
-| Groupe système `diwall` | Idem |
-| Appartenance au groupe | Votre compte est retiré du groupe `diwall` |
-| Hook git pre-push | `core.hooksPath` désactivé dans le dépôt source |
+| `/opt/diwall/` | Code, Python venv, configuration |
+| `/var/log/diwall/` | Operation logs |
+| `diwall` system user | Created exclusively for Diwall |
+| `diwall` system group | Same |
+| Group membership | Your account is removed from the `diwall` group |
+| git pre-push hook | `core.hooksPath` disabled in the source repository |
 
-**Ce qui n'est jamais touché :**
-- `~/Vaults/` — vos coffres de credentials
-- `~/git/Diwall/` — les sources git
-- Le cache navigateur Playwright (`~/.cache/ms-playwright/`)
+**What is never touched:**
+- `~/Vaults/` — your credential vaults
+- `~/git/Diwall/` — git sources
+- Playwright browser cache (`~/.cache/ms-playwright/`)
 
-**Captures de preuves (`/var/log/diwall/preuves/`) :** si le répertoire contient des
-captures, il est conservé par défaut avec un avertissement. Pour le supprimer :
+**Evidence captures (`/var/log/diwall/preuves/`):** if the directory contains
+captures, it is preserved by default with a warning. To remove it:
 
 ```bash
 bash scripts/uninstall.sh --confirme --purge-preuves
@@ -302,16 +302,16 @@ bash scripts/uninstall.sh --confirme --purge-preuves
 
 ---
 
-## Consulter l'historique des opérations
+## Consulting the operation history
 
 ```bash
-# Toutes les opérations sur une cible
+# All operations on a target
 /opt/diwall/venv/bin/python3 /opt/diwall/journal.py --cible target.local
 
-# Opérations mutantes uniquement (clics, saisies)
+# Mutating operations only (clicks, form input)
 /opt/diwall/venv/bin/python3 /opt/diwall/journal.py --cible target.local --mutatif
 
-# Depuis une date
+# From a date
 /opt/diwall/venv/bin/python3 /opt/diwall/journal.py --cible target.local \
   --depuis 2026-06-01
 ```

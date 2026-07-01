@@ -1,81 +1,81 @@
-# Diwall — Guide d'exploration et de cartographie
+# Diwall — Exploration and mapping guide
 
 Version 1.1 — June 2026 (v1.14.0)
 
-**Ce document est destiné aux modèles de langage utilisant Diwall.**
+**This document is for language models using Diwall.**
 
-Il décrit le protocole "Exploration avant Exécution" : comment cartographier une
-interface inconnue de façon sobre, puis l'automatiser sans improvisation.
-
----
-
-## Le problème que ce guide résout
-
-Un modèle lancé sur une interface inconnue sans préparation navigue à l'aveugle :
-il tâtonne, retente, consomme des tokens pour redécouvrir ce qu'il aurait pu
-savoir dès le départ. C'est le "canard sans tête".
-
-La solution : **deux modes distincts, deux objectifs distincts.**
+It describes the "Exploration before Execution" protocol: how to map an unknown
+interface soberly, then automate it without improvisation.
 
 ---
 
-## Mode Exploration — Le premier passage
+## The problem this guide solves
 
-**Objectif** : dresser la carte de l'interface, identifier les sélecteurs stables.
+A model launched on an unknown interface without preparation navigates blind:
+it fumbles, retries, burns tokens to rediscover what it could have
+known from the start. This is the "headless chicken" problem.
 
-**Règle** : lecture seule. Aucune action mutante.
+The solution: **two distinct modes, two distinct objectives.**
 
-**Invocations types :**
+---
 
-Exploration légère — vérifier la structure sans PNG (rapide, ~2 s économisées) :
+## Exploration Mode — The first pass
+
+**Objective**: draw the interface map, identify stable selectors.
+
+**Rule**: read-only. No mutating action.
+
+**Typical invocations:**
+
+Light exploration — check structure without PNG (fast, ~2 s saved):
 ```bash
 /opt/diwall/venv/bin/python3 /opt/diwall/shot.py \
   --url https://target.local/ \
   --mode fast
 ```
 
-Exploration complète — PNG annotés + arbre d'accessibilité :
+Full exploration — annotated PNG + accessibility tree:
 ```bash
 /opt/diwall/venv/bin/python3 /opt/diwall/shot.py \
   --url https://target.local/ \
   --som --a11y
 ```
 
-Application Web Components (Angular, Lit, Stencil) :
+Web Components application (Angular, Lit, Stencil):
 ```bash
 /opt/diwall/venv/bin/python3 /opt/diwall/shot.py \
   --url https://target.local/ \
   --som --a11y --shadow-dom
 ```
 
-**Ce qu'on extrait :**
-- `boussole.url_courante` + `boussole.titre_page` → confirmation de l'URL effective et du titre de la page
-- `capture_som` → PNG annoté avec IDs numériques des éléments interactifs
-- `elements_som` → liste JSON des éléments (tag, role, texte, id)
-- `a11y_tree` → arbre d'accessibilité YAML (champs, boutons, titres, structure)
+**What to extract:**
+- `boussole.url_courante` + `boussole.titre_page` → confirmation of effective URL and page title
+- `capture_som` → annotated PNG with numeric IDs on interactive elements
+- `elements_som` → JSON list of elements (tag, role, text, id)
+- `a11y_tree` → YAML accessibility tree (fields, buttons, headings, structure)
 
-**Ce qu'on cherche :**
-1. Les sélecteurs des champs de formulaire (login, mot de passe, etc.)
-2. Les IDs SoM ou attributs stables (`name`, `id`, `aria-label`, `data-*`)
-3. Les éléments bloquants (bandeaux cookie, overlays, headers sticky)
-4. Les comportements de navigation (SPA ou rechargement full HTTP ?)
-5. Si l'interface est une SPA Angular/Lit : présence de Shadow Roots (activer `--shadow-dom`)
+**What to look for:**
+1. Selectors for form fields (login, password, etc.)
+2. SoM IDs or stable attributes (`name`, `id`, `aria-label`, `data-*`)
+3. Blocking elements (cookie banners, overlays, sticky headers)
+4. Navigation behaviour (SPA or full HTTP reload?)
+5. If the interface is an Angular/Lit SPA: presence of Shadow Roots (activate `--shadow-dom`)
 
-**Sortie attendue** : un fichier de scénario JSON dans `scenarios/` ou
+**Expected output**: a JSON scenario file in `scenarios/` or
 `_CADRE/SPECIFICATIONS/PROCEDURES_LLM/instance/`.
 
 ---
 
-## Rédaction de la carte — Le scénario JSON
+## Writing the map — The JSON scenario
 
-Après l'exploration, on fige la procédure dans un fichier de scénario.
+After exploration, the procedure is locked into a scenario file.
 
-**Format de base :**
+**Basic format:**
 ```json
 {
   "nom": "pretix_login",
   "url": "https://target.local/control/login/",
-  "intention": "Login administrateur via vault",
+  "intention": "Administrator login via vault",
   "actions": [
     {"type": "remplir_som", "id": 1, "valeur": "depuis_vault", "vault_cle": "username"},
     {"type": "remplir_som", "id": 2, "valeur": "depuis_vault", "vault_cle": "password"},
@@ -86,55 +86,55 @@ Après l'exploration, on fige la procédure dans un fichier de scénario.
 }
 ```
 
-**Règles de rédaction :**
+**Writing rules:**
 
-| Priorité | Sélecteur | Quand l'utiliser |
+| Priority | Selector | When to use |
 |---|---|---|
-| 1 | ID SoM | Élément visible dans la première capture |
-| 2 | `[name=…]`, `[aria-label=…]`, `[id=…]` | Attribut stable, survit aux rechargements |
-| 3 | `:has-text("…")` | Dernier recours, fragile en cas de traduction |
+| 1 | SoM ID | Element visible in the first capture |
+| 2 | `[name=…]`, `[aria-label=…]`, `[id=…]` | Stable attribute, survives reloads |
+| 3 | `:has-text("…")` | Last resort, fragile under translation |
 
-**Ce qu'on évite :**
-- Les IDs SoM cross-session (non réutilisables entre invocations — REX friction #27)
-- Les sélecteurs positionnels (`:first-child`, `:nth-child`) — fragiles
-- Les IDs générés aléatoirement par les frameworks JS
+**What to avoid:**
+- Cross-session SoM IDs (not reusable between invocations — REX friction #27)
+- Positional selectors (`:first-child`, `:nth-child`) — fragile
+- Framework-generated random IDs
 
 ---
 
-## Mode Exécution — Les passages suivants
+## Execution Mode — Subsequent passes
 
-**Objectif** : rejouer la carte sans improvisation.
+**Objective**: replay the map without improvisation.
 
-**Invocation :**
+**Invocation:**
 ```bash
 /opt/diwall/venv/bin/python3 /opt/diwall/rpa.py \
   --scenario /opt/diwall/scenarios/pretix_login.json --som
 ```
 
-**Zéro tâtonnement.** Le scénario a été validé en exploration. Si le scénario
-échoue, c'est un signal : l'interface a changé. Il faut refaire une exploration,
-pas improviser en ligne.
+**Zero fumbling.** The scenario was validated in exploration. If the scenario
+fails, it is a signal: the interface has changed. Re-run exploration,
+do not improvise in-line.
 
 ---
 
-## Traiter les obstacles courants
+## Handling common obstacles
 
-### Bannière cookie / overlay bloquant
+### Cookie banner / blocking overlay
 
-En exploration, noter la classe CSS de l'overlay. L'ajouter dans le scénario
-avec `nettoyer_overlay` **avant** toute action et avant la génération SoM.
+In exploration, note the CSS class of the overlay. Add it to the scenario
+with `nettoyer_overlay` **before** any action and before SoM generation.
 
 ```json
 {"type": "nettoyer_overlay", "selecteur": ".cookie-consent-banner, #gdpr-overlay"}
 ```
 
-**Important :** `nettoyer_overlay` exige un sélecteur explicite. Ne jamais
-activer dans les scénarios `watch.py` (masquerait les régressions visuelles).
+**Important:** `nettoyer_overlay` requires an explicit selector. Never
+activate in `watch.py` scenarios (would mask visual regressions).
 
-### Attentes sur applications modernes (SPAs)
+### Waiting in modern applications (SPAs)
 
-Remplacer les `pause` arbitraires par des primitives d'attente sémantiques
-*(disponibles en v1.9)* :
+Replace arbitrary `pause` with semantic wait primitives
+*(available in v1.9)* :
 
 ```json
 {"type": "attendre_url",               "motif": "/dashboard"},
@@ -143,63 +143,63 @@ Remplacer les `pause` arbitraires par des primitives d'attente sémantiques
 {"type": "attendre_reseau_calme",      "timeout_ms": 10000}
 ```
 
-En attendant la v1.9, `{"type": "pause", "ms": 2000}` après un submit reste le
-workaround établi (REX friction #16).
+Until v1.9, `{"type": "pause", "ms": 2000}` after a submit remains the
+established workaround (REX friction #16).
 
-### Application Django avec redirections sudo
+### Django application with sudo redirects
 
-Les applications Django (Pretix, Django admin) redirigent certaines URLs
-protégées via un middleware sudo. Séquence obligatoire en Mode A unique :
-`login → reauth → cible` sans session intermédiaire.
+Django applications (Pretix, Django admin) redirect some protected URLs
+via a sudo middleware. Mandatory sequence in a single Mode A call:
+`login → reauth → target` without intermediate session.
 
-Ne jamais utiliser `naviguer` dans une session reprise sur Django — il redirige
-vers le dashboard (REX friction #50). Passer l'URL directement via `--url`.
+Never use `naviguer` in a resumed session on Django — it redirects
+to the dashboard (REX friction #50). Pass the URL directly via `--url`.
 
 ---
 
-## Mémoire sémantique — Lier scénario et documentation
+## Semantic memory — Linking scenario and documentation
 
-**Séparation des responsabilités :**
-Diwall fournit la **mécanique** (`/opt/diwall/skills/`, `journal.py --exporter-skill`).
-La **mémoire sémantique** des scénarios validés appartient au projet qui utilise Diwall,
-dans son propre `_CADRE/SPECIFICATIONS/PROCEDURES_LLM/`.
+**Separation of concerns:**
+Diwall provides the **mechanics** (`/opt/diwall/skills/`, `journal.py --exporter-skill`).
+The **semantic memory** of validated scenarios belongs to the project using Diwall,
+in its own `_CADRE/SPECIFICATIONS/PROCEDURES_LLM/`.
 
-Pour chaque scénario validé, créer une fiche `SKILL_<nom>.md` dans le `_CADRE/`
-du **projet utilisateur** (pas dans le `_CADRE/` de Diwall) :
+For each validated scenario, create a `SKILL_<name>.md` file in the `_CADRE/`
+of the **user project** (not in Diwall's `_CADRE/`):
 
-**`SKILL_pretix_login.md`** (dans le _CADRE de votre projet) :
+**`SKILL_pretix_login.md`** (in your project's _CADRE):
 ```markdown
 ---
 skill: pretix-login
 scenario: pretix_login.json
 cible: __HOST_SERVICE__
 type: skill-rejoue
-derniere-validation: AAAA-MM-JJ
+derniere-validation: YYYY-MM-DD
 ---
 
-Login administrateur Pretix via vault credentials.
-Prérequis : vault monté, fichier `__HOST_SERVICE__.json` présent.
+Administrator Pretix login via vault credentials.
+Prerequisites: vault mounted, `__HOST_SERVICE__.json` file present.
 ```
 
-La fiche est indexée par le RAG du projet. L'agent retrouve le skill par
-recherche sémantique, lit la clé `scenario:`, exécute avec `rpa.py --scenario`.
+The file is indexed by the project's RAG. The agent finds the skill by
+semantic search, reads the `scenario:` key, executes with `rpa.py --scenario`.
 
-Le gabarit de référence est `SKILL_TEMPLATE.md` dans `_CADRE/SPECIFICATIONS/PROCEDURES_LLM/`.
+The reference template is `SKILL_TEMPLATE.md` in `_CADRE/SPECIFICATIONS/PROCEDURES_LLM/`.
 
 ---
 
-## Checklist d'exploration
+## Exploration checklist
 
-Avant de rédiger un scénario :
+Before writing a scenario:
 
-- [ ] `shot.py --mode fast` lancé sur l'URL cible pour vérifier URL et titre (boussole)
-- [ ] `shot.py --som --a11y` lancé pour la carte visuelle complète
-- [ ] Si Angular / Lit / Web Components : relancer avec `--shadow-dom` pour les éléments dans les Shadow Roots
-- [ ] PNG annoté lu et éléments identifiés
-- [ ] Sélecteurs stables notés (attributs `name`, `id`, `aria-label`)
-- [ ] Overlays bloquants repérés et leurs sélecteurs CSS notés
-- [ ] Comportement SPA ou full-HTTP déterminé (`boussole.url_courante` vs `a11y_tree` heading)
-- [ ] Si auth_indicator nécessaire : tester `--auth-indicator <sel>` [+ `--auth-indicator-negative <sel>` si sélecteur ambigu]
-- [ ] Credentials vérifiés dans le vault pour ce domaine (`urlparse(url).hostname`)
-- [ ] Scénario JSON rédigé et sauvegardé dans `scenarios/`
-- [ ] Fiche `SKILL_<nom>.md` créée dans le `_CADRE/` du projet utilisateur (pas dans le `_CADRE/` de Diwall)
+- [ ] `shot.py --mode fast` run on the target URL to verify URL and title (boussole)
+- [ ] `shot.py --som --a11y` run for the full visual map
+- [ ] If Angular / Lit / Web Components: re-run with `--shadow-dom` for elements inside Shadow Roots
+- [ ] Annotated PNG read and elements identified
+- [ ] Stable selectors noted (attributes `name`, `id`, `aria-label`)
+- [ ] Blocking overlays spotted and their CSS selectors noted
+- [ ] SPA or full-HTTP behaviour determined (`boussole.url_courante` vs `a11y_tree` heading)
+- [ ] If auth_indicator needed: test `--auth-indicator <sel>` [+ `--auth-indicator-negative <sel>` if selector is ambiguous]
+- [ ] Credentials verified in vault for this domain (`urlparse(url).hostname`)
+- [ ] JSON scenario written and saved in `scenarios/`
+- [ ] `SKILL_<name>.md` file created in the user project's `_CADRE/` (not in Diwall's `_CADRE/`)

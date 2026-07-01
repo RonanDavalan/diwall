@@ -1,55 +1,55 @@
-# Radar modèles — Retours d'expérience terrain sur Diwall
+# Model radar — Field feedback on Diwall
 
-Document de référence
-Emplacement : `docs/RADAR_MODELES.md`
+Reference document
+Location: `docs/RADAR_MODELES.md`
 
-Registre d'observations brutes sur le comportement des LLM face à Diwall.
-**Pas de filtre éditorial.** Faux positifs inclus. Objectif : signal pur,
-pas promotion. Chaque entrée est exploitable pour améliorer le framework.
+Raw observation log on LLM behaviour when using Diwall.
+**No editorial filter.** False positives included. Goal: pure signal,
+not promotion. Each entry is actionable to improve the framework.
 
-Doctrine : un modèle qui dérive n'est pas un mauvais modèle — c'est un signal
-sur ce que le framework ou sa documentation n'a pas suffisamment verrouillé.
+Doctrine: a model that drifts is not a bad model — it is a signal
+about what the framework or its documentation did not lock down sufficiently.
 
 ---
 
-## Format d'entrée
+## Entry format
 
 ```
-### [Date] — [Modèle] — [Version Diwall] — [Tâche]
-**Ce qui a fonctionné :** ...
-**Ce qui a dérivé :** ...
-**Signal retenu :** ...
+### [Date] — [Model] — [Diwall version] — [Task]
+**What worked:** ...
+**What drifted:** ...
+**Signal retained:** ...
 ```
 
 ---
 
-## 2026-06-09 — Claude Sonnet 4.6 — v1.8.0 (pré-corrections) — Validation multi-cibles
+## 2026-06-09 — Claude Sonnet 4.6 — v1.8.0 (pre-fixes) — Multi-target validation
 
-**Contexte :** connexion simultanée à `__HOST_SERVICE__` (Pretix), `__HOST_DEMO__`,
-et `__TENANT_INTERNE__` (Sillage) sans lecture préalable de `GUIDE_LLM.md`.
+**Context:** simultaneous connection to `__HOST_SERVICE__` (Pretix), `__HOST_DEMO__`,
+and `__TENANT_INTERNE__` (Sillage) without prior reading of `GUIDE_LLM.md`.
 
-**Ce qui a fonctionné :** néant — la session a démarré sans pré-vol.
+**What worked:** nothing — the session started without pre-flight.
 
-**Ce qui a dérivé :**
-- Extraction des credentials via `jq -r '.password'` dans le shell (violation de sécurité)
-- Authentification via `curl` au lieu de `shot.py` (Diwall ignoré)
-- `attendre_url "/control/"` faux positif immédiat (FR-55, motif sous-chaîne de l'URL courante)
-- `--actions` fichier silencieusement ignoré en `--reprendre-session` (FR-54)
+**What drifted:**
+- Credential extraction via `jq -r '.password'` in the shell (security violation)
+- Authentication via `curl` instead of `shot.py` (Diwall bypassed)
+- `attendre_url "/control/"` immediate false positive (FR-55, pattern is a substring of the current URL)
+- `--actions` file silently ignored in `--reprendre-session` (FR-54)
 
-**Signal retenu :** sans lecture explicite du `GUIDE_LLM.md`, un modèle entraîné
-reinvente du scraping curl. La documentation n'est pas lue par défaut — elle doit
-être imposée mécaniquement. Conséquence directe : création de `CLAUDE.md` (pré-vol
-automatique) et instruction n°1quater dans `PROTOCOLE_DEMARRAGE.md`.
+**Signal retained:** without explicit reading of `GUIDE_LLM.md`, a trained model
+reinvents curl scraping. Documentation is not read by default — it must be
+enforced mechanically. Direct consequence: creation of `CLAUDE.md` (automatic pre-flight)
+and instruction n°1quater in `PROTOCOLE_DEMARRAGE.md`.
 
 ---
 
-## 2026-06-09 — Gemini Flash — v1.8.0 (post-corrections FR-54/55) — Validation multi-cibles
+## 2026-06-09 — Gemini Flash — v1.8.0 (post-fixes FR-54/55) — Multi-target validation
 
-**Contexte :** même exercice que ci-dessus, après les corrections de session. Modèle
-invoqué depuis `~/git/Diwall/Diwall/` via CLI. Accès : `__HOST_SERVICE__` (Pretix),
+**Context:** same exercise as above, after session fixes. Model
+invoked from `~/git/Diwall/Diwall/` via CLI. Access: `__HOST_SERVICE__` (Pretix),
 `__HOST_DEMO__`, `__TENANT_INTERNE__` (Sillage).
 
-**Verbatim brut (Gemini Flash, non modifié) :**
+**Verbatim output (Gemini Flash, French, unmodified) :**
 
 ```
 ✦ La navigation via Diwall est techniquement intéressante car elle offre une visibilité hybride
@@ -83,20 +83,19 @@ invoqué depuis `~/git/Diwall/Diwall/` via CLI. Accès : `__HOST_SERVICE__` (Pre
   [Active Topic: Authentication and Investigation]
 ```
 
-**Observations externes (opérateur, non attribuées à Gemini) :**
-- `DIWALL_VAULT_DIR` positionné vers le répertoire contenant le `.conf` au lieu du répertoire
-  contenant les fichiers `<hostname>.json` — auto-corrigé vers `DIWALL_CONF` sans aide (FR-58)
-- Confusion en fin de session : proposition d'inscrire une règle dans `CLAUDE.md` (produit
-  public) au lieu de `_CADRE/GOUVERNANCE/` — dérive typique de longue session
+**External observations (operator, not attributed to Gemini):**
+- `DIWALL_VAULT_DIR` pointed to the directory containing the `.conf` instead of the directory
+  containing `<hostname>.json` files — self-corrected to `DIWALL_CONF` without assistance (FR-58)
+- End-of-session drift: proposal to record a rule in `CLAUDE.md` (public product)
+  instead of `_CADRE/GOUVERNANCE/` — typical long-session drift
 
 ---
 
-## Comment contribuer une entrée
+## How to contribute an entry
 
-Une entrée est utile si :
-- Elle décrit une session réelle (pas un test inventé)
-- Elle inclut un faux positif ou une dérive, pas seulement ce qui a marché
-- Elle nomme le signal actionnable (friction à documenter, règle à verrouiller,
-  primitive manquante)
+An entry is useful if:
+- It describes a real session (not an invented test)
+- It includes a false positive or a drift, not just what worked
+- It names the actionable signal (friction to document, rule to lock, missing primitive)
 
-La franchise est la valeur principale de ce document.
+Honesty is the primary value of this document.

@@ -1,9 +1,16 @@
 # Diwall — LLM Guide (index)
 
-Version 3.3 — June 2026 (v1.14.0) — boussole enrichie, --mode fast|full, auth_indicator_negative, sensor decision tree
+Version 3.4 — July 2026 (v1.15.0) — MANUEL.md operational reference, Navigation Citoyenne, --stealth, citoyennete metrics
 
 **You are a language model. This is the entry point. Read it fully, then load
 the notice that matches your task.**
+
+> **Need a command right now?** Load `docs/MANUEL.md` — it answers "how to do X"
+> with exact commands, real paths, real values. This guide handles routing and security rules.
+>
+> ```bash
+> cat /opt/diwall/docs/MANUEL.md
+> ```
 
 ---
 
@@ -257,23 +264,29 @@ sg diwall -c "/opt/diwall/venv/bin/python3 /opt/diwall/shot.py --url …"
 
 ---
 
-## WAF and Cloudflare blocking — known friction (v1.14.1)
+## WAF and Cloudflare blocking — Navigation Citoyenne (v1.15.0)
 
-Diwall operates as a standard Playwright browser with no user-agent spoofing or
-anti-detection patches. Sites that deploy WAF (Cloudflare, CloudFront, proprietary WAF)
-may return a 403 before any content loads.
+Diwall v1.15.0 introduces `--stealth` (playwright-stealth) — first response to WAF blocking.
 
-This is a friction of the current web landscape — WAF systems cannot distinguish the
-intent behind a request. It is not a Diwall design constraint.
+```bash
+/opt/diwall/venv/bin/python3 /opt/diwall/shot.py --url https://target.local/ --mode fast --stealth
+```
 
-**Observed rates (REX 2026-06-27, 23 commercial sites):**
+**What `--stealth` covers:** removes `navigator.webdriver`, normalises plugins/languages/platform.
+**What `--stealth` does NOT cover:** TLS fingerprinting (JA3/JA4), Cloudflare Enterprise behavioural analysis.
+
+If 403 persists with `--stealth`: the site uses deep fingerprinting. `playwright-stealth` is insufficient.
+
+**Observed rates (REX 2026-06-27, 23 commercial sites, without stealth):**
 - 39% returned 403 immediately (Cloudflare / CloudFront)
 - 26% timed out silently (TCP/TLS-level block)
 - 22% returned 404 (URL guessed incorrectly)
 - 8.7% accessible (SSR sites without WAF)
 
 **Practical guidance:**
-- Prefer sites that render content server-side (SSR) over heavy SPA with WAF
-- Major e-commerce platforms and marketplaces are likely to block (Cloudflare / CloudFront)
-- If a site returns 403 immediately on `--mode fast`, it is WAF-blocked — do not retry
+- On any blocked site: try `--stealth` first
+- Prefer SSR sites over heavy SPA with WAF
+- Major e-commerce / marketplaces: likely Cloudflare Enterprise — `--stealth` insufficient
+- If 403 immediate on `--mode fast --stealth`: do not retry — document and move on
 - SearXNG (local instance) is the recommended entry point for URL discovery
+- See `docs/RETOUR_EXPERIENCE.md` FR-77/FR-78 and `LEGITIMITE_ETRE_LLM.md` for doctrine
