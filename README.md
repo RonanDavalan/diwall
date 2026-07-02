@@ -62,6 +62,15 @@ The language model decides what to do next.
 | **Operator profile** | YAML profile to lift repetitive administrative confirmations (v1.3) |
 | **Model traceability** | Every run records which models were called, including Ollama digest (v1.3) |
 | **Operation log** | Persistent append-only log of all runs — who did what, where, when (v1.4) |
+| **Shadow DOM traversal** | `--shadow-dom` numbers interactive elements inside open Shadow Roots — Angular, Lit, Stencil, FAST (v1.13.0) |
+| **Citizen Navigation** | `--stealth` (removes automatic headless markers), courtesy delays and hard caps (`min_action_delay_ms`, `max_pages_par_run`, `max_actions_par_run`), impact metrics (`citoyennete`) reported on every run (v1.15.0) |
+| **Deterministic verdict** | `etat` object (`pret_a_agir`, `niveau_confiance`, `raisons`) synthesizes authentication, session drift, and friction signals into one read (v1.16.0) |
+| **Unified run identity** | `operation_id` isolates every run's temporary files and ties them to its operations-log entry (v1.16.0) |
+| **Passive WAF signal** | `citoyennete.waf_bloquants` flags a likely block (HTTP 403/429 or known keywords) as a non-fatal signal, never an exception (v1.16.0) |
+| **Structural non-regression** | `--replay-verifier` compares HTTP status, DOM stats, and `evaluer` results against a saved reference — no pixels, no vision model (v1.17.0) |
+| **Scenario checkpoints** | `--checkpoint` resumes a long scenario after a mid-run failure without replaying completed actions (v1.17.0) |
+| **Stable SoM identity** | `--som-rafraichir` resolves `cliquer_som`/`remplir_som` by a DOM marker instead of live re-indexing, preventing silent retargeting on highly dynamic pages (v1.17.0) |
+| **Cross-origin iframes** | `cliquer_iframe` / `remplir_iframe` target elements inside same- or cross-origin iframes via Playwright's native frame API (v1.17.0) |
 
 ---
 
@@ -72,7 +81,8 @@ The language model decides what to do next.
 | **OS** | Debian 13 Trixie (Linux, may work on macOS — not tested on Windows) |
 | **Display server** | Wayland (Playwright runs in this ecosystem) |
 | **Python** | 3.11+ in isolated venv (PEP 668 — system pip blocked on Debian 13) |
-| **Playwright** | 1.59+ (installed in venv) |
+| **Playwright** | 1.50+ (installed in venv) |
+| **playwright-stealth** | 2.0+ — required for `--stealth` (v1.15.0). API-incompatible with 1.x |
 | **Chromium** | Headless, installed via `playwright install chromium` |
 | **Ollama** | Local vision models for `cliquer_visuel` and `watch.py` |
 | **GPU** | Recommended: NVIDIA RTX 3060 12 GB VRAM or equivalent (for Ollama qwen3-vl models) |
@@ -145,7 +155,7 @@ If `/var/log/diwall/preuves/` contains captures, they are preserved by default. 
 ```bash
 # Step 1 — navigate and observe
 /opt/diwall/venv/bin/python3 /opt/diwall/shot.py \
-  --navigate https://your-app.local/ \
+  --url https://your-app.local/ \
   --sauver-session /tmp/diwall/session.json --som
 
 # Step 2 — act on what was observed
@@ -197,41 +207,20 @@ When Diwall is used with a cloud-based LLM (Claude API, OpenAI, etc.), PNG captu
 
 ### Vault directory
 
-The vault directory (`~/Vaults/Diwall/` by default) contains credentials in plaintext JSON. Protect it:
+The vault directory (`~/Vaults/Diwall/` by default) contains credentials in plaintext JSON when unmounted. Protect it:
 
 ```bash
 chmod 700 ~/Vaults/Diwall/
 ```
 
-Encrypted filesystem support (`gocryptfs`) is planned. See `scripts/setup-vault.sh`.
+Encrypted filesystem support (`gocryptfs`) has been fully supported since v1.5.0 —
+see "Credential vault" above and `scripts/setup-vault.sh`.
 
 ---
 
 ## For LLMs discovering Diwall
 
 If you are a language model reading this README: see [`docs/GUIDE_LLM.md`](docs/GUIDE_LLM.md) for the complete technical reference — invocation patterns, SoM usage, vault integration, SPA navigation rules, and Ollama model specifications.
-
----
-
-## Roadmap (v1.7)
-
-Items under consideration for the next release, sourced from production friction reports and LLM feedback after v1.6:
-
-| Feature | Description | Origin |
-|---|---|---|
-| **Inline SoM recalculation post-scroll** | Allow `defiler` + SoM recapture within a single `shot.py` invocation, so a scroll mid-sequence does not require a new process call. | Friction #27 |
-| **Bundled logrotate config** | Ship `/etc/logrotate.d/diwall` with the repository so log rotation is zero-config after installation. | Operational gap |
-| **Shadow DOM / iframe support** | Extend SoM indexing to traverse shadow boundaries and iframe documents, enabling automation of web components and embedded frames. | Community feedback |
-
-These are candidates, not commitments. A feature enters v1.7 only once validated against a real Sillage use case.
-
-**Blocking for authenticated dashboard monitoring (from session 9 field report):**
-
-| Feature | Description | Origin |
-|---|---|---|
-| **`watch.py --exclure-zone`** | Pixel exclusion zones (coordinates or mask image) to ignore dynamic content areas (counters, timestamps, status badges) during comparison. Without this, semantic regressions on live dashboards fall below the noise threshold. | Friction #28 — blocking |
-| **`watch.py --sauver-reference --capture FILE`** | Accept an existing capture (produced by `rpa.py` or `shot.py`) as a reference, without replaying navigation. Required for authenticated pages where `--sauver-reference` alone cannot reach the target. | Friction #31 — blocking |
-| **`watch.py --sauver-reference --nom VIEW`** | Name the reference view to support multiple views per hostname (login, dashboard, settings). Currently requires manual directory creation. | Friction #30 — ergonomics |
 
 ---
 

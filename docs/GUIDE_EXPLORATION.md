@@ -1,6 +1,6 @@
 # Diwall — Exploration and mapping guide
 
-Version 1.1 — June 2026 (v1.14.0)
+Version 1.2 — July 2026 (v1.17.1) — iframe and highly-dynamic-page considerations
 
 **This document is for language models using Diwall.**
 
@@ -60,6 +60,11 @@ Web Components application (Angular, Lit, Stencil):
 3. Blocking elements (cookie banners, overlays, sticky headers)
 4. Navigation behaviour (SPA or full HTTP reload?)
 5. If the interface is an Angular/Lit SPA: presence of Shadow Roots (activate `--shadow-dom`)
+6. Presence of `<iframe>` elements (same or cross-origin) — note the frame's own CSS
+   selector for `cliquer_iframe`/`remplir_iframe` (v1.17.0). SoM does not number
+   iframe content.
+7. If the page mutates frequently (live counters, async content insertion) between
+   capture and action: plan on `--som-rafraichir` (v1.17.0) for the execution scenario.
 
 **Expected output**: a JSON scenario file in `scenarios/` or
 `_CADRE/SPECIFICATIONS/PROCEDURES_LLM/instance/`.
@@ -195,6 +200,7 @@ Before writing a scenario:
 - [ ] `shot.py --mode fast` run on the target URL to verify URL and title (boussole)
 - [ ] `shot.py --som --a11y` run for the full visual map
 - [ ] If Angular / Lit / Web Components: re-run with `--shadow-dom` for elements inside Shadow Roots
+- [ ] If `<iframe>` elements are present: note their CSS selector for `cliquer_iframe`/`remplir_iframe`
 - [ ] Annotated PNG read and elements identified
 - [ ] Stable selectors noted (attributes `name`, `id`, `aria-label`)
 - [ ] Blocking overlays spotted and their CSS selectors noted
