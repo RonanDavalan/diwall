@@ -1,7 +1,7 @@
 # Diwall — Monitoring guide (watch.py, long ops, screenshot timeouts, journal)
 
-<!-- notice-version: 1.4 -->
-Version 1.4 — July 2026 (v1.16.0) — operation_id row, etat deterministic verdict
+<!-- notice-version: 1.5 -->
+Version 1.5 — July 2026 (v1.17.0) — --replay-verifier structural non-regression
 
 Load this notice when: watch.py, pixel diff, long-running operations, `--screenshot-timeout`,
 interval_capture, journal.py, FN7/FN8/FN9.

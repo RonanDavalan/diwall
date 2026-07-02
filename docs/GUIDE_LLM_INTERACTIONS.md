@@ -1,7 +1,7 @@
 # Diwall — Interactions guide (SoM, selectors, dialogs, assertions)
 
-<!-- notice-version: 1.3 -->
-Version 1.3 — July 2026 (v1.15.2) — data-testid priority, diagnostic-driven strategy, perceptual fallback ladder
+<!-- notice-version: 1.4 -->
+Version 1.4 — July 2026 (v1.17.0) — --som-rafraichir stable identity, cross-origin iframe primitives
 
 Load this notice when: timeout on `cliquer`, CSS/showModal dialog, SoM IDs, strict mode
 violation, nth-match error, evaluer assertions, DOM mutations.

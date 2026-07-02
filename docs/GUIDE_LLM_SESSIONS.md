@@ -1,7 +1,7 @@
 # Diwall — Sessions guide (vault, credentials, SPA, MFA, multi-page)
 
-<!-- notice-version: 1.3 -->
-Version 1.3 — July 2026 (v1.15.2) — stealth + shadow-dom compatibility note
+<!-- notice-version: 1.4 -->
+Version 1.4 — July 2026 (v1.17.0) — checkpoint section for long scenarios
 
 Load this notice when: vault credentials, `--secrets`, session persistence, SPA navigation,
 multi-page flows, MFA/TOTP, auth_indicator, --no-capture.

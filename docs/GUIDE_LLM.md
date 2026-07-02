@@ -193,9 +193,9 @@ Already in an error? Route by symptom, not by task type:
 
 | Notice | Load when | Version |
 |---|---|---|
-| `GUIDE_LLM_INTERACTIONS.md` | Timeout on `cliquer`, CSS/showModal dialog, SoM IDs, strict mode violation, nth-match error, evaluer assertions, DOM mutations, Shadow DOM (`--shadow-dom`) | v1.3 |
-| `GUIDE_LLM_SESSIONS.md` | Vault credentials, `--secrets`, session persistence, SPA navigation, multi-page flows, MFA/TOTP, auth_indicator, auth_indicator_negative, --no-capture | v1.3 |
-| `GUIDE_LLM_MONITORING.md` | watch.py, pixel diff, long-running operations, `--screenshot-timeout`, interval_capture, journal.py | v1.4 |
+| `GUIDE_LLM_INTERACTIONS.md` | Timeout on `cliquer`, CSS/showModal dialog, SoM IDs, strict mode violation, nth-match error, evaluer assertions, DOM mutations, Shadow DOM (`--shadow-dom`), cross-origin iframes | v1.4 |
+| `GUIDE_LLM_SESSIONS.md` | Vault credentials, `--secrets`, session persistence, SPA navigation, multi-page flows, MFA/TOTP, auth_indicator, auth_indicator_negative, --no-capture, --checkpoint | v1.4 |
+| `GUIDE_LLM_MONITORING.md` | watch.py, pixel diff, long-running operations, `--screenshot-timeout`, interval_capture, journal.py, --replay-verifier | v1.5 |
 
 > **Version check:** the version column is canonical. If your local copy of a notice shows
 > a lower version, reload it. Notice versions increment independently of Diwall releases.
