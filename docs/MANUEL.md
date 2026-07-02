@@ -1,6 +1,6 @@
 # Diwall — Operational manual
 
-**Version 1.17.0 — July 2026**
+**Version 1.17.1 — July 2026**
 
 This document answers one question: **how to do X with Diwall**.
 
@@ -49,7 +49,7 @@ Expected result: JSON on stdout with `"succes": true`.
 ```bash
 # Verify the installed version
 grep "__version__" /opt/diwall/shot.py
-# → __version__ = "1.17.0"
+# → __version__ = "1.17.1"
 
 # Verify playwright-stealth is available (v1.15.0)
 /opt/diwall/venv/bin/python3 -c "import playwright_stealth; print('stealth OK')"
@@ -199,22 +199,45 @@ Each run returns `citoyennete` in (JSON root and inside boussole):
 | `duree_totale_ms` | Total run duration |
 | `plafond_atteint` | `"max_pages_par_run"` or `"max_actions_par_run"` if early stop |
 
-### 3d. Stealth benchmark (provided scenario)
+### 3d. Stealth benchmark — quantitative (v1.17.1)
+
+Prefer counting concrete fingerprint signals over comparing screenshots by
+eye — this is the method used to verify the v1.17.0 `playwright-stealth`
+API-compatibility fix (`docs/RETOUR_EXPERIENCE.md` FR-79):
 
 ```bash
-# Baseline — state without stealth
-/opt/diwall/venv/bin/python3 /opt/diwall/rpa.py \
-  --scenario /opt/diwall/scenarios/test_stealth.json \
-  --output-dir /tmp/diwall/stealth_baseline
+# Without stealth
+/opt/diwall/venv/bin/python3 /opt/diwall/shot.py \
+  --url https://bot.sannysoft.com --no-capture --timeout 20000 \
+  --actions '[{"type":"evaluer","script":"navigator.webdriver"},
+               {"type":"evaluer","script":"document.querySelectorAll(\"td.failed\").length"},
+               {"type":"evaluer","script":"document.querySelectorAll(\"td.passed\").length"}]'
 
 # With stealth
-/opt/diwall/venv/bin/python3 /opt/diwall/rpa.py \
-  --scenario /opt/diwall/scenarios/test_stealth.json \
-  --output-dir /tmp/diwall/stealth_with \
-  --stealth
+/opt/diwall/venv/bin/python3 /opt/diwall/shot.py \
+  --url https://bot.sannysoft.com --no-capture --stealth --timeout 20000 \
+  --actions '[{"type":"evaluer","script":"navigator.webdriver"},
+               {"type":"evaluer","script":"document.querySelectorAll(\"td.failed\").length"},
+               {"type":"evaluer","script":"document.querySelectorAll(\"td.passed\").length"}]'
 ```
 
-Compare the `capture_sannysoft_*.png` and `capture_intoli_*.png` captures between the two directories.
+Read the three values in `evaluations[].valeur`: `navigator.webdriver` should
+go from `true` to `false`, `td.failed` should drop toward `0`. Reference
+measurement (v1.17.0 fix, session 47): 12 failed → 0 failed.
+
+For a qualitative second opinion, the provided scenario still produces
+screenshots to inspect:
+
+```bash
+/opt/diwall/venv/bin/python3 /opt/diwall/rpa.py \
+  --scenario /opt/diwall/scenarios/test_stealth.json \
+  --output-dir /tmp/diwall/stealth_with --stealth
+```
+
+`capture_sannysoft_*.png` and `capture_intoli_*.png` land in that directory.
+Note: both target pages discuss bot detection in their own content, which
+can trigger `citoyennete.waf_bloquants` as a false positive (section 3e) —
+expected on this specific benchmark, not a sign of an actual block.
 
 ### 3e. WAF detection signal (v1.16.0)
 
@@ -1024,7 +1047,7 @@ Propagates all relevant shot.py flags, plus:
     "citoyennete": { "pages_visitees": 0, "actions_executees": 3, "duree_totale_ms": 2400, "indice_agressivite": 0.33 }
   },
   "diwall_meta": {
-    "version_shot": "1.17.0",
+    "version_shot": "1.17.1",
     "profil": "operator",
     "modeles_appeles": []
   }

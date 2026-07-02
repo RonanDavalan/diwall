@@ -1,6 +1,6 @@
 # Diwall — Human operator guide
 
-Version 1.2 — June 2026 (v1.14.0)
+Version 1.3 — July 2026 (v1.17.1) — Citizen Navigation, pitfalls table extended
 
 ---
 
@@ -38,6 +38,18 @@ performs them and reports the result — with visual proof.
 You keep **high-level sense validation**: deciding whether the result
 the model presents is acceptable, consistent with your expectations, and in line
 with what your users should see. That decision remains yours.
+
+### Citizen Navigation (v1.15.0)
+
+Diwall does not disguise its identity to bypass bot detection. `--stealth`
+removes automatic technical markers (`navigator.webdriver`) that block
+headless browsers regardless of intent — it does not change the operator's
+IP, identity, or the fact that the run is declared. In exchange, every run
+reports its own footprint (`citoyennete`: pages visited, actions executed,
+duration) and respects configurable courtesy delays and hard caps
+(`diwall.conf [navigation]`). The right to navigate and the duty to navigate
+measurably are treated as inseparable — see `docs/RETOUR_EXPERIENCE.md`
+FR-77/FR-78/FR-79 for the field context that shaped this.
 
 ### When Diwall is the right tool
 
@@ -258,6 +270,10 @@ CAPTURE=$(python3 -c "import json; d=json.load(open('/tmp/out.json')); print(d['
 | Click has no effect on out-of-viewport button | Add `{"type":"defiler","selecteur":"#the-button"}` before the click |
 | `auth_status: "active"` even on the login page | Positive selector is ambiguous (persistent header) — add `--auth-indicator-negative .btn-login` |
 | Web Components elements not numbered by SoM | Add `--shadow-dom` (Angular, Lit, Stencil) |
+| `citoyennete.waf_bloquants` appears on a page that is not actually blocked | Detection is keyword-based (v1.16.0) — false positives happen on pages that legitimately discuss blocking/detection. Treat as a signal, not a verdict |
+| `cliquer_som` clicks the wrong element on a page that mutated between capture and click | Add `--som-rafraichir` (v1.17.0) — resolves by a stable marker instead of live re-indexing |
+| A long RPA scenario fails partway through and you don't want to replay completed steps | Add `--checkpoint FILE` (v1.17.0) — relaunch the same command to resume; DOM state is not preserved, only session + action position |
+| Interactive elements inside an iframe are invisible to Diwall | SoM cannot number iframe content (same-origin or cross-origin) — use `cliquer_iframe`/`remplir_iframe` (v1.17.0) with an explicit CSS selector |
 
 ---
 
