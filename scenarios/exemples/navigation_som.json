@@ -1,0 +1,9 @@
+{
+  "nom": "navigation_som",
+  "description": "Usage minimal du Set-of-Mark — attend la page puis clique sur l'element annote id=1. Lancer avec --som.",
+  "url": "https://example.com",
+  "actions": [
+    {"type": "attendre_selecteur_present", "selecteur": "body"},
+    {"type": "cliquer_som", "id": 1}
+  ]
+}

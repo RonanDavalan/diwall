@@ -1,28 +1,56 @@
 # Diwall — Monitoring guide (watch.py, long ops, screenshot timeouts, journal)
 
-<!-- notice-version: 1.2 -->
-Version 1.2 — June 2026 (v1.14.0) — boussole conditional fields note
+<!-- notice-version: 1.3 -->
+Version 1.3 — July 2026 (v1.15.2) — exhaustive boussole activation table + isolation rule
 
 Load this notice when: watch.py, pixel diff, long-running operations, `--screenshot-timeout`,
 interval_capture, journal.py, FN7/FN8/FN9.
 
 ---
 
-## Boussole JSON — conditional keys
+## Boussole JSON — exhaustive key activation table
 
-The `boussole` object always includes `utilisateur`, `ip_locale`, `repertoire`,
-`url_courante`, `titre_page` (empty string if unavailable). Additional keys are
-conditional:
+Exhaustive by construction (v1.15.2, item 1) — every key `shot.py` can add to
+`boussole` is listed here. No key is added to the runtime without a matching row
+in this table in the same commit (design rule, see below).
 
-| Key | Present when |
-|---|---|
-| `session_derive` | `--reprendre-session` active and URL diverged from saved URL |
-| `auth_status` | `--auth-indicator` active |
-| `som_hors_viewport` | SoM active and at least one interactive element is off-screen |
-| `shadow_dom_actif` | `--shadow-dom` active |
+| Key | Type | Always present? | Condition |
+|---|---|---|---|
+| `utilisateur` | string | always | OS user running the process |
+| `ip_locale` | string | always | empty string if outbound UDP probe fails |
+| `repertoire` | string | always | `os.getcwd()` at invocation |
+| `url_courante` | string | always | final URL after navigation and actions |
+| `titre_page` | string | always | empty string if `page.title()` fails |
+| `citoyennete` | object | always | `{pages_visitees, actions_executees, duree_totale_ms}`; sub-key `plafond_atteint` only if `max_pages_par_run` or `max_actions_par_run` was hit |
+| `session_derive` | object | conditional | `--reprendre-session` active **and** final URL diverged from the URL saved at `--sauver-session` time |
+| `auth_status` | string (`"active"`\|`"inactive"`) | conditional | `--auth-indicator` provided |
+| `som_hors_viewport` | integer | conditional | `--som` active **and** at least one interactive element is off-screen (value > 0) |
+| `shadow_dom_actif` | boolean (`true`) | conditional | `--shadow-dom` active |
+| `stealth_actif` | boolean (`true`) | conditional | `--stealth` active |
+| `tls_errors_ignored` | boolean (`true`) | conditional | `--ignore-tls-errors` active |
 
 Do not assert the absence of conditional keys as a failure signal. Check `auth_status`
 value (`"active"` / `"inactive"`), not its presence alone.
+
+**Root vs `boussole` duplication:** `citoyennete`, `auth_status`, and `derive_session`
+(root spelling) / `session_derive` (boussole spelling — same object, different key name)
+appear **both** at the JSON root and inside `boussole`. This is intentional (two
+consumers, spec `V1_15_0_NAVIGATION_CITOYENNE.md`): the root serves structured
+extraction, `boussole` serves at-a-glance orientation. Do not treat the two as
+independent signals — they carry the same value.
+
+**Design rule (prerequisite for v1.16.0):** any conditional key added to `boussole`
+in a future release must be documented as a new row in this table in the same
+commit as the code that adds it. An undocumented key is a defect, not a feature.
+
+**Temporary-file isolation rule (K1′, prerequisite for v1.16.0):** every temporary
+file `shot.py` writes under `/tmp/diwall/` must be isolated by a unique run
+identifier, to prevent silent overwrite between concurrent runs. v1.15.2 ships a
+minimal patch (`chemin_png()` uses `time.time_ns()` instead of `int(time.time())`
+— nanosecond resolution eliminates same-second collisions on named captures).
+v1.16.0 completes this with a transverse `operation_id` (UUID4) generated once in
+`main()`, isolating **all** temporaries — including the `stream/<run_id>/` directory,
+which v1.15.2 does not yet cover — under `/tmp/diwall/<operation_id>/`.
 
 ---
 
@@ -308,3 +336,40 @@ fi
 
 **Never expose vault paths or credentials in cron commands.** Use `diwall.conf`
 with `secrets_defaut` instead of `--secrets` in cron.
+
+---
+
+## Behavior after hitting a citizenship cap (v1.15.2, Qwen Q3)
+
+When `max_pages_par_run` or `max_actions_par_run` is reached, `shot.py` closes
+the Chromium process cleanly (see `citoyennete.plafond_atteint` in `boussole`).
+This has consequences for state:
+
+- **DOM state is destroyed** — open modals, unsubmitted form fields, scroll
+  position are all lost with the browser process.
+- **Session state (cookies, `localStorage`) survives only if `--sauver-session`
+  was explicit** on this run. Without it, nothing is preserved.
+- **Resuming via `--reprendre-session` reloads the saved URL from scratch** —
+  it does not replay DOM interactions since the save.
+
+**Planning consequence:** submit data (forms, confirmations) *before* the
+citizenship caps are likely to be reached. Only save session state at a point
+where the DOM is stable (no open modal, no pending submission) — a save
+mid-interaction is not a checkpoint, it is a snapshot of cookies only.
+
+---
+
+## Duration thresholds — suspecting a stuck run (v1.15.2, Qwen Q5)
+
+`citoyennete.duree_totale_ms` (root and `boussole`) measures wall-clock time
+spent in `executer_actions()`. Indicative thresholds, not hard caps enforced by
+the runtime:
+
+- **Under 60 000 ms (1 minute):** normal for a simple exploration run.
+- **Above 120 000 ms (2 minutes):** suspect a redirect loop or network
+  congestion. Self-impose a semantic stop rather than waiting further — Diwall
+  will not interrupt itself; there is no runtime timeout tied to this figure.
+
+This is a recommendation for agent self-regulation, not a plafond configured in
+`diwall.conf` (compare with `max_pages_par_run` / `max_actions_par_run`, which
+are enforced).

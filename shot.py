@@ -10,7 +10,7 @@ import time
 from datetime import datetime, timezone
 from urllib.parse import urlparse
 
-__version__ = "1.15.1"
+__version__ = "1.15.2"
 
 # Permet d'importer lib/ depuis le même répertoire que shot.py
 sys.path.insert(0, os.path.dirname(os.path.abspath(__file__)))
@@ -591,7 +591,9 @@ def parse_args():
 def chemin_png(repertoire, prefixe="capture"):
     os.makedirs(repertoire, mode=0o700, exist_ok=True)
     os.chmod(repertoire, 0o700)  # corrige si le répertoire existait déjà avec de mauvaises permissions
-    return os.path.join(repertoire, f"{prefixe}_{int(time.time())}.png")
+    # time_ns() : résolution nanoseconde — élimine la collision de deux runs
+    # lancés dans la même seconde (v1.15.2, item 8 / K1').
+    return os.path.join(repertoire, f"{prefixe}_{time.time_ns()}.png")
 
 
 def _preparer_stream_dir(output_dir, run_id):
@@ -1155,6 +1157,20 @@ def main():
             "horodatage": horodatage, "boussole": _boussole(),
         }))
         sys.exit(1)
+
+    # ── Validation --auth-indicator-negative (v1.15.2, item 2 / GL1) ─────────
+    # Sans --auth-indicator, le bloc de vérification d'authentification est
+    # entièrement sauté (voir main() plus bas) : --auth-indicator-negative
+    # serait silencieusement ignoré. Rejet précoce, avant tout lancement de
+    # Chromium — design orienté agent, zéro navigateur pour rien.
+    if args.auth_indicator_negative and not args.auth_indicator:
+        print(json.dumps({
+            "succes": False, "erreur": "arguments_incompatibles",
+            "message": "--auth-indicator-negative requiert --auth-indicator "
+                       "(sans lui, l'indicateur négatif est ignoré silencieusement)",
+            "horodatage": horodatage, "boussole": _boussole(),
+        }))
+        sys.exit(2)
 
     # ── Chemin de sortie ──────────────────────────────────────────────────────
     if args.output:

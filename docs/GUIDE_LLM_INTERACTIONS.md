@@ -1,7 +1,7 @@
 # Diwall — Interactions guide (SoM, selectors, dialogs, assertions)
 
-<!-- notice-version: 1.2 -->
-Version 1.2 — June 2026
+<!-- notice-version: 1.3 -->
+Version 1.3 — July 2026 (v1.15.2) — data-testid priority, diagnostic-driven strategy, perceptual fallback ladder
 
 Load this notice when: timeout on `cliquer`, CSS/showModal dialog, SoM IDs, strict mode
 violation, nth-match error, evaluer assertions, DOM mutations.
@@ -32,9 +32,20 @@ pass that ID to `cliquer_som` or `remplir_som`.
 5. Element not yet in the DOM, or `force` fails → `evaluer` JS `.click()`
 
 **Priority order for stable CSS selectors:**
-1. `#id` — most stable (avoid if generated randomly by framework)
-2. `[name=…]`, `[aria-label=…]`, `[title*=…]`, `[data-*=…]` — semantic attributes
-3. `:has-text("…")` — last resort, breaks on i18n changes
+1. `[data-testid=…]`, `[data-test=…]` — dedicated test attributes (v1.15.2, DeepSeek D2)
+2. `#id` — stable (avoid if generated randomly by framework)
+3. `[name=…]`, `[aria-label=…]`, `[title*=…]`, `[data-*=…]` — other semantic attributes
+4. `:has-text("…")` — last resort, breaks on i18n changes
+
+**Why `data-testid` ranks first (v1.15.2):** many applications expose attributes
+dedicated to automated testing (`data-testid`, `data-test`), deliberately kept
+stable across style and markup refactors — unlike `#id` or CSS classes, which
+frameworks frequently regenerate. Playwright targets them natively:
+```json
+{"type": "cliquer", "selecteur": "[data-testid=\"btn-confirm\"]"}
+```
+If the target application exposes `data-testid`, prefer it over `#id` even when
+both are present.
 
 ---
 
@@ -293,6 +304,24 @@ Before writing any mutating action on a feature **never previously tested with D
 
 **Forbidden:** launching a mutating action without completing steps 1–3.
 
+**Diagnostic-driven strategy (v1.15.2, ChatGPT C2):** `diagnostic_dom.json` is not
+a passive readout — its `evaluer` results should set the strategy for the
+remainder of the run:
+
+| `diagnostic_dom.json` result | Strategy |
+|---|---|
+| No modern framework detected (static DOM) | `--mode fast` (`--no-capture --a11y`) — no need to pay for screenshots on a static page |
+| Shadow root count > 0, or Angular/Lit/Stencil detected | Add `--shadow-dom` to every subsequent `--som` call, and expect stability waits to need `attendre_selecteur_present` more than `attendre_navigation` |
+| `data-testid`/`data-test` attributes present in the inventory | Use them as primary selectors (see priority order above) instead of `#id` |
+
+**Citizenship self-regulation (v1.15.2, ChatGPT C1):** `citoyennete` (root and
+`boussole`) is not only an audit trail for the operator — the agent can read it
+mid-strategy. If `pages_visitees` or `actions_executees` approaches the caps
+configured in `diwall.conf` (`max_pages_par_run`, `max_actions_par_run`),
+narrow the exploration scope or end the run cleanly before hitting
+`plafond_atteint` (see the citizenship cap behavior notice in
+`GUIDE_LLM_MONITORING.md`).
+
 ---
 
 ## Error recovery — Stop-and-Search rule (bloquant)
@@ -368,5 +397,20 @@ Shadow Roots created with `{mode: 'closed'}` are inaccessible from any external 
 including Playwright and Diwall. This is a browser security boundary — `--shadow-dom` has
 no effect on them. Closed Shadow Roots are rare in public-facing Web Components; the
 majority use open mode.
+
+**Perceptual fallback ladder when SoM cannot reach an element (v1.15.2, Kimi K2):**
+when `--shadow-dom` still leaves an element untargetable (closed Shadow Root, or any
+other structural boundary), do not jump straight to `cliquer_visuel`:
+
+1. `--som` (`+ --shadow-dom` if applicable) — fastest, exact DOM click.
+2. `--a11y` (`a11y_tree`) — semantic landmarks (roles, names) often expose an
+   accessible name for elements SoM cannot number; use it to build a `cliquer`
+   selector via `aria-label` or role.
+3. `cliquer_visuel` — last resort (~32s, coordinate estimation). Only once 1 and
+   2 have been tried and failed.
+
+This ladder minimizes cost: SoM is near-free, `a11y_tree` is a single extra
+snapshot, `cliquer_visuel` is the expensive option and should stay a fallback,
+not a default.
 
 **No `actions_v2.json` / `_v3.json` in `/tmp/` without this step.**
