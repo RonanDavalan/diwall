@@ -1,0 +1,13 @@
+{
+  "nom": "rpa_securise",
+  "description": "Assertion de garde initiale (contrat de page) puis authentification par coffre — modele canonique de securite. Toute valeur password passe par depuis_vault (regle n6 CLAUDE.md), jamais en clair.",
+  "auth_indicator": ".user-menu",
+  "url": "https://example.com/login",
+  "actions": [
+    {"type": "evaluer", "script": "document.title", "contient": "Example"},
+    {"type": "remplir", "selecteur": "input[name=\"username\"]", "valeur": "depuis_vault", "vault_cle": "username"},
+    {"type": "remplir", "selecteur": "input[name=\"password\"]", "valeur": "depuis_vault", "vault_cle": "password"},
+    {"type": "cliquer", "selecteur": "button[type=\"submit\"]"},
+    {"type": "attendre_selecteur_present", "selecteur": ".user-menu"}
+  ]
+}

@@ -20,7 +20,7 @@ Format du scénario :
 Le vault est résolu par lib/vault.py (DIWALL_VAULT_DIR > diwall.conf > ~/Vaults/Diwall/).
 Jamais de mot de passe dans les fichiers de scénario.
 """
-__version__ = "1.15.1"
+__version__ = "1.15.2"
 
 import argparse
 import json
@@ -370,11 +370,21 @@ def main():
     if args.secrets:
         cmd += ["--secrets", args.secrets]
     auth_indicator = scenario.get("auth_indicator")
+    auth_indicator_negative = args.auth_indicator_negative or scenario.get("auth_indicator_negative")
+    # v1.15.2, item 2 / GL1 : même garde-fou que shot.py, avant tout subprocess.
+    if auth_indicator_negative and not auth_indicator:
+        print(json.dumps({
+            "succes": False, "erreur": "arguments_incompatibles",
+            "message": "--auth-indicator-negative requiert un auth_indicator "
+                       "(clé 'auth_indicator' du scénario) — sans lui, l'indicateur "
+                       "négatif est ignoré silencieusement",
+            "boussole": _boussole(),
+        }))
+        sys.exit(2)
     if auth_indicator:
         cmd += ["--auth-indicator", auth_indicator]
     if args.shadow_dom or scenario.get("shadow_dom"):
         cmd.append("--shadow-dom")
-    auth_indicator_negative = args.auth_indicator_negative or scenario.get("auth_indicator_negative")
     if auth_indicator_negative:
         cmd += ["--auth-indicator-negative", auth_indicator_negative]
     if args.mode:

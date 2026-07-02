@@ -1,0 +1,9 @@
+{
+  "nom": "sondage_fast",
+  "description": "Sonde rapide sans capture PNG — lecture du titre de la page via evaluer. Modèle canonique pour --mode fast (equivalent --no-capture --a11y).",
+  "url": "https://example.com",
+  "actions": [
+    {"type": "attendre_selecteur_present", "selecteur": "body"},
+    {"type": "evaluer", "script": "document.title"}
+  ]
+}

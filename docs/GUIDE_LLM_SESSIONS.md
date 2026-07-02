@@ -346,6 +346,26 @@ flag unless you have a specific, documented reason for a controlled LAN or dev e
 
 ---
 
+## `--stealth` + `--shadow-dom` — compatibility (v1.15.2, Qwen Q1)
+
+The two flags operate on entirely distinct layers and combine without conflict:
+
+- `--stealth` (playwright-stealth) acts at **browser context creation**, before
+  any page loads — it patches `navigator.webdriver` and normalizes fingerprint
+  attributes once, at the Chromium level.
+- `--shadow-dom` acts **intra-page**, during SoM injection — it changes which
+  JS walker function (`_SOM_INJECTER_JS` vs `_SOM_INJECTER_JS_SHADOW`) traverses
+  the DOM to number elements.
+
+They can be combined freely:
+```bash
+/opt/diwall/venv/bin/python3 /opt/diwall/shot.py \
+  --url https://target.example/ --stealth --shadow-dom --som
+```
+`boussole` will show both `stealth_actif: true` and `shadow_dom_actif: true`.
+
+---
+
 ## Pre-condition pattern — Securing scenario entry
 
 Before any **mutating action** (delete, submit, write), add an `evaluer` assertion as the
