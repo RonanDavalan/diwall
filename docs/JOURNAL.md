@@ -4,6 +4,72 @@ History of decisions and discoveries by session, in reverse chronological order.
 
 ---
 
+## 2026-07-02 — Session 47 (v1.17.0 — Frontier of robustness and qualification)
+
+**Work done:**
+
+- Four items, each with its own design reasoning exposed before implementation
+  (condensed PHASE_PLANIFICATION, operator-authorized to run through
+  execution without an intermediate validation round — spec
+  `V1_17_0_FRONTIERE_ROBUSTESSE.md`). Every item additive and opt-in; the one
+  item touching a validated acquis (SoM) changes nothing in the default path.
+- **Item 1 — `--replay-verifier` (rpa.py only):** `--sauver-verifier-reference
+  FICHIER` / `--replay-verifier FICHIER`, mutually exclusive (rejected early,
+  exit 2). Compares `http_status`, `dom_stats`, `evaluations`, `elements_som`
+  count against a saved reference — CI-friendly, no pixels, no LLM call.
+  Verdict `stable`/`regression` on stderr, exit 1 on mismatch.
+- **Item 2 — checkpoints for long scenarios:** required a prerequisite fix —
+  `executer_actions()` reported no partial progress on a mid-run exception.
+  Added a `progress` dict (mutable, passed by reference, updated after each
+  action's dispatch completes without raising) rather than restructuring the
+  ~350-line action-dispatch block. `shot.py`'s `executer_actions()` call is
+  now wrapped in a narrow try/except that saves the session (if
+  `--sauver-session` was requested) *before* the `with sync_playwright()`
+  block's implicit teardown closes the browser — the only point where this is
+  still possible. Failure JSON gained `actions_executees_avant_echec` /
+  `pages_visitees_avant_echec`. `rpa.py --checkpoint FICHIER` orchestrates:
+  loads `{actions_completees, session_file}`, slices the action list, resumes
+  via `--reprendre-session` instead of `--url`, deletes the checkpoint file
+  on full success. DOM state (open modals, half-filled fields) never survives
+  a resume — only session state + action-list position do (constraint
+  inherited from Qwen Q3, v1.15.2).
+- **Item 3 — `--som-rafraichir`, opt-in SoM identity fix:** code reading
+  revealed the real mechanism at fault — `_SOM_TROUVER_JS` re-indexes
+  `document.querySelectorAll()` on every call, so it is not a *staleness*
+  problem but an *identity* one: if elements appear/disappear before the
+  target in DOM order, `id: N` silently resolves to a different element.
+  Fix: `_SOM_INJECTER_JS`(`_SHADOW`) now stamps every numbered element with
+  `data-dw-som-id="N"` unconditionally (harmless, invisible, zero effect on
+  existing output). Two new functions `_SOM_TROUVER_STABLE_JS`(`_SHADOW`)
+  resolve by that attribute instead of re-indexing — used only when
+  `--som-rafraichir` is passed. Removed element → honest `null`, never a
+  wrong-target click. Default behavior strictly unchanged without the flag.
+- **Item 4 — `cliquer_iframe` / `remplir_iframe`:** scoped down from "SoM
+  inside iframes" (a much larger redesign — JS injection cannot cross the
+  Same-Origin Policy boundary by construction, unlike Shadow DOM) to a
+  targeted primitive using Playwright's `page.frame_locator()`, which
+  bypasses that boundary via CDP. No SoM numbering inside the frame —
+  selector-based targeting only, documented as a first unlock, not the full
+  vision (same honesty pattern as the closed-Shadow-Root limit).
+  `remplir_iframe` supports `depuis_vault`/`depuis_vault_totp` like `remplir`.
+  Both actions added to `lib/journal.py`'s `ACTIONS_ECRITURE` — caught and
+  fixed a real masking gap in the same commit: `_resumer_action()` and
+  `_neutraliser_actions_raw()` did not yet know about `remplir_iframe`, so a
+  plaintext `valeur` would have leaked into the journal unmasked.
+
+**Validation:** `scenarios/v1.17.0_validation/` — 4/4 green, live tests
+against `example.com` and `the-internet.herokuapp.com/iframe` (stable public
+QA fixture). Regression: `v1.16.0_validation` 7/7, `v1.15.2_validation` 4/4,
+`v1.3_validation` 8/8, `v1.4_validation` 2/3 (pre-existing stale T3,
+unrelated — see session 47 v1.15.2 entry below). Preflight exit 0.
+
+**Technical decision:** root `journal.py` untouched this cycle (no functional
+change to it), left at `1.14.1`. `rpa.py` jumps `1.15.2` → `1.17.0` (skips
+`1.16.0`, which did not touch it) — both consistent with the per-file bump
+discipline already in place.
+
+---
+
 ## 2026-07-02 — Session 47 (v1.16.0 — Deterministic boussole and unified run identity)
 
 **Work done:**
