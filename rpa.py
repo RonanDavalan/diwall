@@ -20,7 +20,7 @@ Format du scénario :
 Le vault est résolu par lib/vault.py (DIWALL_VAULT_DIR > diwall.conf > ~/Vaults/Diwall/).
 Jamais de mot de passe dans les fichiers de scénario.
 """
-__version__ = "1.15.2"
+__version__ = "1.17.0"
 
 import argparse
 import json
@@ -227,6 +227,38 @@ def charger_scenario(chemin: str) -> dict:
             return json.load(f)
 
 
+# ── Replay verifier — comparaison structurelle sans vision (v1.17.0, item 1) ──
+
+def _extraire_surface_verifiable(sortie):
+    """Sous-ensemble structurel comparable d'un JSON de sortie shot.py.
+
+    Exclut délibérément les champs volatils (timestamps, operation_id,
+    duree_ms, boussole.ip_locale…) — seule la structure fonctionnelle du run
+    est comparée, pas son empreinte d'exécution.
+    """
+    surface = {"http_status": sortie.get("http_status")}
+    if sortie.get("dom_stats") is not None:
+        surface["dom_stats"] = sortie["dom_stats"]
+    if sortie.get("evaluations"):
+        surface["evaluations"] = [
+            {"script": e.get("script"), "valeur": e.get("valeur")}
+            for e in sortie["evaluations"]
+        ]
+    if sortie.get("elements_som") is not None:
+        surface["elements_som_count"] = len(sortie["elements_som"])
+    return surface
+
+
+def _comparer_surface_verifiable(reference, actuelle):
+    """Compare chaque clé de `reference` à `actuelle`. Retourne la liste des diffs."""
+    diffs = []
+    for cle, val_ref in reference.items():
+        val_actuelle = actuelle.get(cle)
+        if val_actuelle != val_ref:
+            diffs.append({"champ": cle, "reference": val_ref, "obtenu": val_actuelle})
+    return diffs
+
+
 def main():
     p = argparse.ArgumentParser(description="Diwall RPA — exécuteur de scénarios")
     p.add_argument("--scenario", required=True, help="Chemin vers le fichier de scénario (JSON ou YAML)")
@@ -250,6 +282,9 @@ def main():
                         "Propagé à shot.py pour tout le run.")
     p.add_argument("--shadow-dom", dest="shadow_dom", action="store_true",
                    help="Active la traversée Shadow DOM pour le SoM (v1.13.0). Propagé à shot.py.")
+    p.add_argument("--som-rafraichir", dest="som_rafraichir", action="store_true",
+                   help="Résolution SoM stable par attribut, anti-dérive d'identité (v1.17.0). "
+                        "Propagé à shot.py.")
     p.add_argument("--auth-indicator-negative", dest="auth_indicator_negative", default=None,
                    help="Sélecteur CSS dont la présence indique l'ABSENCE d'auth (v1.14.0). "
                         "Propagé à shot.py.")
@@ -262,7 +297,31 @@ def main():
                    help="Accepte les certificats TLS invalides (LAN dev/Step-CA). Propagé à shot.py. (v1.15.1)")
     p.add_argument("--no-evaluer", dest="no_evaluer", action="store_true",
                    help="Désactive l'action evaluer sur ce run. Propagé à shot.py. (v1.15.1)")
+    p.add_argument("--sauver-verifier-reference", dest="sauver_verifier_reference", default=None,
+                   metavar="FICHIER",
+                   help="Écrit un sous-ensemble structurel (http_status, dom_stats, "
+                        "evaluations, nombre d'elements_som) de la sortie de ce run dans "
+                        "FICHIER, pour comparaison future via --replay-verifier. (v1.17.0)")
+    p.add_argument("--replay-verifier", dest="replay_verifier", default=None,
+                   metavar="FICHIER",
+                   help="Compare la sortie de ce run à la référence structurelle FICHIER "
+                        "(produite par --sauver-verifier-reference). Verdict stable/regression, "
+                        "exit 1 si régression. (v1.17.0)")
+    p.add_argument("--checkpoint", dest="checkpoint", default=None,
+                   metavar="FICHIER",
+                   help="Reprend un scénario long depuis le dernier point de progression "
+                        "enregistré dans FICHIER (session + index d'action). Crée FICHIER "
+                        "au premier run, le supprime à la fin réussie du scénario. (v1.17.0)")
     args = p.parse_args()
+
+    if args.sauver_verifier_reference and args.replay_verifier:
+        print(json.dumps({
+            "succes": False, "erreur": "arguments_incompatibles",
+            "message": "--sauver-verifier-reference et --replay-verifier sont mutuellement "
+                       "exclusifs — un run sauvegarde OU compare, jamais les deux.",
+            "boussole": _boussole(),
+        }))
+        sys.exit(2)
 
     chemin_scenario, essais = resoudre_chemin_scenario(args.scenario)
     if not chemin_scenario:
@@ -316,6 +375,27 @@ def main():
         }))
         sys.exit(2)
 
+    # ── Checkpoint (v1.17.0, item 2) ──────────────────────────────────────────
+    # Reprise = session + index d'action déjà exécutée. L'état DOM (modale
+    # ouverte, champ à moitié rempli) ne survit jamais entre deux invocations —
+    # seule une frontière entre deux actions complètes est un point de reprise
+    # valide (contrainte héritée de Qwen Q3, v1.15.2).
+    checkpoint_session_file = f"{args.checkpoint}.session.json" if args.checkpoint else None
+    reprise_checkpoint = bool(args.checkpoint and os.path.isfile(args.checkpoint))
+    if reprise_checkpoint:
+        with open(args.checkpoint, encoding="utf-8") as f:
+            _cp = json.load(f)
+        n_completees = _cp.get("actions_completees", 0)
+        actions = actions[n_completees:]
+        if not actions:
+            print(json.dumps({
+                "succes": True,
+                "message": "checkpoint déjà complet — rien à exécuter",
+                "boussole": _boussole(),
+            }))
+            os.remove(args.checkpoint)
+            sys.exit(0)
+
     # Pré-validation du coffre (fail-fast) SANS résoudre les valeurs : on
     # vérifie l'existence du coffre et des clés référencées, puis on passe
     # les actions avec 'depuis_vault' INTACT à shot.py, qui résout lui-même
@@ -352,11 +432,18 @@ def main():
         }))
         sys.exit(1)
 
-    # Appel shot.py en mode séquentiel (Mode A)
+    # Appel shot.py en mode séquentiel (Mode A), ou en reprise de session
+    # (Mode B) si un checkpoint est en cours (v1.17.0, item 2).
     shot = os.path.join(os.path.dirname(os.path.abspath(__file__)), "shot.py")
-    cmd = [
-        sys.executable, shot,
-        "--url", url,
+    cmd = [sys.executable, shot]
+    if reprise_checkpoint:
+        cmd += ["--reprendre-session", checkpoint_session_file,
+                "--sauver-session", checkpoint_session_file]
+    else:
+        cmd += ["--url", url]
+        if args.checkpoint:
+            cmd += ["--sauver-session", checkpoint_session_file]
+    cmd += [
         "--actions", json.dumps(actions),
         "--output-dir", args.output_dir,
         "--timeout", str(args.timeout),
@@ -385,6 +472,8 @@ def main():
         cmd += ["--auth-indicator", auth_indicator]
     if args.shadow_dom or scenario.get("shadow_dom"):
         cmd.append("--shadow-dom")
+    if args.som_rafraichir or scenario.get("som_rafraichir"):
+        cmd.append("--som-rafraichir")
     if auth_indicator_negative:
         cmd += ["--auth-indicator-negative", auth_indicator_negative]
     if args.mode:
@@ -458,6 +547,62 @@ def main():
             f"Voir _CADRE/SPECIFICATIONS/26_GUIDE_CLAUDE_SESSION_DIWALL.md.",
             file=sys.stderr,
         )
+
+    # ── Mise à jour du checkpoint (v1.17.0, item 2) ───────────────────────────
+    if args.checkpoint and sortie is not None:
+        if result.returncode == 0:
+            # Tronçon restant entièrement exécuté — plus rien à reprendre.
+            if os.path.isfile(args.checkpoint):
+                os.remove(args.checkpoint)
+        else:
+            delta = sortie.get("actions_executees_avant_echec")
+            if delta is not None:
+                n_avant = 0
+                if reprise_checkpoint:
+                    with open(args.checkpoint, encoding="utf-8") as f:
+                        n_avant = json.load(f).get("actions_completees", 0)
+                with open(args.checkpoint, "w", encoding="utf-8") as f:
+                    json.dump({
+                        "actions_completees": n_avant + delta,
+                        "session_file": checkpoint_session_file,
+                    }, f, ensure_ascii=False, indent=2)
+                print(
+                    f"⚠ checkpoint mis à jour : {n_avant + delta} action(s) "
+                    f"préservée(s) — relancer la même commande pour reprendre.",
+                    file=sys.stderr,
+                )
+            # Sinon (échec avant tout executer_actions, ex. vault fermé) :
+            # le checkpoint existant reste inchangé, nouvelle tentative identique.
+
+    # Replay verifier (v1.17.0, item 1) — uniquement si shot.py a réussi :
+    # rien de significatif à sauvegarder/comparer sur un run en échec.
+    if sortie is not None and result.returncode == 0:
+        if args.sauver_verifier_reference:
+            surface = _extraire_surface_verifiable(sortie)
+            with open(args.sauver_verifier_reference, "w", encoding="utf-8") as f:
+                json.dump(surface, f, ensure_ascii=False, indent=2)
+            print(f"✓ référence structurelle enregistrée : {args.sauver_verifier_reference}",
+                  file=sys.stderr)
+        elif args.replay_verifier:
+            try:
+                with open(args.replay_verifier, encoding="utf-8") as f:
+                    reference = json.load(f)
+            except (FileNotFoundError, json.JSONDecodeError) as e:
+                print(json.dumps({
+                    "succes": False, "erreur": "reference_illisible", "message": str(e),
+                    "boussole": _boussole(),
+                }))
+                sys.exit(1)
+            actuelle = _extraire_surface_verifiable(sortie)
+            diffs = _comparer_surface_verifiable(reference, actuelle)
+            verdict = "regression" if diffs else "stable"
+            print(json.dumps({
+                "type_comparaison": "replay_verifier",
+                "verdict": verdict,
+                "diffs": diffs,
+            }, ensure_ascii=False), file=sys.stderr)
+            if diffs:
+                sys.exit(1)
 
     if result.returncode != 0 or not attentes:
         sys.exit(result.returncode)

@@ -153,6 +153,37 @@ If `session_derive` is true: run the full login flow again without `--reprendre-
 
 ---
 
+## Checkpoints for long scenarios (`rpa.py --checkpoint`, v1.17.0)
+
+A checkpoint is **session state + action-list position** — never a DOM
+snapshot. Open modals, half-filled fields, unsubmitted forms are never
+preserved between two invocations (same constraint as `--reprendre-session`
+above). Only a boundary between two fully-completed actions is a valid
+resume point.
+
+```bash
+/opt/diwall/venv/bin/python3 /opt/diwall/rpa.py \
+  --scenario long_scenario.json --checkpoint /tmp/mon_run.checkpoint.json
+```
+
+- First run: executes from action 0. On mid-scenario failure, writes
+  `/tmp/mon_run.checkpoint.json` with `{"actions_completees": N, "session_file": ...}`
+  and preserves the browser session (cookies/`localStorage`) as of the
+  failure point.
+- **Relaunch the exact same command** to resume: already-completed actions
+  are skipped, the run continues from the saved session's URL.
+- On full success (remaining actions complete): the checkpoint file is
+  deleted automatically — nothing left to resume.
+- On a failure with no recoverable progress (e.g. vault closed before any
+  action ran): the checkpoint file is left untouched — retry is identical
+  to before.
+
+**Not a substitute for `--sauver-session`/`--reprendre-session` used directly**
+— checkpoints are the right tool specifically for *long, single-scenario* runs
+where a late failure would otherwise mean replaying everything from action 0.
+
+---
+
 ## SPA navigation — rules
 
 Single-page applications (React, Vue, Angular) do not reload the page on navigation.

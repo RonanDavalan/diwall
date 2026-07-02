@@ -241,6 +241,31 @@ Scroll to the element before using `cliquer_som`:
 **SoM excludes closed `<dialog>` elements** (no `open` attribute) — intentional.
 A closed dialog is not interactable. Use CSS selectors for buttons inside closed dialogs.
 
+**Stable identity resolution — `--som-rafraichir` (v1.17.0):** by default,
+`cliquer_som`/`remplir_som` re-index the live DOM at click time — this is a
+mechanism against *identity* drift, not staleness: if an element appears or
+disappears **before** your target in DOM order between the `--som` capture and
+the click (a cookie banner closing, a modal opening), `id: N` silently
+resolves to a **different** element than the one numbered N in the screenshot.
+Recapturing SoM (the rule above) reduces the exposure window but does not
+eliminate it on a page that keeps mutating.
+
+`--som-rafraichir` closes this gap: SoM injection stamps each numbered element
+with `data-dw-som-id="N"`, and resolution looks up that attribute instead of
+re-indexing. If the exact element is still in the DOM, `id: N` always resolves
+to it — regardless of what else changed around it. If it was removed: an
+honest "élément SoM non trouvé" error, never a click on the wrong target.
+Opt-in, zero effect on default behavior — recommended on pages with frequent
+DOM churn between capture and action (long scenarios, live-updating dashboards).
+
+```bash
+/opt/diwall/venv/bin/python3 /opt/diwall/shot.py \
+  --url https://target.local/ --som --som-rafraichir \
+  --actions '[{"type":"cliquer_som","id":5}]'
+```
+
+`boussole.som_rafraichir_actif: true` when active.
+
 ---
 
 ## DOM mutations in Mode A — mixing SoM and CSS selectors
@@ -423,3 +448,32 @@ snapshot, `cliquer_visuel` is the expensive option and should stay a fallback,
 not a default.
 
 **No `actions_v2.json` / `_v3.json` in `/tmp/` without this step.**
+
+---
+
+## Iframes — cross-origin primitive, no SoM inside (v1.17.0)
+
+Same-Origin Policy blocks JS injection (and therefore SoM numbering) from
+reaching into a cross-origin iframe's content — a hard browser security
+boundary, unlike Shadow DOM (same document, just encapsulated). Playwright's
+`frame_locator()` bypasses this via CDP, not JS injection — Diwall exposes it
+through two scoped actions:
+
+```json
+{"type": "cliquer_iframe", "iframe_selecteur": "iframe#paiement", "selecteur": "button.valider"}
+{"type": "remplir_iframe", "iframe_selecteur": "iframe#paiement", "selecteur": "input[name=cvv]", "valeur": "depuis_vault", "vault_cle": "cvv"}
+```
+
+`remplir_iframe` supports `depuis_vault`/`depuis_vault_totp` exactly like
+`remplir` — never a plaintext credential in a scenario.
+
+**No SoM numbering inside the frame (cadrage assumé) :** you must know or
+discover the inner CSS selector yourself — via `evaluer` if the iframe is
+same-origin (`document.querySelector('iframe').contentDocument...`), or from
+the target application's own documentation/markup if cross-origin. This is a
+first unlock, not full iframe-aware SoM — same honesty as the closed Shadow
+Root limit above.
+
+**On failure:** Playwright's own interactability rules still apply inside the
+frame (e.g. `.fill()` refuses a `contenteditable` element in a read-only
+state) — `"force": true` is available on `cliquer_iframe`, matching `cliquer`.
