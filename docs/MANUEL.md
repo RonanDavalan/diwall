@@ -1,6 +1,6 @@
 # Diwall — Operational manual
 
-**Version 1.15.0 — July 2026**
+**Version 1.17.0 — July 2026**
 
 This document answers one question: **how to do X with Diwall**.
 
@@ -28,6 +28,12 @@ No architectural descriptions. Commands that work.
 10. [CLI flags — reference](#10-cli-flags--reference)
 11. [Exit codes and output](#11-exit-codes-and-output)
 
+v1.16.0 additions: [2d](#2d-read-etat-for-a-go-no-go-decision) (`etat`), [3e](#3e-waf-detection-signal-v1160) (WAF signal).
+v1.17.0 additions: [5h](#5h-structural-non-regression-without-pixels---replay-verifier)
+(`--replay-verifier`), [5i](#5i-resume-a-long-scenario-after-failure---checkpoint)
+(`--checkpoint`), [5j](#5j-target-elements-inside-an-iframe) (iframe actions),
+[7j](#7j-som-id-drift-on-highly-dynamic-pages---som-rafraichir) (`--som-rafraichir`).
+
 ---
 
 ## 1. Verify the installation
@@ -43,7 +49,7 @@ Expected result: JSON on stdout with `"succes": true`.
 ```bash
 # Verify the installed version
 grep "__version__" /opt/diwall/shot.py
-# → __version__ = "1.15.0"
+# → __version__ = "1.17.0"
 
 # Verify playwright-stealth is available (v1.15.0)
 /opt/diwall/venv/bin/python3 -c "import playwright_stealth; print('stealth OK')"
@@ -105,6 +111,28 @@ Every output contains a `boussole` object — read it before everything else:
 
 If `boussole.url_courante` does not match what you expect: stop and investigate
 before any mutating action.
+
+### 2d. Read `etat` for a go/no-go decision (v1.16.0)
+
+Every successful run includes an `etat` object at the JSON root — read it
+before any mutating action instead of manually cross-checking `auth_status`,
+`citoyennete.plafond_atteint`, `erreurs_js`, and `erreurs_console` yourself:
+
+```json
+"etat": {
+  "pret_a_agir": true,
+  "niveau_confiance": "eleve",
+  "raisons": ["aucun signal de friction détecté"]
+}
+```
+
+If `pret_a_agir` is `false`: read `raisons` for the cause (inactive
+authentication, session drift, citizenship cap reached, or a detected WAF
+block) before proceeding.
+
+`etat` does not check whether the URL or page content matches your business
+expectation — use `evaluer` with `attendu`/`contient`/`motif` (section 5d)
+for that.
 
 ---
 
@@ -187,6 +215,25 @@ Each run returns `citoyennete` in (JSON root and inside boussole):
 ```
 
 Compare the `capture_sannysoft_*.png` and `capture_intoli_*.png` captures between the two directories.
+
+### 3e. WAF detection signal (v1.16.0)
+
+Diwall flags a probable WAF block passively — HTTP 403/429, or a title/HTML
+keyword match (`Cloudflare`, `CAPTCHA`, `checking your browser`, etc.). This
+is a signal, never an exception — the run completes normally:
+
+```json
+"citoyennete": {
+  "waf_bloquants": 1
+}
+```
+
+When present and `> 0`: `etat.niveau_confiance` is `"faible"` and
+`etat.pret_a_agir` is `false`. Decide yourself whether to retry with
+`--stealth`, change target, or stop — Diwall does not abort the run for you.
+The detection is keyword-based and can produce false positives on pages that
+legitimately discuss blocking/detection (e.g. a bot-detection benchmark
+page) — treat it as a fast signal, not a certain verdict.
 
 ---
 
@@ -491,6 +538,68 @@ If the guard fails: rpa.py stops before the deletion is executed.
 **Session drift signal:** if the session has expired, `boussole.session_derive: true` in the JSON.
 In that case: restart the full login without `--reprendre-session`.
 
+### 5h. Structural non-regression without pixels — `--replay-verifier` (v1.17.0)
+
+```bash
+# First run — save the structural reference
+/opt/diwall/venv/bin/python3 /opt/diwall/rpa.py \
+  --scenario /opt/diwall/scenarios/dashboard.json \
+  --sauver-verifier-reference /tmp/dashboard.ref.json
+
+# Subsequent runs — compare
+/opt/diwall/venv/bin/python3 /opt/diwall/rpa.py \
+  --scenario /opt/diwall/scenarios/dashboard.json \
+  --replay-verifier /tmp/dashboard.ref.json
+```
+
+Compares `http_status`, `dom_stats`, `evaluer` results, and SoM element count
+(not content) against the saved reference. Verdict on stderr:
+
+```json
+{"type_comparaison": "replay_verifier", "verdict": "stable", "diffs": []}
+```
+
+Exit 1 on `verdict: "regression"`, with `diffs` listing each mismatched
+field (`reference` vs `obtenu`). The two flags are mutually exclusive.
+
+### 5i. Resume a long scenario after failure — `--checkpoint` (v1.17.0)
+
+```bash
+/opt/diwall/venv/bin/python3 /opt/diwall/rpa.py \
+  --scenario /opt/diwall/scenarios/long_audit.json \
+  --checkpoint /tmp/long_audit.checkpoint.json
+```
+
+If the scenario fails partway through, `/tmp/long_audit.checkpoint.json` is
+written with the count of completed actions and a session file. **Relaunch
+the exact same command** to resume: already-completed actions are skipped.
+On full success, the checkpoint file is deleted automatically.
+
+DOM state (open modals, half-filled forms) is never preserved across a
+resume — only cookies/`localStorage` and the action-list position are. Do
+not rely on `--checkpoint` to resume mid-way through a single multi-step
+form; it resumes at action boundaries only.
+
+### 5j. Target elements inside an iframe (v1.17.0)
+
+No Set-of-Mark numbering happens inside an iframe (same-origin or
+cross-origin) — target it by CSS selector directly:
+
+```json
+{"type": "cliquer_iframe", "iframe_selecteur": "iframe#paiement", "selecteur": "button.valider"},
+{"type": "remplir_iframe", "iframe_selecteur": "iframe#paiement", "selecteur": "input[name=cvv]", "valeur": "depuis_vault", "vault_cle": "cvv"}
+```
+
+`remplir_iframe` supports `valeur: "depuis_vault"` exactly like `remplir`
+(section 4b) — never a plaintext credential in the scenario. If the target
+element refuses interaction (e.g. a `contenteditable` region in a read-only
+state), add `"force": true` to `cliquer_iframe` — same semantics as `cliquer`
+(section 7e).
+
+To find the inner selector: use `evaluer` on the iframe's content if it is
+same-origin (`document.querySelector('iframe').contentDocument...`), or
+consult the target application's own markup/documentation if cross-origin.
+
 ---
 
 ## 6. Actions — complete reference
@@ -516,6 +625,8 @@ In that case: restart the full login without `--reprendre-session`.
 | `attendre_mfa_ntfy` | `id_som` | `timeout` | Waits for a TOTP code via ntfy, fills it into the SoM field |
 | `nettoyer_overlay` | `selecteur` | — | Hides blocking overlays (cookie banner, modal). Use before SoM |
 | `declencher_scenario` | `scenario` | — | Inlines a sub-scenario's actions. Max depth: 5 |
+| `cliquer_iframe` | `iframe_selecteur`, `selecteur` | `force` (bool) | Click inside a same/cross-origin iframe (v1.17.0). No SoM inside frames |
+| `remplir_iframe` | `iframe_selecteur`, `selecteur`, `valeur` | `vault_cle` | Fill inside a same/cross-origin iframe (v1.17.0). `valeur: "depuis_vault"` supported |
 
 ---
 
@@ -634,7 +745,28 @@ SoM IDs are recalculated on each capture. They do not persist between invocation
 Always re-run `shot.py --som` to get the current run's IDs.
 After a `defiler` or opening a modal: re-run `shot.py --som`.
 
-### 7j. Site blocked by WAF (immediate 403)
+### 7j. SoM ID drift on highly dynamic pages — `--som-rafraichir` (v1.17.0)
+
+By default, `cliquer_som`/`remplir_som` resolve `id: N` by re-indexing the
+live DOM at click time — if an element appears or disappears **before** your
+target in DOM order between the `--som` capture and the click (a cookie
+banner closing, a modal opening), `id: N` can silently resolve to a
+**different** element than the one shown numbered N in the screenshot.
+
+```bash
+/opt/diwall/venv/bin/python3 /opt/diwall/shot.py \
+  --url https://target.local/ --som --som-rafraichir \
+  --actions '[{"type":"cliquer_som","id":5}]'
+```
+
+With this flag, each numbered element is marked at capture time and resolved
+by that mark instead of re-indexing — if the exact element was removed, you
+get an explicit "élément SoM non trouvé" error instead of a wrong-target
+click. `boussole.som_rafraichir_actif: true` when active. Recommended on
+pages with frequent DOM churn between capture and action; no effect on
+default behaviour when not passed.
+
+### 7k. Site blocked by WAF (immediate 403)
 
 ```bash
 # Try with stealth
@@ -644,7 +776,10 @@ After a `defiler` or opening a modal: re-run `shot.py --som`.
 
 If 403 persists with `--stealth`: the site uses TLS fingerprinting (JA3/JA4) or advanced
 behavioural analysis (Cloudflare Enterprise). `playwright-stealth` does not bypass these protections.
-See `docs/RETOUR_EXPERIENCE.md` FR-77/FR-78 for context.
+See `docs/RETOUR_EXPERIENCE.md` FR-77/FR-78/FR-79 for context.
+
+Diwall also flags a likely block passively without you having to check the
+HTTP status yourself — see section 3e (`citoyennete.waf_bloquants`).
 
 ---
 
@@ -799,6 +934,7 @@ Fields in each entry:
 | `--sauver-session FILE` | — | Saves cookies after actions |
 | `--reprendre-session FILE` | — | Resumes a saved session |
 | `--interval-capture N` | 0 | Periodic captures every N seconds during `attendre`, `pause` |
+| `--som-rafraichir` | off | Stable SoM resolution by attribute instead of live re-indexing (v1.17.0, section 7j) |
 
 ### rpa.py
 
@@ -810,6 +946,10 @@ Propagates all relevant shot.py flags, plus:
 | `--url URL` | Overrides scenario URL without modifying the file |
 | `--stealth` | Propagated to shot.py |
 | `--mode fast\|full` | Propagated to shot.py |
+| `--som-rafraichir` | Propagated to shot.py (v1.17.0, section 7j) |
+| `--sauver-verifier-reference FILE` | Saves structural reference for `--replay-verifier` (v1.17.0, section 5h) |
+| `--replay-verifier FILE` | Compares run against a structural reference, exit 1 on regression (v1.17.0, section 5h) |
+| `--checkpoint FILE` | Resumes a long scenario after a mid-run failure (v1.17.0, section 5i) |
 
 ### watch.py
 
@@ -850,41 +990,57 @@ Propagates all relevant shot.py flags, plus:
   "http_status": 200,
   "url_finale": "https://target.local/dashboard",
   "erreurs_js": [],
+  "erreurs_console": [],
   "duree_ms": 2400,
   "horodatage": "2026-07-01T12:00:00+02:00",
-  "capture": "/tmp/diwall/capture_1234567890.png",
-  "capture_som": "/tmp/diwall/capture_som_1234567890.png",
+  "capture": "/tmp/diwall/a1b2c3d4e5f6/capture_1234567890123456789.png",
+  "capture_som": "/tmp/diwall/a1b2c3d4e5f6/capture_som_1234567890123456789.png",
   "elements_som": [...],
   "a11y_tree": "...",
   "evaluations": [...],
   "citoyennete": {
     "pages_visitees": 0,
     "actions_executees": 3,
-    "duree_totale_ms": 2400
+    "duree_totale_ms": 2400,
+    "indice_agressivite": 0.33
+  },
+  "etat": {
+    "pret_a_agir": true,
+    "niveau_confiance": "eleve",
+    "raisons": ["aucun signal de friction détecté"]
   },
   "boussole": {
     "utilisateur": "operator",
     "ip_locale": "__IP_LAN__",
     "repertoire": "/opt/diwall",
+    "operation_id": "a1b2c3d4e5f6",
     "url_courante": "https://target.local/dashboard",
     "titre_page": "Dashboard — My App",
     "stealth_actif": true,
     "shadow_dom_actif": true,
+    "som_rafraichir_actif": true,
     "auth_status": "active",
     "som_hors_viewport": 0,
-    "citoyennete": { "pages_visitees": 0, "actions_executees": 3, "duree_totale_ms": 2400 }
+    "citoyennete": { "pages_visitees": 0, "actions_executees": 3, "duree_totale_ms": 2400, "indice_agressivite": 0.33 }
   },
   "diwall_meta": {
-    "version_shot": "1.15.0",
+    "version_shot": "1.17.0",
     "profil": "operator",
     "modeles_appeles": []
   }
 }
 ```
 
+`operation_id` (v1.16.0) is always present and identifies this run uniquely —
+it names the isolation directory under `/tmp/diwall/<operation_id>/` and
+matches the `operation_id` field of this run's entry in the operations log
+(section 9). `etat` (v1.16.0) is present on the success path only.
+
 Conditional keys (absent when inactive): `capture`, `capture_som`, `elements_som`, `a11y_tree`,
-`evaluations`, `auth_status`, `stealth_actif`, `shadow_dom_actif`, `som_hors_viewport`,
-`session_derive`, `citoyennete.plafond_atteint`.
+`evaluations`, `auth_status`, `stealth_actif`, `shadow_dom_actif`, `som_rafraichir_actif`,
+`som_hors_viewport`, `session_derive`, `citoyennete.plafond_atteint`, `citoyennete.waf_bloquants`,
+`citoyennete.indice_agressivite` (present whenever at least one action ran),
+`actions_executees_avant_echec`, `pages_visitees_avant_echec` (failure JSON only, v1.17.0).
 
 ### Error — format
 
@@ -911,7 +1067,7 @@ Conditional keys (absent when inactive): `capture`, `capture_som`, `elements_som
 | `/opt/diwall/scenarios/` | RPA scenarios |
 | `/opt/diwall/docs/` | Documentation |
 | `/opt/diwall/references/` | watch.py visual references |
-| `/tmp/diwall/` | Temporary captures (cleared on reboot) |
+| `/tmp/diwall/<operation_id>/` | Temporary captures for one run, isolated by `operation_id` (v1.16.0, cleared on reboot) |
 | `~/Vaults/__PROJET__/Diwall/` | Credentials vault + log (gocryptfs) |
 | `~/git/Diwall/Diwall/` | Git sources (modify here, then `deploy.sh`) |
 
