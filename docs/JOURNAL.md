@@ -4,6 +4,56 @@ History of decisions and discoveries by session, in reverse chronological order.
 
 ---
 
+## 2026-07-02 — Session 47 (v1.15.2 — Consolidation, DX and anti-collision patch)
+
+**Work done:**
+
+- Static-audit-driven patch cycle, sourced from a June multi-model review (ten LLM
+  families) filtered by the operator and Gemini, then planned/documented in
+  `_CADRE/` and executed same-day. Eight items, zero new capability — pure
+  hygiene and defensive hardening. Commit `00ef073`.
+- `shot.py`: `chemin_png()` switched from `int(time.time())` to `time.time_ns()` —
+  eliminates same-second filename collision between concurrent runs (parade
+  K1′, full fix deferred to v1.16.0 `operation_id`).
+- `shot.py` / `rpa.py`: `--auth-indicator-negative` without `--auth-indicator` now
+  rejected early (`arguments_incompatibles`, exit 2, before any Playwright launch).
+  Previously silently ignored — the auth check block was skipped entirely.
+- `scenarios/exemples/`: three canonical scenarios (`sondage_fast`, `navigation_som`,
+  `rpa_securise`), zero secrets, schema-validated. Already covered by the existing
+  preflight `scenarios/*` scope — no script change needed.
+- `docs/GUIDE_LLM_MONITORING.md`: exhaustive boussole key activation table
+  (replaces the incomplete v1.2 table), root/boussole duplication note, a design
+  rule requiring every future conditional key to ship with a table row in the same
+  commit, and the temporary-file isolation rule (prerequisite for v1.16.0).
+- `docs/GUIDE_LLM_INTERACTIONS.md`: `data-testid` selector priority, a
+  `diagnostic_dom.json`-driven strategy table, a citizenship self-regulation note,
+  and a perceptual fallback ladder (SoM → `a11y_tree` → `cliquer_visuel`).
+- `docs/GUIDE_LLM_SESSIONS.md`: `--stealth` + `--shadow-dom` compatibility note.
+- `scenarios/v1.15.2_validation/`: live proof against `example.com` that
+  `--no-evaluer` is surgical (blocks scenario `evaluer` only, not `shot.py`'s
+  internal `page.evaluate()` calls) and that the auth negative assertion already
+  degrades correctly. 4/4 tests green.
+
+**Validation:** preflight exit 0 (65 files scanned, 3 smoke tests green).
+Regression: `v1.3_validation` 8/8 green, `v1.4_validation` 2/3 green.
+
+**Finding — pre-existing stale test, not a regression:** `v1.4_validation` T3
+asserts `depuis_vault` and `vault_cle` are absent from the raw journal line.
+Both now legitimately appear inside `actions_raw` (introduced in v1.6.0 for
+`--exporter-skill`) — by design, `depuis_vault` and `vault_cle` are key
+*references*, never the resolved secret value (confirmed: the actual filled
+value `S3CR3T_RESOLU` stays absent). Reproduced identically on unmodified
+pre-session code via `git stash` — the test predates v1.6.0 and was never
+updated. Not fixed this cycle (outside the planned v1.15.2 item list); flagged
+for a future patch.
+
+**Technical decision:** `journal.py` (root CLI reader) left at `__version__
+1.14.1` — untouched this cycle, matching the per-file bump discipline already
+observed in git history (each of `shot.py`/`rpa.py`/`journal.py` bumps only
+when it functionally changes, not in lockstep on every release).
+
+---
+
 ## 2026-07-01 — Session 46 (v1.15.1 — Security hardening)
 
 **Work done:**
