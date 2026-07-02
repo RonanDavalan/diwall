@@ -4,6 +4,71 @@ History of decisions and discoveries by session, in reverse chronological order.
 
 ---
 
+## 2026-07-02 — Session 47 (v1.16.0 — Deterministic boussole and unified run identity)
+
+**Work done:**
+
+- Six items shipped, all additive, isolated helpers that never degrade the
+  existing output on failure. Recommended execution order followed: B (identity)
+  → A (etat) → C, D, E (friction signals) → F (measurement).
+- **Item B — `operation_id`:** `uuid.uuid4().hex[:12]` generated once at the top
+  of `main()`, before argument parsing — available even on early validation
+  failures. Default `--output-dir` isolated to `/tmp/diwall/<operation_id>/`
+  (explicit `--output-dir` overrides are respected as-is, never double-isolated).
+  `run_id` inside `executer_actions()` derived from `operation_id` (kept, not
+  removed — immutability). Transmitted to `lib/journal.py`'s
+  `enregistrer_operation()`, which now reuses it instead of generating a second
+  identity. `_boussole()` extended to accept and expose it (9 call sites updated).
+- **Item A — `etat`:** `_construire_etat()` synthesizes `auth_status`,
+  `citoyennete.plafond_atteint`, `derive_session`, `erreurs_js`,
+  `erreurs_console`, and `waf_bloquants` into `{pret_a_agir, niveau_confiance,
+  raisons}` at the JSON root. Explicitly scoped: does not check URL/title
+  conformance to a business expectation (that remains `rpa.py`'s assertion job).
+- **Item C — WAF detection:** `_detecter_waf()` (403/429 or keyword match)
+  checked on the initial navigation and every `naviguer` action. Counted in
+  `citoyennete.waf_bloquants` (root and boussole, via the existing duplication).
+  Signal only — no exception, ever (session 47 arbitration: Diwall perceives,
+  it does not moralize about access).
+- **Item D — `erreurs_console`:** `page.on("console", ...)` filtered to
+  `type == "error"`, root-level list, always present. Distinct from `erreurs_js`
+  (`pageerror` — uncaught exceptions only).
+- **Item E — `citoyennete.indice_agressivite`:** ratio of `ACTIONS_ECRITURE`
+  (reused from `lib/journal.py`, not duplicated) over total actions executed.
+  Logged in `operations.jsonl` via a new `citoyennete` field on
+  `enregistrer_operation()`.
+- **Item F — stealth benchmark:** see FR-79 below — blocked, then unblocked by
+  a real fix.
+
+**Finding and fix — FR-79 (`docs/RETOUR_EXPERIENCE.md`):** `--stealth` has been
+non-functional in production since v1.15.0 — `playwright-stealth` 2.0.3 (the
+version actually installed, matching `requirements.txt`) removed the
+`stealth_sync` function `shot.py` imported. Failed silently via
+`except ImportError`, and `boussole.stealth_actif` lied (reflected the CLI flag,
+not real application). Fixed: `Stealth().apply_stealth_sync(page)` (new 2.x
+API) + `stealth_actif` now gated on actual success (`stealth_applique`).
+Post-fix measurement on `bot.sannysoft.com`: fingerprint test failures dropped
+from 12 to 0 (`navigator.webdriver` `true` → `false`). Full write-up, including
+why the original FR-77 23-site panel was not reproduced, in
+`docs/RETOUR_EXPERIENCE.md` FR-79.
+
+**Documentation debt caught and paid down:** the "Notice index" version column
+in `GUIDE_LLM.md` had drifted from the `notice-version` header comments since
+the v1.15.2 commit (bumped the headers, forgot the index table). Corrected for
+all three notices; `GUIDE_LLM_SESSIONS.md`'s own header was also found stale
+(missed in v1.15.2's item 5) and corrected retroactively.
+
+**Validation:** `scenarios/v1.16.0_validation/` — 7/7 green (operation_id,
+etat nominal/degraded, `_detecter_waf` unit tests, erreurs_console,
+indice_agressivite, stealth fix). Regression: `v1.15.2_validation` 4/4,
+`v1.3_validation` 8/8, `v1.4_validation` 2/3 (pre-existing stale T3, see
+session 47 v1.15.2 entry below — unrelated to this cycle). Preflight exit 0.
+
+**Technical decision:** `rpa.py` and root `journal.py` left untouched — no
+functional change to either this cycle (only `shot.py` and `lib/journal.py`
+were modified), matching the per-file version bump discipline.
+
+---
+
 ## 2026-07-02 — Session 47 (v1.15.2 — Consolidation, DX and anti-collision patch)
 
 **Work done:**
