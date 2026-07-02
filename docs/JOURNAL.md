@@ -4,6 +4,19 @@ History of decisions and discoveries by session, in reverse chronological order.
 
 ---
 
+## 2026-07-02 — Session 47 (documentation follow-up, no version change)
+
+`scripts/*.sh` live only in the git source repository — `deploy.sh` never
+copies that directory to `/opt/diwall/`. `README.md`, `docs/GUIDE.md`, and
+`docs/MANUEL.md` referenced these scripts inconsistently: some as a bare
+relative path (correct only if already `cd`'d into the repo root, never
+stated), one (`docs/MANUEL.md`, vault mount instructions) as
+`/opt/diwall/scripts/mount-vault.sh` — a path that does not exist. All
+occurrences now use the absolute path `~/git/Diwall/Diwall/scripts/<script>.sh`,
+consistent with the rest of the documentation.
+
+---
+
 ## 2026-07-02 — Session 47 (v1.17.1 — Documentation quality pass)
 
 **Work done:**
