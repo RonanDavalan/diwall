@@ -262,7 +262,7 @@ CAPTURE=$(python3 -c "import json; d=json.load(open('/tmp/out.json')); print(d['
 | Situation | What to do |
 |---|---|
 | `FileNotFoundError` on vault | Check that the JSON file is named with the full FQDN (`urlparse(url).hostname`) |
-| `VaultFermeError` (exit 42) | Mount the vault: `bash scripts/mount-vault.sh` |
+| `VaultFermeError` (exit 42) | Mount the vault: `bash ~/git/Diwall/Diwall/scripts/mount-vault.sh` |
 | Invalid JSON in output | Use `2>/dev/null \| tail -1` to extract only the JSON line |
 | SoM IDs differ between sessions | Expected — SoM IDs are recalculated on each capture. Never reuse them cross-session |
 | Login followed by Django redirect to dashboard | Do not use `naviguer` in a resumed Django session — pass the URL via `--url` |
@@ -279,18 +279,18 @@ CAPTURE=$(python3 -c "import json; d=json.load(open('/tmp/out.json')); print(d['
 
 ## Uninstalling Diwall
 
-The `scripts/uninstall.sh` script removes the installation cleanly, in the reverse
+The `~/git/Diwall/Diwall/scripts/uninstall.sh` script removes the installation cleanly, in the reverse
 order of `install.sh`.
 
 ```bash
 # See what will be removed, without doing anything
-bash scripts/uninstall.sh --dry-run
+bash ~/git/Diwall/Diwall/scripts/uninstall.sh --dry-run
 
 # Full uninstall (interactive confirmation)
-bash scripts/uninstall.sh
+bash ~/git/Diwall/Diwall/scripts/uninstall.sh
 
 # Without confirmation (cold tests, chained reinstall)
-bash scripts/uninstall.sh --confirme && bash scripts/install.sh
+bash ~/git/Diwall/Diwall/scripts/uninstall.sh --confirme && bash ~/git/Diwall/Diwall/scripts/install.sh
 ```
 
 **What is removed:**
@@ -313,7 +313,7 @@ bash scripts/uninstall.sh --confirme && bash scripts/install.sh
 captures, it is preserved by default with a warning. To remove it:
 
 ```bash
-bash scripts/uninstall.sh --confirme --purge-preuves
+bash ~/git/Diwall/Diwall/scripts/uninstall.sh --confirme --purge-preuves
 ```
 
 ---

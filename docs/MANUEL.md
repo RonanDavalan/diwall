@@ -60,7 +60,7 @@ ls ~/Vaults/__PROJET__/Diwall/
 ```
 
 If `ls ~/Vaults/...` returns an empty list or an error:
-→ mount the vault: `bash /opt/diwall/scripts/mount-vault.sh`
+→ mount the vault: `bash ~/git/Diwall/Diwall/scripts/mount-vault.sh`
 
 ---
 
@@ -369,7 +369,7 @@ VaultFermeError: Le coffre Diwall est initialisé mais non monté.
 
 ```bash
 # Mount the vault
-bash /opt/diwall/scripts/mount-vault.sh
+bash ~/git/Diwall/Diwall/scripts/mount-vault.sh
 
 # Verify the mount
 ls ~/Vaults/__PROJET__/Diwall/

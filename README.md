@@ -113,7 +113,7 @@ sudo /opt/diwall/venv/bin/pip install -r requirements.txt
 sudo /opt/diwall/venv/bin/playwright install chromium
 
 # 5. Deploy
-bash scripts/deploy.sh
+bash ~/git/Diwall/Diwall/scripts/deploy.sh
 
 # 6. Create your credential vault
 mkdir -p ~/Vaults/<your-project>/Diwall
@@ -124,13 +124,13 @@ mkdir -p ~/Vaults/<your-project>/Diwall
 
 ```bash
 # Preview what will be removed (no changes made)
-bash scripts/uninstall.sh --dry-run
+bash ~/git/Diwall/Diwall/scripts/uninstall.sh --dry-run
 
 # Full uninstallation with interactive confirmation
-bash scripts/uninstall.sh
+bash ~/git/Diwall/Diwall/scripts/uninstall.sh
 
 # Non-interactive (CI, cold-reinstall tests)
-bash scripts/uninstall.sh --confirme
+bash ~/git/Diwall/Diwall/scripts/uninstall.sh --confirme
 ```
 
 Removes: `/opt/diwall/`, `/var/log/diwall/`, system user `diwall`, system group `diwall`, operator's group membership, git pre-push hook.
@@ -190,7 +190,7 @@ In a scenario or action: `"valeur": "depuis_vault", "vault_cle": "password"` —
 
 Vault path is configurable via `/opt/diwall/diwall.conf` or `DIWALL_VAULT_DIR` environment variable.
 
-**Recommendation:** protect `~/Vaults/Diwall/` with `chmod 700` and encrypt it with `gocryptfs` (see `scripts/setup-vault.sh --gocryptfs`). Encrypted vault is fully supported since v1.5.0 — if the vault is initialised but not mounted, Diwall returns a structured `VaultFermeError` (exit code 42) instead of silently failing.
+**Recommendation:** protect `~/Vaults/Diwall/` with `chmod 700` and encrypt it with `gocryptfs` (see `~/git/Diwall/Diwall/scripts/setup-vault.sh --gocryptfs`). Encrypted vault is fully supported since v1.5.0 — if the vault is initialised but not mounted, Diwall returns a structured `VaultFermeError` (exit code 42) instead of silently failing.
 
 ---
 
@@ -214,7 +214,7 @@ chmod 700 ~/Vaults/Diwall/
 ```
 
 Encrypted filesystem support (`gocryptfs`) has been fully supported since v1.5.0 —
-see "Credential vault" above and `scripts/setup-vault.sh`.
+see "Credential vault" above and `~/git/Diwall/Diwall/scripts/setup-vault.sh`.
 
 ---
 
