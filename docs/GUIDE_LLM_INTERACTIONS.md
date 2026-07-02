@@ -322,6 +322,15 @@ narrow the exploration scope or end the run cleanly before hitting
 `plafond_atteint` (see the citizenship cap behavior notice in
 `GUIDE_LLM_MONITORING.md`).
 
+**Aggressiveness index — `citoyennete.indice_agressivite` (v1.16.0, Grok G1):**
+ratio of mutating actions (`cliquer`, `cliquer_som`, `cliquer_visuel`,
+`remplir`, `remplir_som`, `evaluer`, `attendre_mfa_ntfy`) over the total
+actions executed in the run — logged in the journal alongside every run.
+Recommendation for open-ended exploration: keep this ratio under 0.3 (30%
+writes). A high ratio during exploration signals the agent is mutating the
+target more than it is observing it — a citizenship-adjacent concern, not a
+runtime-enforced cap.
+
 ---
 
 ## Error recovery — Stop-and-Search rule (bloquant)

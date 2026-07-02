@@ -1,7 +1,7 @@
 # Diwall — Sessions guide (vault, credentials, SPA, MFA, multi-page)
 
-<!-- notice-version: 1.2 -->
-Version 1.2 — June 2026 (v1.14.0) — auth_indicator_negative
+<!-- notice-version: 1.3 -->
+Version 1.3 — July 2026 (v1.15.2) — stealth + shadow-dom compatibility note
 
 Load this notice when: vault credentials, `--secrets`, session persistence, SPA navigation,
 multi-page flows, MFA/TOTP, auth_indicator, --no-capture.

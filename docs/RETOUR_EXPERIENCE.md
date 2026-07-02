@@ -2526,3 +2526,57 @@ marqueurs techniques automatiques — pas l'identité réelle.
 manifeste public sur `__DOMAINE_OPERATEUR__` section Philosophie.
 
 **Version :** Diwall v1.15.0 (planifié). Session 43 — 30 juin 2026.
+
+---
+
+### FR-79 — `--stealth` cassé depuis sa livraison (rupture d'API playwright-stealth 2.x)
+
+**Description :** en tentant de mesurer l'impact de `--stealth` (item F de la v1.16.0,
+benchmark post-consolidation), découverte que `--stealth` n'a **jamais fonctionné en
+production sur neo depuis son introduction en v1.15.0**. Le paquet `playwright-stealth`
+installé (2.0.3, conforme à `requirements.txt >=2.0`) a changé d'API entre la 1.x et la
+2.x : la fonction `stealth_sync(page)` importée par `shot.py` n'existe plus. L'import
+échouait silencieusement (`except ImportError`), `--stealth` se dégradait en no-op, et
+`navigator.webdriver` restait exposé malgré le flag actif.
+
+**Défaut latent aggravant :** la boussole affichait `stealth_actif: true` sur la seule
+base du flag CLI demandé, pas de son application réelle — l'agent croyait naviguer
+furtivement alors qu'aucune protection n'était appliquée.
+
+**Correctif (v1.16.0) :** `from playwright_stealth import Stealth` +
+`Stealth().apply_stealth_sync(page)` remplace l'ancien appel. `stealth_actif` dans la
+boussole ne reflète désormais que le succès réel de l'application (variable
+`stealth_applique`), plus la seule présence du flag.
+
+**Mesure post-correctif — `bot.sannysoft.com` (benchmark `scenarios/test_stealth.json`) :**
+
+| Signal | Sans `--stealth` | Avec `--stealth` |
+|---|---|---|
+| `navigator.webdriver` | `true` | `false` |
+| `navigator.plugins.length` | 0 | 3 |
+| `navigator.languages.length` | 1 | 2 |
+| Tests d'empreinte échoués (`td.failed`) | 12 | 0 |
+| Tests d'empreinte réussis (`td.passed`) | 18 | 31 |
+
+`--stealth`, une fois réellement appliqué, élimine la totalité des 12 détections
+basiques du benchmark. Confirme la limite déjà documentée dans `GUIDE_LLM.md` :
+ce résultat couvre le fingerprinting JS/navigateur — pas le TLS (JA3/JA4) ni
+l'analyse comportementale Cloudflare Enterprise.
+
+**Panel FR-77 (23 sites) non reproductible à l'identique :** la liste des 23 URLs
+testées le 27 juin 2026 n'a été consignée nulle part (seules les statistiques
+agrégées le sont). Reconstruire un panel de sites marchands réels pour une double
+frappe (avec/sans stealth) sans intention d'achat réelle changerait la nature de la
+démarche — proche d'un test de charge sur infrastructure commerciale tierce plutôt
+que d'une navigation citoyenne légitime. Décision : ne pas engager ce test
+autonomement ; le benchmark `test_stealth.json` (sites conçus pour être sondés)
+sert de mesure de substitution pour la porte de décision v1.16.0/v1.17.0.
+
+**Effet sur la porte de décision v1.17.0 (JA3/JA4, Kimi K3) :** partiellement
+informatif seulement. Le fingerprinting JS de base est désormais couvert — les
+39 % de blocage 403 observés en FR-77 relevaient donc probablement d'un niveau de
+détection plus profond (TLS, comportemental), non mesurable par ce substitut. La
+question reste ouverte ; un nouveau panel commercial avec intention d'usage réelle
+est le seul moyen de trancher honnêtement.
+
+**Version :** Diwall v1.16.0. Session 47 — 2 juillet 2026.
