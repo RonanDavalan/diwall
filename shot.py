@@ -11,7 +11,7 @@ import uuid
 from datetime import datetime, timezone
 from urllib.parse import urlparse
 
-__version__ = "1.16.0"
+__version__ = "1.17.0"
 
 # Permet d'importer lib/ depuis le même répertoire que shot.py
 sys.path.insert(0, os.path.dirname(os.path.abspath(__file__)))
@@ -75,6 +75,7 @@ _SOM_INJECTER_JS = """() => {
         lbl.textContent = String(num);
         box.appendChild(lbl);
         container.appendChild(box);
+        el.setAttribute("data-dw-som-id", String(num));
         items.push({
             id: num, tag: el.tagName,
             role: el.getAttribute('role') || el.tagName.toLowerCase(),
@@ -193,6 +194,7 @@ _SOM_INJECTER_JS_SHADOW = """() => {
         lbl.textContent = String(num);
         box.appendChild(lbl);
         container.appendChild(box);
+        el.setAttribute("data-dw-som-id", String(num));
         items.push({
             id: num, tag: el.tagName,
             role: el.getAttribute('role') || el.tagName.toLowerCase(),
@@ -270,6 +272,44 @@ _SOM_TROUVER_JS_SHADOW = """(id) => {
         items.push(el);
     });
     const el = items[id - 1];
+    if (!el) return null;
+    const r = el.getBoundingClientRect();
+    return {x: Math.round(r.left + r.width / 2), y: Math.round(r.top + r.height / 2), tag: el.tagName};
+}"""
+
+# ── Résolution stable par attribut (v1.17.0, item 3, --som-rafraichir) ───────
+# Contrairement à _SOM_TROUVER_JS (qui ré-indexe document.querySelectorAll() à
+# chaque appel — un problème d'IDENTITÉ, pas de fraîcheur : si des éléments
+# apparaissent/disparaissent avant lui dans l'ordre DOM, l'id N change
+# silencieusement de cible), ces variantes recherchent l'élément marqué
+# data-dw-som-id="N" à l'injection. Si l'élément a été retiré du DOM entre
+# l'injection et le clic : null → erreur explicite, jamais un clic sur la
+# mauvaise cible. Le marquage lui-même est posé inconditionnellement par
+# _SOM_INJECTER_JS(_SHADOW) — ces fonctions ne sont utilisées que si
+# --som-rafraichir est actif ; le comportement par défaut est inchangé.
+_SOM_TROUVER_STABLE_JS = """(id) => {
+    const el = document.querySelector('[data-dw-som-id="' + id + '"]');
+    if (!el) return null;
+    const r = el.getBoundingClientRect();
+    return {x: Math.round(r.left + r.width / 2), y: Math.round(r.top + r.height / 2), tag: el.tagName};
+}"""
+
+_SOM_TROUVER_STABLE_JS_SHADOW = """(id) => {
+    function queryShadowAll(selectors, root) {
+        var result = [];
+        try {
+            root.querySelectorAll(selectors).forEach(function(el) { result.push(el); });
+            root.querySelectorAll('*').forEach(function(el) {
+                if (el.shadowRoot) {
+                    queryShadowAll(selectors, el.shadowRoot).forEach(function(e) { result.push(e); });
+                }
+            });
+        } catch(ignore) {}
+        return result;
+    }
+    const sel = '[data-dw-som-id="' + id + '"]';
+    const matches = queryShadowAll(sel, document);
+    const el = matches[0];
     if (!el) return null;
     const r = el.getBoundingClientRect();
     return {x: Math.round(r.left + r.width / 2), y: Math.round(r.top + r.height / 2), tag: el.tagName};
@@ -666,6 +706,11 @@ def parse_args():
                    help="Active la traversée récursive des Shadow Roots ouverts pour le SoM "
                         "(v1.13.0). Désactivé par défaut. À utiliser sur Angular, Lit, Stencil. "
                         "Sans effet sur les Shadow Roots fermés (limitation navigateur).")
+    p.add_argument("--som-rafraichir", dest="som_rafraichir", action="store_true",
+                   help="Résolution SoM stable par attribut data-dw-som-id au lieu de "
+                        "ré-indexer le DOM courant (v1.17.0). Protège cliquer_som/remplir_som "
+                        "contre la dérive d'identité sur pages fortement dynamiques. Opt-in : "
+                        "comportement par défaut inchangé sans ce flag.")
     p.add_argument("--auth-indicator-negative", dest="auth_indicator_negative", default=None,
                    help="Sélecteur CSS dont la présence indique l'ABSENCE d'authentification "
                         "(v1.14.0). À utiliser avec --auth-indicator pour les interfaces à "
@@ -744,10 +789,14 @@ def executer_actions(page, actions, output_dir, timeout, mode_llm="local",
                      interval_capture_default=0, modeles_appeles=None,
                      secrets_chemin=None, screenshot_timeout=120_000, shadow_dom=False,
                      min_action_delay_ms=0, max_pages_par_run=0, max_actions_par_run=0,
-                     t_debut=None, no_evaluer=False, operation_id=None):
+                     t_debut=None, no_evaluer=False, operation_id=None, progress=None,
+                     som_rafraichir=False):
     from playwright.sync_api import TimeoutError as PWTimeoutError
 
-    _som_trouver = _SOM_TROUVER_JS_SHADOW if shadow_dom else _SOM_TROUVER_JS
+    if som_rafraichir:
+        _som_trouver = _SOM_TROUVER_STABLE_JS_SHADOW if shadow_dom else _SOM_TROUVER_STABLE_JS
+    else:
+        _som_trouver = _SOM_TROUVER_JS_SHADOW if shadow_dom else _SOM_TROUVER_JS
     intermediaires = []
     stream_captures = []
     evaluations = []
@@ -1048,6 +1097,48 @@ def executer_actions(page, actions, output_dir, timeout, mode_llm="local",
 
             page.mouse.click(result["x"], result["y"])
 
+        elif t == "cliquer_iframe":
+            # v1.17.0, item 4 — primitive scopée pour iframes cross-origin.
+            # page.frame_locator() franchit la frontière Same-Origin Policy via
+            # CDP (contrairement à une injection JS page-level, qui ne peut pas
+            # atteindre le contenu d'un iframe cross-origin). Pas de numérotation
+            # SoM à l'intérieur du frame — ciblage par sélecteur CSS explicite
+            # uniquement (limite documentée, GUIDE_LLM_INTERACTIONS.md).
+            iframe_sel = a.get("iframe_selecteur")
+            if not iframe_sel:
+                raise ValueError("cliquer_iframe requiert un champ 'iframe_selecteur'")
+            if "selecteur" not in a:
+                raise ValueError("cliquer_iframe requiert un champ 'selecteur' (cible dans le frame)")
+            page.frame_locator(iframe_sel).locator(a["selecteur"]).click(
+                timeout=timeout, force=bool(a.get("force", False)),
+            )
+
+        elif t == "remplir_iframe":
+            iframe_sel = a.get("iframe_selecteur")
+            if not iframe_sel:
+                raise ValueError("remplir_iframe requiert un champ 'iframe_selecteur'")
+            if "selecteur" not in a:
+                raise ValueError("remplir_iframe requiert un champ 'selecteur' (cible dans le frame)")
+            valeur = a.get("valeur", "")
+            if valeur == "depuis_vault":
+                cle = a.get("vault_cle")
+                if not cle:
+                    raise ValueError("remplir_iframe depuis_vault : champ 'vault_cle' requis")
+                if secrets_chemin:
+                    from lib.vault import lire_credential_fichier
+                    valeur = lire_credential_fichier(secrets_chemin, cle)
+                else:
+                    from lib.vault import lire_credential, domaine_depuis_url
+                    valeur = lire_credential(domaine_depuis_url(page.url), cle)
+            elif valeur == "depuis_vault_totp":
+                if secrets_chemin:
+                    from lib.vault import lire_totp_fichier
+                    valeur = lire_totp_fichier(secrets_chemin)
+                else:
+                    from lib.vault import lire_totp, domaine_depuis_url
+                    valeur = lire_totp(domaine_depuis_url(page.url))
+            page.frame_locator(iframe_sel).locator(a["selecteur"]).fill(valeur, timeout=timeout)
+
         elif t == "defiler":
             px = a.get("px")
             sel = a.get("selecteur")
@@ -1145,6 +1236,14 @@ def executer_actions(page, actions, output_dir, timeout, mode_llm="local",
 
         else:
             raise ValueError(f"Type d'action inconnu : {t!r}")
+
+        # Point de progression (v1.17.0, item 2) — atteint uniquement si l'action
+        # ci-dessus s'est terminée sans exception. `progress` (dict mutable
+        # fourni par l'appelant) reste donc figé sur le dernier état réussi si
+        # une action suivante lève — support des checkpoints rpa.py.
+        if progress is not None:
+            progress["actions_executees"] = actions_executees
+            progress["pages_visitees"] = pages_visitees
 
         if min_action_delay_ms > 0:
             time.sleep(min_action_delay_ms / 1000.0)
@@ -1311,6 +1410,10 @@ def main():
 
     erreurs_js = []
     erreurs_console = []
+    # v1.17.0, item 2 — rempli par executer_actions() au fil des actions
+    # réussies ; lu dans le except si une action échoue en cours de route
+    # (support des checkpoints rpa.py).
+    progress = {}
     http_status = None
     url_finale = args.url or ""
     url_cible = url_finale  # pour le handler d'erreur
@@ -1391,20 +1494,35 @@ def main():
                 page.wait_for_selector(args.attendre_selecteur, timeout=args.timeout)
 
             # ── Actions ───────────────────────────────────────────────────────
-            interm, stream_captures, evaluations, modeles_appeles, citoyennete = executer_actions(
-                page, actions, args.output_dir, args.timeout, args.llm,
-                interval_capture_default=args.interval_capture,
-                modeles_appeles=modeles_appeles,
-                secrets_chemin=getattr(args, "secrets", None),
-                screenshot_timeout=args.screenshot_timeout,
-                shadow_dom=args.shadow_dom,
-                min_action_delay_ms=conf_nav["min_action_delay_ms"],
-                max_pages_par_run=conf_nav["max_pages_par_run"],
-                max_actions_par_run=conf_nav["max_actions_par_run"],
-                t_debut=t0,
-                no_evaluer=args.no_evaluer,
-                operation_id=operation_id,
-            )
+            # v1.17.0, item 2 — try/except localisé à ce seul appel : si une
+            # action échoue en cours de route, ctx/page sont encore vivants ici
+            # (avant la fermeture implicite par la sortie du bloc `with`) —
+            # dernière occasion de sauvegarder la session pour un checkpoint.
+            try:
+                interm, stream_captures, evaluations, modeles_appeles, citoyennete = executer_actions(
+                    page, actions, args.output_dir, args.timeout, args.llm,
+                    interval_capture_default=args.interval_capture,
+                    modeles_appeles=modeles_appeles,
+                    secrets_chemin=getattr(args, "secrets", None),
+                    screenshot_timeout=args.screenshot_timeout,
+                    shadow_dom=args.shadow_dom,
+                    min_action_delay_ms=conf_nav["min_action_delay_ms"],
+                    max_pages_par_run=conf_nav["max_pages_par_run"],
+                    max_actions_par_run=conf_nav["max_actions_par_run"],
+                    t_debut=t0,
+                    no_evaluer=args.no_evaluer,
+                    operation_id=operation_id,
+                    progress=progress,
+                    som_rafraichir=args.som_rafraichir,
+                )
+            except Exception:
+                if args.sauver_session:
+                    try:
+                        _sauver_session(ctx, page, args.sauver_session,
+                                        {"width": args.largeur, "height": args.hauteur})
+                    except Exception:
+                        pass  # best-effort — ne jamais masquer l'erreur originale
+                raise
             if waf_initial:
                 citoyennete["waf_bloquants"] = citoyennete.get("waf_bloquants", 0) + 1
             url_finale = page.url  # mise à jour après actions
@@ -1503,6 +1621,8 @@ def main():
         result["boussole"]["titre_page"] = titre_page
         if args.shadow_dom:
             result["boussole"]["shadow_dom_actif"] = True
+        if args.som_rafraichir:
+            result["boussole"]["som_rafraichir_actif"] = True
         if stealth_applique:
             result["boussole"]["stealth_actif"] = True
         if args.ignore_tls_errors:
@@ -1581,6 +1701,12 @@ def main():
         }
         if capture_echec:
             result["capture_echec"] = capture_echec
+        # v1.17.0, item 2 — progression partielle pour les checkpoints rpa.py.
+        # Absent si l'échec est survenu avant tout appel executer_actions()
+        # (ex. vault fermé, URL invalide) : progress reste vide dans ce cas.
+        if progress.get("actions_executees") is not None:
+            result["actions_executees_avant_echec"] = progress["actions_executees"]
+            result["pages_visitees_avant_echec"] = progress.get("pages_visitees", 0)
         result["boussole"] = _boussole(operation_id)
         print(json.dumps(result, ensure_ascii=False))
         _journaliser_run(result, actions, args.intention, url_cible, "echec",

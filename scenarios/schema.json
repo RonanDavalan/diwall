@@ -17,6 +17,8 @@
                                  "description": "CSS selector whose PRESENCE signals unauthenticated state. Used with auth_indicator for ambiguous interfaces where the positive selector is visible even on login pages (v1.14.0)." },
     "shadow_dom": { "type": "boolean",
                     "description": "Enable Shadow DOM traversal for SoM injection (--shadow-dom, v1.13.0). Disabled by default. Use on Angular, Lit, Stencil applications." },
+    "som_rafraichir": { "type": "boolean",
+                    "description": "Stable SoM resolution by data-dw-som-id attribute instead of live DOM re-indexing (--som-rafraichir, v1.17.0). Protects cliquer_som/remplir_som against identity drift on highly dynamic pages. Disabled by default." },
     "url":         { "type": "string", "format": "uri" },
     "actions": {
       "type": "array",
@@ -45,7 +47,9 @@
         { "$ref": "#/definitions/AttendreAbsence" },
         { "$ref": "#/definitions/AttendreReseauCalme" },
         { "$ref": "#/definitions/NettoyerOverlay" },
-        { "$ref": "#/definitions/DeclencherScenario" }
+        { "$ref": "#/definitions/DeclencherScenario" },
+        { "$ref": "#/definitions/CliquerIframe" },
+        { "$ref": "#/definitions/RemplirIframe" }
       ]
     },
 
@@ -121,6 +125,44 @@
         "id":        { "type": "integer", "minimum": 1 },
         "valeur":    { "type": "string" },
         "vault_cle": { "type": "string", "minLength": 1 }
+      },
+      "allOf": [
+        {
+          "if": {
+            "properties": { "valeur": { "const": "depuis_vault" } },
+            "required": ["valeur"]
+          },
+          "then": { "required": ["vault_cle"] }
+        }
+      ]
+    },
+
+    "CliquerIframe": {
+      "type": "object",
+      "required": ["type", "iframe_selecteur", "selecteur"],
+      "additionalProperties": false,
+      "properties": {
+        "type":             { "const": "cliquer_iframe" },
+        "iframe_selecteur": { "type": "string", "minLength": 1,
+                              "description": "CSS selector of the <iframe> element (same or cross-origin)" },
+        "selecteur":        { "type": "string", "minLength": 1,
+                              "description": "CSS selector of the target inside the iframe content" },
+        "force":            { "type": "boolean" }
+      }
+    },
+
+    "RemplirIframe": {
+      "type": "object",
+      "required": ["type", "iframe_selecteur", "selecteur", "valeur"],
+      "additionalProperties": false,
+      "properties": {
+        "type":             { "const": "remplir_iframe" },
+        "iframe_selecteur": { "type": "string", "minLength": 1,
+                              "description": "CSS selector of the <iframe> element (same or cross-origin)" },
+        "selecteur":        { "type": "string", "minLength": 1,
+                              "description": "CSS selector of the target inside the iframe content" },
+        "valeur":           { "type": "string" },
+        "vault_cle":        { "type": "string", "minLength": 1 }
       },
       "allOf": [
         {

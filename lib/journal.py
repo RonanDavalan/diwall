@@ -54,6 +54,7 @@ ACTIONS_ECRITURE = frozenset({
     "cliquer", "cliquer_som", "cliquer_visuel",
     "remplir", "remplir_som", "evaluer",
     "attendre_mfa_ntfy",
+    "cliquer_iframe", "remplir_iframe",  # v1.17.0, item 4
 })
 
 
@@ -88,7 +89,7 @@ def _resumer_action(action):
         # journalisée en clair. Selon le chemin d'appel (rpa.py résout le
         # vault en amont), une valeur de saisie peut être un credential
         # déjà résolu — on ne peut pas le distinguer ici, donc on masque.
-        if t in ("remplir", "remplir_som"):
+        if t in ("remplir", "remplir_som", "remplir_iframe"):
             return f"{tete}=<saisie>"
         return f"{tete}={str(action.get('valeur'))[:40]}"
     if t == "evaluer" and action.get("script"):
@@ -119,7 +120,7 @@ def _neutraliser_actions_raw(actions):
             continue
         a2 = dict(a)
         t = a2.get("type", "")
-        if t in ("remplir", "remplir_som"):
+        if t in ("remplir", "remplir_som", "remplir_iframe"):
             v = a2.get("valeur")
             if v not in ("depuis_vault", "depuis_vault_totp", None):
                 a2["valeur"] = "<saisie>"

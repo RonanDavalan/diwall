@@ -258,6 +258,36 @@ Playwright needs a moment to register the new DOM state (REX #66).
 
 ---
 
+## `--replay-verifier` — structural non-regression without pixels (v1.17.0)
+
+Compares a run's structural surface (`http_status`, `dom_stats`,
+`evaluations`, `elements_som` count) against a saved reference — CI-friendly,
+no screenshot, no LLM call. Complements `watch.py --comparer-pixel` (visual)
+rather than replacing it — this checks *structure*, not appearance.
+
+```bash
+# First run — save the reference
+/opt/diwall/venv/bin/python3 /opt/diwall/rpa.py \
+  --scenario dashboard.json --sauver-verifier-reference ref.json
+
+# Subsequent runs — compare
+/opt/diwall/venv/bin/python3 /opt/diwall/rpa.py \
+  --scenario dashboard.json --replay-verifier ref.json
+```
+
+Verdict on stderr: `{"type_comparaison": "replay_verifier", "verdict": "stable"|"regression", "diffs": [...]}`.
+Exit 1 on `regression`, `diffs` lists each mismatched field with `reference`
+vs `obtenu`. Mutually exclusive with `--sauver-verifier-reference` (rejected
+at parse time, exit 2, if both are passed).
+
+**Scope — what is compared:** only volatile fields are excluded by
+construction (timestamps, `operation_id`, `duree_ms`, `boussole.ip_locale`).
+`elements_som` is compared by **count only**, not content — SoM element
+identity across runs is not guaranteed stable (see `--som-rafraichir` below
+for why).
+
+---
+
 ## journal.py — operations log
 
 journal.py appends a structured JSON line to `/var/log/diwall/operations.jsonl`
