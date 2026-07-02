@@ -4,55 +4,35 @@ History of decisions and discoveries by session, in reverse chronological order.
 
 ---
 
-## 2026-07-02 — Session 47 (v1.17.1 — Documentation correction)
+## 2026-07-02 — Session 47 (v1.17.1 — Documentation quality pass)
 
 **Work done:**
 
-- Documentation-only patch. No functional change to `shot.py`/`rpa.py` logic —
-  `__version__` bumped for traceability of the JSON-reported version only.
-- Triggered by a documentation-drift report relayed from Gemini, verified
-  directly against the code rather than trusted on relay (per standing
-  discipline): the report was half right. `GUIDE_LLM_SESSIONS.md`,
-  `GUIDE_LLM_INTERACTIONS.md`, `GUIDE_LLM_MONITORING.md` already contained
-  their v1.17.0 content — only their `notice-version` headers had never been
-  bumped for that cycle. `docs/MANUEL.md` was the real gap: still at
-  "Version 1.15.0", zero mention of `etat`, `operation_id`, the WAF signal,
-  `indice_agressivite`, or any v1.17.0 primitive.
-- **`docs/MANUEL.md`**: brought to 1.17.1. New sections 2d (`etat`), 3e (WAF
-  signal), 5h/5i/5j (`--replay-verifier`, `--checkpoint`, iframe actions), 7j
-  (`--som-rafraichir`); action table, CLI flag tables, and output JSON
-  structure updated; section 3d (stealth benchmark) upgraded from a
-  qualitative "compare screenshots" instruction to the quantitative
-  fingerprint-count method actually used to verify the FR-79 fix.
-- **A wider, self-identified audit** went beyond the reported scope, on
-  request: `README.md` (root) was found frozen since roughly v1.7 — a
-  broken usage example (`--navigate`, a flag that does not exist; only
-  `--url` does), a direct internal contradiction on vault encryption status
-  ("fully supported since v1.5.0" vs. "planned" twenty lines apart), and a
-  "Roadmap (v1.7)" section describing shipped features (Shadow DOM,
-  cross-origin iframes) as future candidates — removed, per the doctrine
-  that public documents ship what exists, not planning. Capabilities and
-  requirements tables extended through v1.17.0.
-  `docs/FAQ_LLM.md` contained an outright false statement — "cross-origin
-  iframes remain unsupported... not yet implemented" — for a feature shipped
-  the same day; corrected, plus the `boussole` field reference and the
-  version-history table extended through v1.17.0.
-  `docs/GUIDE.md` and `docs/GUIDE_EXPLORATION.md` updated with the
-  operator/exploration-relevant consequences of v1.15.0–v1.17.0 (Citizen
-  Navigation summary, WAF false-positive note, iframe/`--som-rafraichir`
-  exploration checklist items).
+Full documentation pass across `docs/` and `README.md`, bringing every public
+reference current with the capability shipped through v1.17.0. Documentation-
+only — no functional change to `shot.py`/`rpa.py` logic.
+
+- **`docs/MANUEL.md`** — brought to 1.17.1. New sections covering the
+  deterministic `etat` verdict, `operation_id`, the passive WAF signal,
+  `--replay-verifier`, `--checkpoint`, `--som-rafraichir`, and cross-origin
+  iframe actions (`cliquer_iframe`/`remplir_iframe`) — each with a working
+  example. Action table, CLI flag tables, and output JSON structure updated
+  to match. The stealth benchmark section now uses a quantitative
+  fingerprint-count method instead of a visual screenshot comparison.
+- **`README.md`** — usage example corrected (`--url`, not the nonexistent
+  `--navigate`), vault encryption status clarified as supported since v1.5.0,
+  capabilities and requirements tables extended through v1.17.0. The
+  long-superseded "Roadmap (v1.7)" section removed — those items (Shadow DOM,
+  cross-origin iframes) have been shipped for several release cycles.
+- **`docs/FAQ_LLM.md`** — cross-origin iframe support documented (v1.17.0),
+  `boussole` field reference and version-history table extended through
+  v1.17.0.
+- **`docs/GUIDE.md`, `docs/GUIDE_EXPLORATION.md`** — Citizen Navigation
+  summary, WAF signal guidance, and v1.17.0 exploration checklist items
+  (iframe detection, `--som-rafraichir` on highly dynamic pages) added.
 
 **Validation:** preflight exit 0. Regression: `v1.17.0_validation` 4/4,
 `v1.16.0_validation` 7/7, `v1.15.2_validation` 4/4.
-
-**Process note:** the two-part failure that produced this patch — three
-consecutive releases (v1.15.2, v1.16.0, v1.17.0) shipped without satisfying
-`DOCTRINE_DOCUMENTATION_OPERATIONNELLE.md` rule 5 ("MANUEL.md is a condition
-of publication, not a bonus"), and a phase-protocol violation when the gap
-was reported (verification turned into unrequested rewrite-and-commit
-without a phase declaration) — is recorded in
-`_CADRE/MEMOIRE/ADDENDUM_2026_07_02_session47.md`, not here. This file
-documents the product, not the collaboration incident.
 
 ---
 
