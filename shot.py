@@ -7,16 +7,17 @@ import resource
 import socket
 import sys
 import time
+import uuid
 from datetime import datetime, timezone
 from urllib.parse import urlparse
 
-__version__ = "1.15.2"
+__version__ = "1.16.0"
 
 # Permet d'importer lib/ depuis le même répertoire que shot.py
 sys.path.insert(0, os.path.dirname(os.path.abspath(__file__)))
 
 
-def _boussole():
+def _boussole(operation_id=None):
     try:
         s = socket.socket(socket.AF_INET, socket.SOCK_DGRAM)
         s.connect(("8.8.8.8", 80))
@@ -24,11 +25,14 @@ def _boussole():
         s.close()
     except Exception:
         ip = ""
-    return {
+    b = {
         "utilisateur": os.getenv("USER", ""),
         "ip_locale": ip,
         "repertoire": os.getcwd(),
     }
+    if operation_id:
+        b["operation_id"] = operation_id
+    return b
 
 # ── Set-of-Mark ───────────────────────────────────────────────────────────────
 _SOM_INJECTER_JS = """() => {
@@ -323,6 +327,26 @@ def _valider_schema_url(url):
             f"URL scheme '{scheme}' interdit — seuls http et https sont acceptés. URL: {url}"
         )
 
+# ── Détection passive de WAF (v1.16.0, item C) ────────────────────────────────
+# Signal non fatal — jamais d'exception. Diwall perçoit la friction, il ne
+# l'arbitre pas : décision session 47 (« Diwall est un outil de perception,
+# pas un arbitre moral de l'accès »). Heuristique par mots-clés — faux positifs
+# possibles, à traiter comme un signal rapide, jamais comme un verdict certain.
+_WAF_MOTS_CLES = (
+    "cloudflare", "captcha", "access denied", "attention required",
+    "checking your browser", "just a moment", "cf-error-details",
+    "sorry, you have been blocked", "request blocked", "akamai",
+)
+
+
+def _detecter_waf(http_status, titre_page, html_snippet):
+    """True si un blocage WAF est probable — 403/429, ou mot-clé de blocage."""
+    if http_status in (403, 429):
+        return True
+    texte = f"{titre_page or ''} {html_snippet or ''}".lower()
+    return any(mot in texte for mot in _WAF_MOTS_CLES)
+
+
 # ── Statistiques DOM structurelles (--no-capture) ────────────────────────────
 _DOM_STATS_JS = """() => {
     var q = function(s) { return document.querySelectorAll(s).length; };
@@ -410,6 +434,68 @@ def _construire_diwall_meta(profil, horodatage, modeles_appeles, url_finale):
     return meta
 
 
+def _construire_etat(auth_status, citoyennete, derive_session, erreurs_js,
+                     waf_bloquants=None, erreurs_console=None):
+    """Synthèse déterministe de l'état opérationnel (v1.16.0, item A).
+
+    Calculée uniquement à partir de signaux déjà présents dans le run — aucun
+    appel réseau ni navigateur supplémentaire. Isolée à dessein : appelée
+    dans un bloc protégé, son échec ne doit jamais dégrader le reste de la
+    sortie JSON.
+
+    Portée assumée : « pret_a_agir » ne vérifie pas la conformité de l'URL ou
+    du titre à une attente métier (Diwall n'a aucune référence externe pour
+    cela — c'est le rôle des assertions `evaluer` + `contient`/`motif`/`attendu`
+    de rpa.py). Il agrège uniquement les signaux que shot.py peut déterminer
+    par lui-même : authentification, dérive de session, plafond de
+    citoyenneté, friction réseau/applicative (WAF, erreurs JS/console).
+    """
+    raisons = []
+    pret = True
+    niveau = "eleve"
+
+    if auth_status is not None:
+        if auth_status == "active":
+            raisons.append("session authentifiée active")
+        else:
+            raisons.append("session non authentifiée (auth_status: inactive)")
+            pret = False
+            niveau = "faible"
+
+    if derive_session:
+        raisons.append(
+            "dérive de session détectée — URL divergente depuis la sauvegarde"
+        )
+        pret = False
+        niveau = "faible"
+
+    if citoyennete and citoyennete.get("plafond_atteint"):
+        raisons.append(f"plafond de citoyenneté atteint ({citoyennete['plafond_atteint']})")
+        pret = False
+        if niveau == "eleve":
+            niveau = "modere"
+
+    if erreurs_js:
+        raisons.append(f"{len(erreurs_js)} erreur(s) JS non interceptée(s)")
+        if niveau == "eleve":
+            niveau = "modere"
+
+    if erreurs_console:
+        raisons.append(f"{len(erreurs_console)} message(s) d'erreur en console")
+        if niveau == "eleve":
+            niveau = "modere"
+
+    if waf_bloquants:
+        raisons.append("blocage WAF détecté (signal non fatal, à interpréter)")
+        pret = False
+        niveau = "faible"
+
+    if not raisons:
+        raisons.append("aucun signal de friction détecté")
+
+    return {"pret_a_agir": pret, "niveau_confiance": niveau, "raisons": raisons}
+
+
 def _nettoyer_session_ephemere(chemin_session, explicitement_demandee):
     """Désactivé (FR-74/FR-75) — ne supprime plus le fichier de session.
 
@@ -419,11 +505,15 @@ def _nettoyer_session_ephemere(chemin_session, explicitement_demandee):
     """
 
 
-def _journaliser_run(result, actions, intention, cible_url, resultat, erreur=None):
+def _journaliser_run(result, actions, intention, cible_url, resultat, erreur=None,
+                     operation_id=None):
     """Consigne le run dans le journal d'opérations (v1.4). Best-effort.
 
     N'altère jamais la sortie ni le code de retour de shot.py : toute
     erreur de journalisation est avalée par lib/journal lui-même.
+
+    `operation_id` (v1.16.0, item B) : transmis tel quel — le journal réutilise
+    l'identité de run générée par shot.py au lieu d'en régénérer une nouvelle.
     """
     try:
         from lib import journal
@@ -449,6 +539,8 @@ def _journaliser_run(result, actions, intention, cible_url, resultat, erreur=Non
         captures=captures,
         erreur=erreur,
         evaluations=result.get("evaluations"),
+        operation_id=operation_id,
+        citoyennete=result.get("citoyennete"),
     )
 
 
@@ -518,6 +610,12 @@ def _detecter_derive_session(session, url_cible_reprise):
     }
 
 
+# Défaut de --output-dir — référencé aussi dans main() pour l'isolation par
+# operation_id (v1.16.0, item B) : seul le défaut est isolé automatiquement,
+# un --output-dir explicite reste respecté tel quel.
+_OUTPUT_DIR_DEFAUT = "/tmp/diwall"
+
+
 def parse_args():
     p = argparse.ArgumentParser(description="Diwall — capture Playwright avec actions")
     # Mode A (séquentiel) : --url requis. Mode B (ReAct) : --reprendre-session à la place.
@@ -537,7 +635,7 @@ def parse_args():
     p.add_argument("--screenshot-timeout", dest="screenshot_timeout", type=int, default=120_000,
                    help="Timeout ms pour page.screenshot() (défaut : 120000). "
                         "Distinct de --timeout (actions Playwright).")
-    p.add_argument("--output-dir", dest="output_dir", default="/tmp/diwall",
+    p.add_argument("--output-dir", dest="output_dir", default=_OUTPUT_DIR_DEFAUT,
                    help="Répertoire de sortie des captures auto (défaut : /tmp/diwall)")
     p.add_argument("--largeur", type=int, default=1280, help="Largeur viewport px (défaut : 1280)")
     p.add_argument("--hauteur", type=int, default=720, help="Hauteur viewport px (défaut : 720)")
@@ -646,7 +744,7 @@ def executer_actions(page, actions, output_dir, timeout, mode_llm="local",
                      interval_capture_default=0, modeles_appeles=None,
                      secrets_chemin=None, screenshot_timeout=120_000, shadow_dom=False,
                      min_action_delay_ms=0, max_pages_par_run=0, max_actions_par_run=0,
-                     t_debut=None, no_evaluer=False):
+                     t_debut=None, no_evaluer=False, operation_id=None):
     from playwright.sync_api import TimeoutError as PWTimeoutError
 
     _som_trouver = _SOM_TROUVER_JS_SHADOW if shadow_dom else _SOM_TROUVER_JS
@@ -654,12 +752,16 @@ def executer_actions(page, actions, output_dir, timeout, mode_llm="local",
     stream_captures = []
     evaluations = []
     stream_dir = None
-    run_id = int(time.time())
+    # run_id dérivé de operation_id (v1.16.0, item B) — jamais supprimé,
+    # conserve son rôle historique (nom du sous-répertoire stream/).
+    # Repli sur l'ancien comportement si appelé sans operation_id (compatibilité).
+    run_id = operation_id or int(time.time())
     if modeles_appeles is None:
         modeles_appeles = []
     pages_visitees = 0
     actions_executees = 0
     plafond_atteint = None
+    waf_bloquants = 0
     if t_debut is None:
         t_debut = time.time()
 
@@ -678,6 +780,12 @@ def executer_actions(page, actions, output_dir, timeout, mode_llm="local",
             stream_dir = _preparer_stream_dir(output_dir, run_id)
         return stream_dir
 
+    # Indice d'agressivité (v1.16.0, item E) — réutilise la taxonomie
+    # ACTIONS_ECRITURE déjà arbitrée pour est_mutatif (lib/journal.py),
+    # source unique, pas de seconde liste à maintenir en synchronisation.
+    from lib.journal import ACTIONS_ECRITURE
+    actions_ecriture = 0
+
     for idx, a in enumerate(actions):
         t = a.get("type")
         iv = _resoudre_intervalle(a)
@@ -687,6 +795,8 @@ def executer_actions(page, actions, output_dir, timeout, mode_llm="local",
             plafond_atteint = "max_actions_par_run"
             actions_executees -= 1
             break
+        if t in ACTIONS_ECRITURE:
+            actions_ecriture += 1
 
         if t == "naviguer":
             pages_visitees += 1
@@ -696,7 +806,13 @@ def executer_actions(page, actions, output_dir, timeout, mode_llm="local",
                 actions_executees -= 1
                 break
             _valider_schema_url(a.get("url", ""))
-            page.goto(a["url"], timeout=timeout)
+            rep_nav = page.goto(a["url"], timeout=timeout)
+            try:
+                statut_nav = rep_nav.status if rep_nav else None
+                if _detecter_waf(statut_nav, page.title(), page.content()[:5000]):
+                    waf_bloquants += 1
+            except Exception:
+                pass  # détection best-effort — ne doit jamais casser la navigation
 
         elif t == "attendre":
             if "selecteur" not in a:
@@ -1040,6 +1156,10 @@ def executer_actions(page, actions, output_dir, timeout, mode_llm="local",
     }
     if plafond_atteint:
         citoyennete["plafond_atteint"] = plafond_atteint
+    if waf_bloquants:
+        citoyennete["waf_bloquants"] = waf_bloquants
+    if actions_executees > 0:
+        citoyennete["indice_agressivite"] = round(actions_ecriture / actions_executees, 3)
     return intermediaires, stream_captures, evaluations, modeles_appeles, citoyennete
 
 
@@ -1075,6 +1195,11 @@ def main():
     except (ValueError, resource.error):
         pass  # best-effort — certains environnements refusent, ce n'est pas bloquant
 
+    # ── Identité de run unifiée (v1.16.0, item B) ─────────────────────────────
+    # Générée avant toute autre chose : disponible dans la boussole de TOUTE
+    # sortie JSON, y compris les échecs de validation précoces.
+    operation_id = uuid.uuid4().hex[:12]
+
     args = parse_args()
 
     # ── Résolution de --mode (avant toute validation) ─────────────────────────
@@ -1082,6 +1207,11 @@ def main():
         args.no_capture = True
         args.a11y = True
     # --mode full : aucun changement (comportement courant)
+
+    # Isolation des temporaires par operation_id — uniquement si --output-dir
+    # n'a pas été explicitement surchargé (le choix de l'opérateur est respecté).
+    if args.output_dir == _OUTPUT_DIR_DEFAUT:
+        args.output_dir = os.path.join(args.output_dir, operation_id)
 
     conf_nav = _conf_navigation()
     t0 = time.time()
@@ -1097,7 +1227,7 @@ def main():
             "succes": False, "erreur": "argument_manquant",
             "message": "--url ou --reprendre-session est requis",
             "horodatage": horodatage,
-            "boussole": _boussole(),
+            "boussole": _boussole(operation_id),
         }))
         sys.exit(1)
 
@@ -1118,7 +1248,7 @@ def main():
             print(json.dumps({
                 "succes": False, "erreur": "action_invalide",
                 "message": str(e), "horodatage": horodatage,
-                "boussole": _boussole(),
+                "boussole": _boussole(operation_id),
             }))
             sys.exit(1)
     else:
@@ -1128,7 +1258,7 @@ def main():
             print(json.dumps({
                 "succes": False, "erreur": "actions_invalides",
                 "message": str(e), "horodatage": horodatage,
-                "boussole": _boussole(),
+                "boussole": _boussole(operation_id),
             }))
             sys.exit(1)
 
@@ -1138,7 +1268,7 @@ def main():
     except ValueError as e:
         print(json.dumps({
             "succes": False, "erreur": "url_scheme_interdit",
-            "message": str(e), "horodatage": horodatage, "boussole": _boussole(),
+            "message": str(e), "horodatage": horodatage, "boussole": _boussole(operation_id),
         }))
         sys.exit(2)
 
@@ -1147,14 +1277,14 @@ def main():
         print(json.dumps({
             "succes": False, "erreur": "arguments_incompatibles",
             "message": "--no-capture est incompatible avec --som : SoM requiert un PNG",
-            "horodatage": horodatage, "boussole": _boussole(),
+            "horodatage": horodatage, "boussole": _boussole(operation_id),
         }))
         sys.exit(1)
     if args.no_capture and any(a.get("type") == "capturer" for a in actions):
         print(json.dumps({
             "succes": False, "erreur": "arguments_incompatibles",
             "message": "--no-capture est incompatible avec l'action 'capturer' dans le scénario",
-            "horodatage": horodatage, "boussole": _boussole(),
+            "horodatage": horodatage, "boussole": _boussole(operation_id),
         }))
         sys.exit(1)
 
@@ -1168,7 +1298,7 @@ def main():
             "succes": False, "erreur": "arguments_incompatibles",
             "message": "--auth-indicator-negative requiert --auth-indicator "
                        "(sans lui, l'indicateur négatif est ignoré silencieusement)",
-            "horodatage": horodatage, "boussole": _boussole(),
+            "horodatage": horodatage, "boussole": _boussole(operation_id),
         }))
         sys.exit(2)
 
@@ -1180,6 +1310,7 @@ def main():
         sortie = chemin_png(args.output_dir)
 
     erreurs_js = []
+    erreurs_console = []
     http_status = None
     url_finale = args.url or ""
     url_cible = url_finale  # pour le handler d'erreur
@@ -1210,19 +1341,44 @@ def main():
                 url_cible = args.url
 
             page = ctx.new_page()
+            # Correctif compatibilité playwright-stealth 2.x (v1.16.0) : l'API
+            # 1.x (fonction stealth_sync) a été retirée au profit d'une classe
+            # Stealth().apply_stealth_sync(page). L'ancien appel échouait à
+            # l'import et --stealth se dégradait silencieusement en no-op —
+            # navigator.webdriver restait exposé malgré le flag actif, et la
+            # boussole affichait quand même stealth_actif: true (voir plus bas).
+            stealth_applique = False
             if args.stealth:
                 try:
-                    from playwright_stealth import stealth_sync
-                    stealth_sync(page)
-                except ImportError:
-                    sys.stderr.write("playwright-stealth non installé — --stealth ignoré\n")
+                    from playwright_stealth import Stealth
+                    Stealth().apply_stealth_sync(page)
+                    stealth_applique = True
+                except Exception as e:
+                    sys.stderr.write(
+                        f"playwright-stealth indisponible ou incompatible — "
+                        f"--stealth ignoré ({type(e).__name__}: {e})\n"
+                    )
             page.on("pageerror", lambda err: erreurs_js.append(str(err)))
+            # v1.16.0, item D — messages de console de niveau erreur, distincts
+            # des exceptions non interceptées (erreurs_js/pageerror). Complète
+            # sans remplacer : un site peut avoir des erreurs console (requêtes
+            # réseau échouées, avertissements applicatifs) sans lever d'exception JS.
+            page.on("console", lambda msg: (
+                erreurs_console.append(msg.text) if msg.type == "error" else None
+            ))
 
             # ── Navigation ────────────────────────────────────────────────────
             rep = page.goto(url_cible, timeout=args.timeout, wait_until="networkidle")
             if rep:
                 http_status = rep.status
             url_finale = page.url
+
+            # ── Détection WAF sur la navigation initiale (v1.16.0, item C) ────
+            waf_initial = False
+            try:
+                waf_initial = _detecter_waf(http_status, page.title(), page.content()[:5000])
+            except Exception:
+                pass
 
             # ── Détection de dérive de session (lot 8.5) ──────────────────────
             # Comparaison sur l'URL effective après navigation (post-normalisation)
@@ -1247,7 +1403,10 @@ def main():
                 max_actions_par_run=conf_nav["max_actions_par_run"],
                 t_debut=t0,
                 no_evaluer=args.no_evaluer,
+                operation_id=operation_id,
             )
+            if waf_initial:
+                citoyennete["waf_bloquants"] = citoyennete.get("waf_bloquants", 0) + 1
             url_finale = page.url  # mise à jour après actions
 
             # ── Capture finale ────────────────────────────────────────────────
@@ -1305,6 +1464,7 @@ def main():
             "http_status": http_status,
             "url_finale": url_finale,
             "erreurs_js": erreurs_js,
+            "erreurs_console": erreurs_console,
             "duree_ms": int((time.time() - t0) * 1000),
             "horodatage": horodatage,
             "diwall_meta": _construire_diwall_meta(
@@ -1338,12 +1498,12 @@ def main():
             result["session_file"] = session_file
         if derive_session:
             result["derive_session"] = derive_session
-        result["boussole"] = _boussole()
+        result["boussole"] = _boussole(operation_id)
         result["boussole"]["url_courante"] = url_finale
         result["boussole"]["titre_page"] = titre_page
         if args.shadow_dom:
             result["boussole"]["shadow_dom_actif"] = True
-        if args.stealth:
+        if stealth_applique:
             result["boussole"]["stealth_actif"] = True
         if args.ignore_tls_errors:
             result["boussole"]["tls_errors_ignored"] = True
@@ -1355,8 +1515,17 @@ def main():
             result["boussole"]["auth_status"] = auth_status
         if hors_vp_som > 0:
             result["boussole"]["som_hors_viewport"] = hors_vp_som
+        try:
+            result["etat"] = _construire_etat(
+                auth_status, citoyennete, derive_session, erreurs_js,
+                waf_bloquants=citoyennete.get("waf_bloquants"),
+                erreurs_console=erreurs_console,
+            )
+        except Exception:
+            pass  # etat est un confort de lecture, jamais un bloquant (item A)
         print(json.dumps(result, ensure_ascii=False))
-        _journaliser_run(result, actions, args.intention, url_finale, "succes")
+        _journaliser_run(result, actions, args.intention, url_finale, "succes",
+                         operation_id=operation_id)
         _nettoyer_session_ephemere(
             getattr(args, "reprendre_session", None),
             explicitement_demandee=bool(args.sauver_session),
@@ -1378,11 +1547,11 @@ def main():
                 "diwall_meta": _construire_diwall_meta(
                     profil, horodatage, modeles_appeles, url_cible,
                 ),
-                "boussole": _boussole(),
+                "boussole": _boussole(operation_id),
             }
             print(json.dumps(result, ensure_ascii=False))
             _journaliser_run(result, actions, args.intention, url_cible, "echec",
-                             erreur=f"VaultFermeError: {e}")
+                             erreur=f"VaultFermeError: {e}", operation_id=operation_id)
             sys.exit(VaultFermeError.CODE_SORTIE)
 
         capture_echec = None
@@ -1412,10 +1581,10 @@ def main():
         }
         if capture_echec:
             result["capture_echec"] = capture_echec
-        result["boussole"] = _boussole()
+        result["boussole"] = _boussole(operation_id)
         print(json.dumps(result, ensure_ascii=False))
         _journaliser_run(result, actions, args.intention, url_cible, "echec",
-                         erreur=f"{type(e).__name__}: {e}")
+                         erreur=f"{type(e).__name__}: {e}", operation_id=operation_id)
         _nettoyer_session_ephemere(
             getattr(args, "reprendre_session", None),
             explicitement_demandee=bool(getattr(args, "sauver_session", None)),

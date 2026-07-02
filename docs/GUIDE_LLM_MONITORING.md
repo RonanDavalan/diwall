@@ -1,7 +1,7 @@
 # Diwall — Monitoring guide (watch.py, long ops, screenshot timeouts, journal)
 
-<!-- notice-version: 1.3 -->
-Version 1.3 — July 2026 (v1.15.2) — exhaustive boussole activation table + isolation rule
+<!-- notice-version: 1.4 -->
+Version 1.4 — July 2026 (v1.16.0) — operation_id row, etat deterministic verdict
 
 Load this notice when: watch.py, pixel diff, long-running operations, `--screenshot-timeout`,
 interval_capture, journal.py, FN7/FN8/FN9.
@@ -21,7 +21,8 @@ in this table in the same commit (design rule, see below).
 | `repertoire` | string | always | `os.getcwd()` at invocation |
 | `url_courante` | string | always | final URL after navigation and actions |
 | `titre_page` | string | always | empty string if `page.title()` fails |
-| `citoyennete` | object | always | `{pages_visitees, actions_executees, duree_totale_ms}`; sub-key `plafond_atteint` only if `max_pages_par_run` or `max_actions_par_run` was hit |
+| `citoyennete` | object | always | `{pages_visitees, actions_executees, duree_totale_ms}`; sub-key `plafond_atteint` only if `max_pages_par_run` or `max_actions_par_run` was hit; sub-key `waf_bloquants` (integer, v1.16.0) only if at least one navigation (initial or `naviguer` action) was flagged as WAF-blocked; sub-key `indice_agressivite` (float, v1.16.0) present whenever at least one action ran |
+| `operation_id` | string (12 hex chars) | always | unified run identity (v1.16.0, item B) — same value in the journal entry for this run and in the isolated temp directory path |
 | `session_derive` | object | conditional | `--reprendre-session` active **and** final URL diverged from the URL saved at `--sauver-session` time |
 | `auth_status` | string (`"active"`\|`"inactive"`) | conditional | `--auth-indicator` provided |
 | `som_hors_viewport` | integer | conditional | `--som` active **and** at least one interactive element is off-screen (value > 0) |
@@ -283,6 +284,57 @@ tail -n 10 /var/log/diwall/operations.jsonl | python3 -m json.tool --no-ensure-a
 
 **When to read the journal:** after a failure in cron mode (no terminal output),
 or to audit which models were used in a given session.
+
+---
+
+## `etat` — deterministic operational verdict (v1.16.0, item A)
+
+Every successful `shot.py` run includes an `etat` object at the JSON root —
+a pre-computed verdict synthesizing the signals already present elsewhere in
+the output, so you do not have to cross-reference `auth_status`,
+`citoyennete.plafond_atteint`, `derive_session`, and `erreurs_js` by hand
+before deciding whether to proceed with a mutating action.
+
+```json
+"etat": {
+  "pret_a_agir": true,
+  "niveau_confiance": "eleve",
+  "raisons": ["aucun signal de friction détecté"]
+}
+```
+
+| Field | Type | Meaning |
+|---|---|---|
+| `pret_a_agir` | boolean | `false` if authentication is inactive, session drifted, or a citizenship cap was hit |
+| `niveau_confiance` | `"eleve"` \| `"modere"` \| `"faible"` | degrades to `modere` on non-blocking friction (JS/console errors, cap hit), to `faible` on auth/session problems or a detected WAF block |
+| `raisons` | array of strings | one entry per signal that contributed to the verdict; `["aucun signal de friction détecté"]` when everything is clean |
+
+**Scope — what `etat` does NOT check:** it has no notion of your business
+expectation for the page (is this the *right* URL, does the title match what
+you expect). That is the job of `evaluer` + `contient`/`motif`/`attendu`
+assertions in `rpa.py` — Diwall has no external reference to compare against
+on its own. `etat` only aggregates signals `shot.py` can determine by itself.
+
+**When absent:** `etat` is present only on the success path (`succes: true`).
+On a failure (`succes: false`), the error itself is already the clearest
+signal — read `erreur` and `message` instead.
+
+---
+
+## `erreurs_js` vs `erreurs_console` — two distinct signals (v1.16.0, item D)
+
+Both are root-level lists, always present (empty if nothing was captured), and
+both feed `etat.niveau_confiance` (non-empty → degrades to `modere`). They are
+**not** duplicates:
+
+| Field | Playwright source | Captures |
+|---|---|---|
+| `erreurs_js` | `page.on("pageerror", ...)` | uncaught JS exceptions (script crashes) |
+| `erreurs_console` | `page.on("console", ...)`, filtered to `type == "error"` | `console.error(...)` calls and browser-level error-level console messages (failed network requests, application warnings logged as errors) |
+
+A page can log `console.error` for a failed API call without ever throwing an
+uncaught exception — `erreurs_js` would stay empty while `erreurs_console`
+flags the friction. Read both; neither substitutes for the other.
 
 ---
 

@@ -159,7 +159,8 @@ def archiver_preuves(operation_id, captures):
 # ── Écriture d'une entrée ────────────────────────────────────────────────────
 def enregistrer_operation(outil, version, cible_url, resultat, actions,
                           diwall_meta=None, intention=None, captures=None,
-                          erreur=None, mutatif=None, evaluations=None):
+                          erreur=None, mutatif=None, evaluations=None,
+                          operation_id=None, citoyennete=None):
     """Compose et écrit une entrée de journal. Best-effort, ne lève jamais.
 
     Réutilise les champs d'environnement de `diwall_meta` (v1.3.2) :
@@ -169,10 +170,15 @@ def enregistrer_operation(outil, version, cible_url, resultat, actions,
     `mutatif` : si None, déduit des actions (est_mutatif) ; sinon imposé
     par l'appelant (watch.py n'a pas d'actions au sens de shot.py —
     --sauver-reference est mutatif, les comparaisons sont en lecture).
+
+    `operation_id` (v1.16.0) : si fourni par l'appelant (shot.py transmet son
+    identité de run unifiée), réutilisé tel quel — le journal n'en régénère
+    pas un second. Sinon généré ici comme avant (appelants historiques :
+    watch.py, ou tout appel sans cette primitive).
     """
     try:
         meta = diwall_meta or {}
-        operation_id = uuid.uuid4().hex[:12]
+        operation_id = operation_id or uuid.uuid4().hex[:12]
         mutatif = est_mutatif(actions) if mutatif is None else bool(mutatif)
 
         if mutatif and captures:
@@ -207,6 +213,8 @@ def enregistrer_operation(outil, version, cible_url, resultat, actions,
             entree["modeles_utilises"] = meta["modeles_utilises"]
         if erreur:
             entree["erreur"] = erreur
+        if citoyennete:
+            entree["citoyennete"] = citoyennete
         if evaluations:
             entree["evaluations"] = [
                 {"script": e.get("script", "")[:500], "valeur_retournee": e.get("valeur")}

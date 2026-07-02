@@ -193,9 +193,9 @@ Already in an error? Route by symptom, not by task type:
 
 | Notice | Load when | Version |
 |---|---|---|
-| `GUIDE_LLM_INTERACTIONS.md` | Timeout on `cliquer`, CSS/showModal dialog, SoM IDs, strict mode violation, nth-match error, evaluer assertions, DOM mutations, Shadow DOM (`--shadow-dom`) | v1.2 |
-| `GUIDE_LLM_SESSIONS.md` | Vault credentials, `--secrets`, session persistence, SPA navigation, multi-page flows, MFA/TOTP, auth_indicator, auth_indicator_negative, --no-capture | v1.2 |
-| `GUIDE_LLM_MONITORING.md` | watch.py, pixel diff, long-running operations, `--screenshot-timeout`, interval_capture, journal.py | v1.2 |
+| `GUIDE_LLM_INTERACTIONS.md` | Timeout on `cliquer`, CSS/showModal dialog, SoM IDs, strict mode violation, nth-match error, evaluer assertions, DOM mutations, Shadow DOM (`--shadow-dom`) | v1.3 |
+| `GUIDE_LLM_SESSIONS.md` | Vault credentials, `--secrets`, session persistence, SPA navigation, multi-page flows, MFA/TOTP, auth_indicator, auth_indicator_negative, --no-capture | v1.3 |
+| `GUIDE_LLM_MONITORING.md` | watch.py, pixel diff, long-running operations, `--screenshot-timeout`, interval_capture, journal.py | v1.4 |
 
 > **Version check:** the version column is canonical. If your local copy of a notice shows
 > a lower version, reload it. Notice versions increment independently of Diwall releases.
@@ -290,3 +290,14 @@ If 403 persists with `--stealth`: the site uses deep fingerprinting. `playwright
 - If 403 immediate on `--mode fast --stealth`: do not retry — document and move on
 - SearXNG (local instance) is the recommended entry point for URL discovery
 - See `docs/RETOUR_EXPERIENCE.md` FR-77/FR-78 and `LEGITIMITE_ETRE_LLM.md` for doctrine
+
+**Passive detection — `citoyennete.waf_bloquants` (v1.16.0, item C):** `shot.py`
+now flags a probable block passively on every navigation (initial and each
+`naviguer` action) — HTTP 403/429, or a title/HTML keyword match (Cloudflare,
+CAPTCHA, "checking your browser", etc.). This is a **signal, never an
+exception** — Diwall perceives the friction, it does not moralize about access
+or abort the run. When detected: `boussole.citoyennete.waf_bloquants` (integer
+count for this run) and `etat.niveau_confiance: "faible"` with
+`etat.pret_a_agir: false`. The detection is heuristic (keyword match) — treat
+it as a fast signal, not a certain verdict; a false positive is possible on a
+page that legitimately mentions one of these terms.
