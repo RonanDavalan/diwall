@@ -4,6 +4,44 @@ History of decisions and discoveries by session, in reverse chronological order.
 
 ---
 
+## 2026-07-03 — Session 48 (v1.17.2 — Vault write guard and reliability fixes)
+
+**Work done:**
+
+Four fixes, each verified against the production code before being scheduled,
+addressing a security gap and three reliability issues surfaced through real
+operator use.
+
+- **Vault write guard:** the operations journal and mutative-run proof
+  archiving previously wrote to their configured path without checking
+  whether the vault directory was actually mounted. If closed at write time,
+  entries were silently written in clear text to the raw host directory.
+  Both write paths now check the mount state first and redirect to the
+  existing local fallback (`/tmp/diwall/operations.fallback.jsonl`) instead
+  of writing into the unmounted vault path.
+- **Set-of-Mark identity fix:** repeated SoM captures within the same page
+  could leave a stale `data-dw-som-id` attribute on an element no longer
+  matched, colliding with a freshly numbered element and risking a
+  `--som-rafraichir` resolution to the wrong target. The injector now purges
+  prior markers before renumbering.
+- **WAF detection false positives reduced:** generic vendor names
+  (`cloudflare`, `akamai`) are now matched only against the page title
+  instead of the full raw HTML, eliminating false positives on pages loading
+  an ordinary CDN resource. A new `--ignorer-waf` flag lets the operator
+  override a residual false positive without disabling the signal entirely.
+- **`--checkpoint` progress fix:** a run stopped by a citizenship cap
+  (`max_actions_par_run`/`max_pages_par_run`) returns the same success signal
+  as a fully completed run — the checkpoint file was being deleted in this
+  case too, losing all remaining progress on long scenarios. It is now
+  updated with the actual progress instead, matching the existing
+  partial-failure behavior.
+
+**Validation:** `scenarios/v1.17.2_validation/` 4/4. Regression:
+`v1.15.2_validation` 4/4, `v1.16.0_validation` 7/7, `v1.17.0_validation` 4/4.
+Preflight exit 0. Commit `102dfb6`.
+
+---
+
 ## 2026-07-02 — Session 47 (documentation follow-up, no version change)
 
 `scripts/*.sh` live only in the git source repository — `deploy.sh` never
