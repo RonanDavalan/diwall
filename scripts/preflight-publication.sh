@@ -259,12 +259,15 @@ DEST="/opt/diwall"
 PYTHON="$DEST/venv/bin/python3"
 URL_SMOKE="https://example.com"
 NB_ECHECS=0
+# v1.18.0 — doit rester synchronisé avec GUIDE_VERSION_ATTENDUE dans
+# lib/preflight_guide.py et <!-- notice-version --> en tête de docs/GUIDE_LLM.md.
+GUIDE_VERSION="3.6"
 
 if [ ! -f "$PYTHON" ]; then
     echo "SKIP — $DEST/venv absent (installation non déployée)"
 else
     # shot.py (écrit dans /tmp/diwall/ — pas de groupe requis)
-    RESULT=$("$PYTHON" "$DEST/shot.py" --url "$URL_SMOKE" --som 2>&1)
+    RESULT=$("$PYTHON" "$DEST/shot.py" --url "$URL_SMOKE" --som --guide-version "$GUIDE_VERSION" 2>&1)
     if echo "$RESULT" | grep -q '"succes": true'; then
         echo "OK   — shot.py --som"
     else
@@ -277,11 +280,11 @@ else
     # après usermod -aG diwall dans la même session sans reconnexion), on utilise
     # sg diwall pour activer le groupe le temps de la commande.
     if id -Gn 2>/dev/null | tr ' ' '\n' | grep -qx "diwall"; then
-        RUN_WATCH_REF="$PYTHON $DEST/watch.py --url $URL_SMOKE --sauver-reference"
-        RUN_WATCH_CMP="$PYTHON $DEST/watch.py --url $URL_SMOKE --comparer-pixel $DEST/references/example.com/reference.png"
+        RUN_WATCH_REF="$PYTHON $DEST/watch.py --url $URL_SMOKE --sauver-reference --guide-version $GUIDE_VERSION"
+        RUN_WATCH_CMP="$PYTHON $DEST/watch.py --url $URL_SMOKE --comparer-pixel $DEST/references/example.com/reference.png --guide-version $GUIDE_VERSION"
     else
-        RUN_WATCH_REF="sg diwall -c \"$PYTHON $DEST/watch.py --url $URL_SMOKE --sauver-reference\""
-        RUN_WATCH_CMP="sg diwall -c \"$PYTHON $DEST/watch.py --url $URL_SMOKE --comparer-pixel $DEST/references/example.com/reference.png\""
+        RUN_WATCH_REF="sg diwall -c \"$PYTHON $DEST/watch.py --url $URL_SMOKE --sauver-reference --guide-version $GUIDE_VERSION\""
+        RUN_WATCH_CMP="sg diwall -c \"$PYTHON $DEST/watch.py --url $URL_SMOKE --comparer-pixel $DEST/references/example.com/reference.png --guide-version $GUIDE_VERSION\""
     fi
 
     # watch.py --sauver-reference
