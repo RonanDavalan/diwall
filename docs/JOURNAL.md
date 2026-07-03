@@ -4,6 +4,54 @@ History of decisions and discoveries by session, in reverse chronological order.
 
 ---
 
+## 2026-07-03 — Session 48 (v1.18.0 — Guide-read lock, mode_conseille, nested iframes, structural monitoring)
+
+**Work done:**
+
+Five items, planned in trilateral (operator + Claude + Gemini) with direct
+field input from a Claude instance on a partner project (Sillage) that
+surfaced the read-lock friction firsthand.
+
+- **Mandatory guide-read lock (`--guide-version`) and `--version`:**
+  `shot.py`, `rpa.py`, and `watch.py` now refuse to run without proof of
+  reading `docs/GUIDE_LLM.md` — a hard `exit 1` (`guide_non_lu`) rather than
+  a warning, unless a local marker (`~/.config/diwall/guide_state.json`) from
+  a previously validated call already exists. The only deliberate exception
+  to the project's additive-only design: documentation alone had repeatedly
+  failed to be read before first use. `--version` reports the installed
+  version immediately, without launching Playwright.
+- **`mode_conseille`:** a new advisory sub-object of `etat`, computed from
+  the operations journal's history for the current host — never a guess.
+  Present only when a prior `diagnostic_dom.json` run detected a JS framework
+  or Shadow Roots for that host; recommends `--mode`, `--shadow-dom`, and
+  `--som-rafraichir` accordingly, never applied automatically.
+- **Nested iframes (`iframe_chemin`):** `cliquer_iframe`/`remplir_iframe`
+  accept an ordered array of selectors for iframe-inside-iframe descent.
+  Deliberately not a pluralised name of the existing `iframe_selecteur` — the
+  two are mutually exclusive by schema constraint, to avoid a one-letter
+  mix-up on generated actions.
+- **`scripts/monitor-verifier.sh`:** a one-pass orchestration script wrapping
+  the existing `--no-capture` + `--replay-verifier` composition — zero image,
+  zero LLM call. Silent on a stable run, an `ntfy` push on regression.
+  Repetition over time is left to cron/systemd-timer, not an internal loop.
+- **Interoperability fixtures:** `scenarios/interoperabilite/` — `example.com`
+  as a neutral witness plus a fully Diwall-controlled local HTML fixture
+  (nested iframe, open Shadow DOM component, form), for structural
+  non-regression that does not depend on third-party sites remaining
+  unchanged.
+
+**Validation:** `scenarios/v1.18.0_validation/` 5/5. Regression:
+`v1.15.2_validation` 4/4, `v1.16.0_validation` 7/7, `v1.17.0_validation` 4/4,
+`v1.17.2_validation` 4/4 — seeded with a valid guide-read marker beforehand,
+the one deliberate non-additive change of this cycle. Preflight exit 0.
+Commit `ec4e35d`.
+
+**Release:** `v1.18.0` — tag created, pushed, GitHub release published in English.
+
+**State on exit:** production `/opt/diwall/` synchronised.
+
+---
+
 ## 2026-07-03 — Session 48 (v1.17.2 — Vault write guard and reliability fixes)
 
 **Work done:**
