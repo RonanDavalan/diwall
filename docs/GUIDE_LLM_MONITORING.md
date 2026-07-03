@@ -298,7 +298,7 @@ composition into a single, versioned command instead of leaving it to be
 reinvented in an ad hoc crontab line.
 
 ```bash
-bash /opt/diwall/scripts/monitor-verifier.sh \
+bash ~/git/Diwall/Diwall/scripts/monitor-verifier.sh \
   --scenario /opt/diwall/scenarios/sillage_login.json \
   --reference /tmp/ref_sillage.json \
   --ntfy-topic diwall-monitoring
@@ -310,11 +310,13 @@ process. Runs `rpa.py --scenario <fichier> --no-capture --replay-verifier
 from `rpa.py`) → an `ntfy` notification with the diff detail.
 
 **Repetition is your job, by design** — cron or a systemd timer, not the
-script itself:
+script itself. `scripts/*.sh` is never copied by `deploy.sh` — it lives only
+in the git source, so the cron entry runs from there, as the operator (not
+the `diwall` service account, which has no access to `~/git/Diwall/Diwall/`):
 
 ```bash
-# /etc/cron.d/diwall-monitor-structural
-*/15 * * * * diwall bash /opt/diwall/scripts/monitor-verifier.sh \
+# crontab -e (operator's own crontab)
+*/15 * * * * bash ~/git/Diwall/Diwall/scripts/monitor-verifier.sh \
   --scenario /opt/diwall/scenarios/sillage_login.json \
   --reference /opt/diwall/references/sillage_login.ref.json \
   --ntfy-topic diwall-monitoring \

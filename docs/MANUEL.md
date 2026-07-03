@@ -987,16 +987,18 @@ Complements 8a–8f: `watch.py` monitors *appearance* (pixels/semantic).
   --scenario /opt/diwall/scenarios/sillage_login.json \
   --sauver-verifier-reference /opt/diwall/references/sillage_login.ref.json
 
-# One check-and-alert pass — not a daemon, run it repeatedly via cron
-bash /opt/diwall/scripts/monitor-verifier.sh \
+# One check-and-alert pass — not a daemon, run it repeatedly via cron.
+# scripts/*.sh is never deployed to /opt/diwall/, so it runs from the git
+# source, as your own user.
+bash ~/git/Diwall/Diwall/scripts/monitor-verifier.sh \
   --scenario /opt/diwall/scenarios/sillage_login.json \
   --reference /opt/diwall/references/sillage_login.ref.json \
   --ntfy-topic diwall-monitoring
 ```
 
 ```bash
-# /etc/cron.d/diwall-monitor-structural
-*/15 * * * * diwall bash /opt/diwall/scripts/monitor-verifier.sh \
+# crontab -e (your own crontab)
+*/15 * * * * bash ~/git/Diwall/Diwall/scripts/monitor-verifier.sh \
   --scenario /opt/diwall/scenarios/sillage_login.json \
   --reference /opt/diwall/references/sillage_login.ref.json \
   --ntfy-topic diwall-monitoring \

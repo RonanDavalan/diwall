@@ -271,18 +271,21 @@ disappeared form field with unchanged layout, for instance).
   --sauver-verifier-reference /opt/diwall/references/my-scenario.ref.json
 
 # 2. One check-and-alert pass
-bash /opt/diwall/scripts/monitor-verifier.sh \
+bash ~/git/Diwall/Diwall/scripts/monitor-verifier.sh \
   --scenario /opt/diwall/scenarios/my-scenario.json \
   --reference /opt/diwall/references/my-scenario.ref.json \
   --ntfy-topic diwall-monitoring
 ```
 
 Silent when stable, one `ntfy` push when a regression is detected. Schedule
-it yourself with cron — the script does one pass and exits, it does not loop:
+it yourself with cron — the script does one pass and exits, it does not loop.
+`scripts/*.sh` is never deployed to `/opt/diwall/`, so the cron entry runs
+from the git source, as your own user (not the `diwall` service account,
+which cannot reach `~/git/Diwall/Diwall/`):
 
 ```bash
-# /etc/cron.d/diwall-monitor-structural
-*/15 * * * * diwall bash /opt/diwall/scripts/monitor-verifier.sh \
+# crontab -e (your own crontab)
+*/15 * * * * bash ~/git/Diwall/Diwall/scripts/monitor-verifier.sh \
   --scenario /opt/diwall/scenarios/my-scenario.json \
   --reference /opt/diwall/references/my-scenario.ref.json \
   --ntfy-topic diwall-monitoring \

@@ -21,6 +21,7 @@ CODE_FILES=(
     lib/vision.py
     lib/vault.py
     lib/vector.py
+    lib/preflight_guide.py
 )
 
 # Répertoires de code — mode 755 (lisibles par tous)
