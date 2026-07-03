@@ -46,9 +46,34 @@ surfaced the read-lock friction firsthand.
 the one deliberate non-additive change of this cycle. Preflight exit 0.
 Commit `ec4e35d`.
 
+**Post-release fixes:** `lib/preflight_guide.py` was missing from `deploy.sh`'s
+`CODE_FILES`, breaking every real call on `/opt/diwall/` right after the first
+deploy (`--version` still worked, since it exits before the faulty import —
+caught within minutes, before any real usage). Three docs pointed
+`monitor-verifier.sh` at `/opt/diwall/scripts/`, which does not exist
+(`scripts/*.sh` is never deployed). Commit `4a8a903`.
+
+**Cold-install regression found and fixed:** `install.sh`'s own smoke test and
+`preflight-publication.sh`'s smoke test both called `shot.py`/`watch.py`
+without `--guide-version` — on any environment without a pre-existing local
+marker (a genuinely fresh machine, a new operator account, CI), both would
+fail with `guide_non_lu`. Masked in initial testing by an already-valid
+personal marker from earlier manual verification. Found while preparing a
+full cold-reinstall test, fixed before running it. Commit `480b55e`.
+
+**Full cold-install validation:** `uninstall.sh --confirme` (complete removal:
+`/opt/diwall/`, `/var/log/diwall/`, system user/group, pre-push hook —
+`~/Vaults/`, git sources, and the Playwright cache confirmed preserved) then
+`install.sh` from scratch (fresh user/group/venv/Chromium, 37 files deployed,
+permissions check, integrated smoke test) — passed on the first run with the
+fix in place. `scenarios/v1.18.0_validation/` 5/5 and all four regression
+suites replayed against the fresh install, all green. Source/production
+checksum-identical.
+
 **Release:** `v1.18.0` — tag created, pushed, GitHub release published in English.
 
-**State on exit:** production `/opt/diwall/` synchronised.
+**State on exit:** production `/opt/diwall/` synchronised, validated via a
+complete cold reinstall, not just a hot deploy.
 
 ---
 
