@@ -1,0 +1,29 @@
+<!DOCTYPE html>
+<html lang="fr">
+<head>
+<meta charset="utf-8">
+<title>Fixture interoperabilite Diwall v1.18.0</title>
+</head>
+<body>
+<h1>Fixture de non-regression structurelle</h1>
+
+<form id="form-fixture">
+  <input type="text" id="champ-texte" name="champ_texte" placeholder="Texte">
+  <button type="submit" id="btn-submit-form" onclick="return false;">Envoyer</button>
+</form>
+
+<composant-fixture></composant-fixture>
+
+<iframe id="wrapper" src="iframe_wrapper.html" style="width:400px;height:200px;border:1px solid #999;"></iframe>
+
+<script>
+class ComposantFixture extends HTMLElement {
+  connectedCallback() {
+    const shadow = this.attachShadow({mode: "open"});
+    shadow.innerHTML = "<button id=\"btn-shadow\">Bouton dans Shadow DOM</button>";
+  }
+}
+customElements.define("composant-fixture", ComposantFixture);
+</script>
+</body>
+</html>

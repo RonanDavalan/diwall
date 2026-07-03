@@ -1,9 +1,46 @@
 # Diwall — FAQ for LLMs
 
-Version 1.3 — July 2026 (v1.17.2) — refined WAF heuristic, `--ignorer-waf`, `waf_ignore_actif`, version table through v1.17.2
+Version 1.4 — July 2026 (v1.18.0) — mandatory `--guide-version` pre-flight lock, `mode_conseille`, `iframe_chemin`, version table through v1.18.0
 
 Answers to technical questions raised by language models during real Diwall sessions.
 No attribution — these are recurring questions, not individual testimonies.
+
+---
+
+## Getting started
+
+### Q: I got `"erreur": "guide_non_lu"` and exit 1 before anything ran — what happened?
+
+**You have not proven you read `docs/GUIDE_LLM.md` yet (v1.18.0).**
+
+`shot.py`, `rpa.py`, and `watch.py` all refuse to launch Playwright without
+either `--guide-version X.Y` (the `<!-- notice-version: X.Y -->` value found
+on line 3 of `docs/GUIDE_LLM.md`) or a local marker from a previous accepted
+call. This is deliberate, not a bug — field observation showed models calling
+Diwall without reading anything first, hitting avoidable errors, and only
+reading the guide after the fact. See `docs/RADAR_MODELES.md` for the
+incident that motivated it.
+
+```bash
+cat /opt/diwall/docs/GUIDE_LLM.md
+# read it, find "<!-- notice-version: 3.6 -->" near the top, then:
+/opt/diwall/venv/bin/python3 /opt/diwall/shot.py --url <url> --guide-version 3.6
+```
+
+You will not be asked again on this machine, as this OS user, until
+`GUIDE_LLM.md`'s `notice-version` changes.
+
+### Q: How do I check which Diwall version is installed, without a full run?
+
+```bash
+/opt/diwall/venv/bin/python3 /opt/diwall/shot.py --version
+# → {"outil": "shot.py", "version": "1.18.0"}
+```
+
+No Playwright launch, no `--url` needed, exit 0 immediately (v1.18.0). Same
+flag on `rpa.py` and `watch.py`. Distinct from `--guide-version` — one reports
+the Diwall release, the other proves you read the guide. Passing one where
+the other is expected fails.
 
 ---
 
@@ -146,6 +183,16 @@ not JS injection):
 own markup if cross-origin. `remplir_iframe` supports `depuis_vault` exactly like
 `remplir` — never a plaintext credential in the scenario.
 
+**Nested iframes (v1.18.0):** replace `iframe_selecteur` with `iframe_chemin`,
+an ordered array of selectors, one per nesting level:
+
+```json
+{"type": "cliquer_iframe", "iframe_chemin": ["iframe#wrapper", "iframe#paiement"], "selecteur": "button.valider"}
+```
+
+`iframe_selecteur` and `iframe_chemin` are mutually exclusive — exactly one
+required per action.
+
 ---
 
 ### Q: What does `--mode fast` do, and when should I use it?
@@ -174,6 +221,11 @@ passing both `--no-capture` and `--a11y`:
 
 `--mode full` is the current default behavior. It is useful to name it explicitly for
 clarity in scripts or when overriding a `--mode fast` set upstream.
+
+**Not sure which mode a given host needs?** If you have already run
+`scenarios/diagnostic_dom.json` against this host, `etat.mode_conseille`
+(v1.18.0) may already tell you — see `docs/GUIDE_LLM_MONITORING.md`. Absent
+if there is no prior data; never a guess.
 
 ---
 
@@ -280,10 +332,11 @@ runs a single continuous session. The vault and journal are managed by the paren
 | `chemin_png` collision fix, early CLI rejection, `scenarios/exemples/` | v1.15.2 |
 | `etat` deterministic verdict, `operation_id`, passive WAF signal, `erreurs_console`, `indice_agressivite` | v1.16.0 |
 | `--replay-verifier`, `--checkpoint`, `--som-rafraichir`, `cliquer_iframe`/`remplir_iframe` | v1.17.0 |
-| Vault write guard (journal/proof archiving), SoM collision cleanup, refined WAF heuristic + `--ignorer-waf`, checkpoint citizenship-cap fix | **v1.17.2** |
+| Vault write guard (journal/proof archiving), SoM collision cleanup, refined WAF heuristic + `--ignorer-waf`, checkpoint citizenship-cap fix | v1.17.2 |
+| Mandatory `--guide-version`/`--version` pre-flight lock, `mode_conseille`, nested iframes (`iframe_chemin`), `scripts/monitor-verifier.sh` | **v1.18.0** |
 
-**Current stable version: v1.17.2** (v1.17.1 was a documentation-only
-correction; v1.17.2 is a fix patch — see the row above).
+**Current stable version: v1.18.0** (v1.17.1 was a documentation-only
+correction; v1.17.2 was a fix patch — see the rows above).
 
 The operation log (`/var/log/diwall/operations.jsonl`) and the friction index
 (`docs/RETOUR_EXPERIENCE.md`) cover the full history from v1.0.

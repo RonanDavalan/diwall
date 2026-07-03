@@ -1,7 +1,7 @@
 # Diwall — Monitoring guide (watch.py, long ops, screenshot timeouts, journal)
 
-<!-- notice-version: 1.6 -->
-Version 1.6 — July 2026 (v1.17.2) — waf_ignore_actif boussole key, refined WAF heuristic
+<!-- notice-version: 1.7 -->
+Version 1.7 — July 2026 (v1.18.0) — `mode_conseille` pre-flight advice, `scripts/monitor-verifier.sh` continuous structural monitoring
 
 Load this notice when: watch.py, pixel diff, long-running operations, `--screenshot-timeout`,
 interval_capture, journal.py, FN7/FN8/FN9.
@@ -289,6 +289,57 @@ for why).
 
 ---
 
+## Continuous structural monitoring — `scripts/monitor-verifier.sh` (v1.18.0)
+
+`--no-capture` + `--replay-verifier` already combine into a zero-image,
+zero-LLM structural check — no new comparison capability is needed for
+repeated monitoring, only repetition. `scripts/monitor-verifier.sh` wraps this
+composition into a single, versioned command instead of leaving it to be
+reinvented in an ad hoc crontab line.
+
+```bash
+bash /opt/diwall/scripts/monitor-verifier.sh \
+  --scenario /opt/diwall/scenarios/sillage_login.json \
+  --reference /tmp/ref_sillage.json \
+  --ntfy-topic diwall-monitoring
+```
+
+**One pass per invocation — not a daemon.** No internal loop, no persistent
+process. Runs `rpa.py --scenario <fichier> --no-capture --replay-verifier
+<reference>` once, then exits. Stable → silence. Regression detected (exit 1
+from `rpa.py`) → an `ntfy` notification with the diff detail.
+
+**Repetition is your job, by design** — cron or a systemd timer, not the
+script itself:
+
+```bash
+# /etc/cron.d/diwall-monitor-structural
+*/15 * * * * diwall bash /opt/diwall/scripts/monitor-verifier.sh \
+  --scenario /opt/diwall/scenarios/sillage_login.json \
+  --reference /opt/diwall/references/sillage_login.ref.json \
+  --ntfy-topic diwall-monitoring \
+  >> /var/log/diwall/cron-structural.jsonl 2>&1
+```
+
+Each invocation is an isolated process — no memory leak risk from a
+long-running daemon, and Navigation Citoyenne caps (`max_pages_par_run`,
+`max_actions_par_run`) reset cleanly on every run instead of accumulating
+across an unbounded loop.
+
+**Complements, does not replace, `watch.py`** — this checks *structure*
+(`http_status`, `dom_stats`, `evaluations`, SoM count), `watch.py` checks
+*appearance* (pixels or LLM-semantic diff). Run both if you care about both
+dimensions of regression.
+
+**First run — create the reference** (same as `--replay-verifier` above):
+```bash
+/opt/diwall/venv/bin/python3 /opt/diwall/rpa.py \
+  --scenario /opt/diwall/scenarios/sillage_login.json \
+  --sauver-verifier-reference /opt/diwall/references/sillage_login.ref.json
+```
+
+---
+
 ## journal.py — operations log
 
 journal.py appends a structured JSON line to `/var/log/diwall/operations.jsonl`
@@ -308,6 +359,7 @@ tail -n 10 /var/log/diwall/operations.jsonl | python3 -m json.tool --no-ensure-a
 | `mode` | `"shot"` or `"rpa"` |
 | `url` | Target URL |
 | `scenario` | Scenario file path (rpa mode) |
+| `source_scenario` | Scenario file name only, no path (v1.18.0) — set when `rpa.py --scenario` is used; lets `mode_conseille` reliably identify a `diagnostic_dom.json` run without parsing script contents |
 | `succes` | boolean |
 | `modeles_appeles` | list of LLM models called during the run |
 | `duree_ms` | wall-clock duration in ms |
@@ -349,6 +401,53 @@ on its own. `etat` only aggregates signals `shot.py` can determine by itself.
 **When absent:** `etat` is present only on the success path (`succes: true`).
 On a failure (`succes: false`), the error itself is already the clearest
 signal — read `erreur` and `message` instead.
+
+---
+
+## `mode_conseille` — pre-flight configuration advice (v1.18.0)
+
+A sub-key of `etat`, advisory only — never applied automatically, never an
+order. Recommends a configuration (`--mode`, `--shadow-dom`,
+`--som-rafraichir`) for your **next** call on the same host, based on real
+prior measurement, never a guess.
+
+```json
+"etat": {
+  "pret_a_agir": true,
+  "niveau_confiance": "eleve",
+  "raisons": ["aucun signal de friction détecté", "mode_conseille disponible : full recommandé (React détecté sur ce host)"],
+  "mode_conseille": {
+    "mode": "full",
+    "shadow_dom": true,
+    "som_rafraichir": false,
+    "raisons": ["react_detecte", "shadow_roots:3"]
+  }
+}
+```
+
+**Where the signal comes from:** `shot.py` does not detect frameworks or
+Shadow Roots on an ordinary call — that richer inventory comes specifically
+from `scenarios/diagnostic_dom.json` (see "Reconnaissance before mutation" in
+`GUIDE_LLM_INTERACTIONS.md`). `mode_conseille` looks up the operations journal
+(`operations.jsonl`) for the most recent `diagnostic_dom.json` run against the
+same host as the current call.
+
+**Absent when there is nothing real to base it on** — a host never diagnosed
+before gets no `mode_conseille`, not an invented default. Run
+`diagnostic_dom.json` once against a target to start receiving advice on
+subsequent calls to that host:
+
+```bash
+/opt/diwall/venv/bin/python3 /opt/diwall/rpa.py \
+  --scenario /opt/diwall/scenarios/diagnostic_dom.json \
+  --url https://target.local/ --mode fast
+# next call to the same host may now carry etat.mode_conseille
+```
+
+**Treat it exactly like the WAF signal above:** a recommendation to weigh, not
+an instruction to follow blindly. `mode_conseille` never changes the
+configuration of the call that returns it — only future calls, and only if
+you choose to act on the advice.
 
 ---
 

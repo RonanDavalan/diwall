@@ -8,6 +8,9 @@ diwall.conf.d/operateur.*.yaml
 # Données générées par watch.py
 references/
 
+# Références structurelles générées localement (--sauver-verifier-reference, v1.18.0)
+scenarios/interoperabilite/ref_*.json
+
 # Captures temporaires
 /tmp/diwall/
 

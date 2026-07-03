@@ -1,0 +1,9 @@
+{
+  "$schema": "https://raw.githubusercontent.com/RonanDavalan/diwall/main/scenarios/schema.json",
+  "nom": "interoperabilite_example_com",
+  "description": "Temoin neutre v1.18.0 : cible publique stable, sans structure complexe, pour distinguer une regression Diwall d'une derive de fixture locale.",
+  "url": "https://example.com",
+  "actions": [
+    {"type": "evaluer", "script": "document.title", "attendu": "Example Domain"}
+  ]
+}

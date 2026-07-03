@@ -1,6 +1,6 @@
 # Diwall — Human operator guide
 
-Version 1.4 — July 2026 (v1.17.2) — WAF pitfall entry refined with --ignorer-waf
+Version 1.5 — July 2026 (v1.18.0) — continuous structural monitoring, mandatory model guide-read lock
 
 ---
 
@@ -257,6 +257,40 @@ CAPTURE=$(python3 -c "import json; d=json.load(open('/tmp/out.json')); print(d['
 
 ---
 
+## Setting up continuous structural monitoring (v1.18.0)
+
+Complements the visual monitoring above: this checks the page's *structure*
+(status code, DOM element counts, JS evaluation results) instead of its
+*appearance* — cheaper, and catches a different class of regression (a
+disappeared form field with unchanged layout, for instance).
+
+```bash
+# 1. Save a structural reference, once
+/opt/diwall/venv/bin/python3 /opt/diwall/rpa.py \
+  --scenario /opt/diwall/scenarios/my-scenario.json \
+  --sauver-verifier-reference /opt/diwall/references/my-scenario.ref.json
+
+# 2. One check-and-alert pass
+bash /opt/diwall/scripts/monitor-verifier.sh \
+  --scenario /opt/diwall/scenarios/my-scenario.json \
+  --reference /opt/diwall/references/my-scenario.ref.json \
+  --ntfy-topic diwall-monitoring
+```
+
+Silent when stable, one `ntfy` push when a regression is detected. Schedule
+it yourself with cron — the script does one pass and exits, it does not loop:
+
+```bash
+# /etc/cron.d/diwall-monitor-structural
+*/15 * * * * diwall bash /opt/diwall/scripts/monitor-verifier.sh \
+  --scenario /opt/diwall/scenarios/my-scenario.json \
+  --reference /opt/diwall/references/my-scenario.ref.json \
+  --ntfy-topic diwall-monitoring \
+  >> /var/log/diwall/cron-structural.jsonl 2>&1
+```
+
+---
+
 ## Common pitfalls
 
 | Situation | What to do |
@@ -273,7 +307,8 @@ CAPTURE=$(python3 -c "import json; d=json.load(open('/tmp/out.json')); print(d['
 | `citoyennete.waf_bloquants` appears on a page that is not actually blocked | Detection is keyword-based (v1.16.0, refined v1.17.2) — treat as a signal, not a verdict. If it persists on a page you've confirmed is not blocked, add `--ignorer-waf` |
 | `cliquer_som` clicks the wrong element on a page that mutated between capture and click | Add `--som-rafraichir` (v1.17.0) — resolves by a stable marker instead of live re-indexing |
 | A long RPA scenario fails partway through and you don't want to replay completed steps | Add `--checkpoint FILE` (v1.17.0) — relaunch the same command to resume; DOM state is not preserved, only session + action position |
-| Interactive elements inside an iframe are invisible to Diwall | SoM cannot number iframe content (same-origin or cross-origin) — use `cliquer_iframe`/`remplir_iframe` (v1.17.0) with an explicit CSS selector |
+| Interactive elements inside an iframe are invisible to Diwall | SoM cannot number iframe content (same-origin or cross-origin) — use `cliquer_iframe`/`remplir_iframe` (v1.17.0) with an explicit CSS selector, or `iframe_chemin` (v1.18.0) for an iframe nested inside another |
+| Your model reports `"erreur": "guide_non_lu"` / exit 1 on its first Diwall call | Expected the first time a model uses Diwall on this machine as this OS user (v1.18.0) — it must read `docs/GUIDE_LLM.md` and pass `--guide-version` once. This is deliberate, not a bug — tell the model to read the guide rather than working around the error |
 
 ---
 

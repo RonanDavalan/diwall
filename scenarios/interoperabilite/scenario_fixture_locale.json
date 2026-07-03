@@ -1,0 +1,12 @@
+{
+  "$schema": "https://raw.githubusercontent.com/RonanDavalan/diwall/main/scenarios/schema.json",
+  "nom": "interoperabilite_fixture_locale",
+  "description": "Fixture de non-regression structurelle v1.18.0 : iframe imbrique (iframe_chemin), Shadow DOM ouvert, formulaire. Cible servie localement — voir scenarios/interoperabilite/README.md pour lancer le serveur.",
+  "url": "http://localhost:8642/index.html",
+  "shadow_dom": true,
+  "actions": [
+    {"type": "remplir", "selecteur": "#champ-texte", "valeur": "test-interoperabilite"},
+    {"type": "cliquer_iframe", "iframe_chemin": ["iframe#wrapper", "iframe#paiement"], "selecteur": "#btn-confirm"},
+    {"type": "evaluer", "script": "document.querySelector('composant-fixture').shadowRoot.querySelector('#btn-shadow') !== null", "attendu": true}
+  ]
+}

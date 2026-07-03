@@ -2611,3 +2611,42 @@ scénario JSON dépassant ~8-9 navigations pleine-page et `--checkpoint` sur le 
 fichier de sortie.
 
 **Version :** Diwall v1.17.0. Session Sillage — 2/07 au 3/07/2026.
+
+---
+
+### FR-81 — `force: true` sur `cliquer` insuffisant pour un checkbox dans un `<dialog>` ouvert via `showModal()` JS
+
+**Description :** dialogue de confirmation de suppression (`<dialog id="dialog-supp-X">`)
+ouvert via `evaluer` (`document.getElementById(...).showModal()`), puis tentative de cocher
+la case de confirmation et de cliquer le bouton de soumission via `cliquer` avec
+`"force": true`, conformément à `GUIDE_LLM_INTERACTIONS.md` (« Element is in DOM but
+CSS-hidden or behind showModal() → cliquer avec force: true »). Échec systématique :
+`Locator.click: Element is not visible` — comportement inattendu, `force: true` est censé
+justement bypasser ce contrôle.
+
+Cause probable : l'échec précédent (avant l'ajout de `force`) venait en réalité d'un
+sélecteur CSS mal formé (`#form-supp-example.fr-confirm` — le point dans l'ID de domaine
+est interprété comme un sélecteur de classe CSS chaîné, `#form-supp-example` + `.fr-confirm`,
+qui ne correspond à rien). Une fois le sélecteur corrigé (`\\.` échappé en JSON), l'échec a
+persisté avec `force: true`, cette fois avec le bon élément résolu (confirmé par le message
+d'erreur citant le bon `outerHTML`) — donc `force` seul n'a pas suffi à rendre l'élément
+cliquable dans ce contexte `<dialog>` précis.
+
+**Contournement appliqué :** abandon de `cliquer`/`force` pour cette famille d'éléments,
+bascule complète sur `evaluer` JS (`showModal()` + `checkbox.checked = true` +
+`dispatchEvent(change)` + `submitButton.click()` dans un seul script). Fonctionne à 100 %
+sur 4 répétitions (déconnexion de 4 domaines successifs, même dialogue).
+
+**Non investigué ce soir :** si `force: true` échoue spécifiquement sur les éléments
+enfants d'un `<dialog>` ouvert par script (par opposition à un `<dialog>` ouvert par un
+vrai clic utilisateur), ou si c'est un problème plus général de timing entre `showModal()`
+et la disponibilité du layout au moment du clic suivant dans la même action list.
+Reproductible avec le dialogue de suppression de domaine Sillage
+(`?vue=reglages&client=...`, section Domaines, bouton « Supprimer » sur une carte domaine).
+
+**Escalade utile pour `GUIDE_LLM_INTERACTIONS.md` :** la note actuelle sur `force: true`
+et `showModal()` (ligne ~31, decision tree item 4) mériterait un avertissement — dans un
+`<dialog>` ouvert par script plutôt que par interaction utilisateur, préférer d'emblée
+`evaluer` JS pour toute la séquence plutôt que `cliquer` + `force`.
+
+**Version :** Diwall v1.17.2. Session Sillage — 03/07/2026.

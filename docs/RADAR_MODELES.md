@@ -23,6 +23,40 @@ about what the framework or its documentation did not lock down sufficiently.
 
 ---
 
+## 2026-07-03 — Claude (Sillage project) — v1.17.2 — Repeated use without prior `GUIDE_LLM.md` read
+
+**Context:** across several sessions, the model called `shot.py`/`rpa.py` from
+the Sillage project without reading `docs/GUIDE_LLM.md` first. The operator's
+reminder (`/btw N'oublie pas de lire .../docs/GUIDE_LLM.md`) was, in this
+instance, the trigger for the model to finally open it — not the model's own
+initiative.
+
+**What drifted:** the model had already issued multiple `rpa.py`/`shot.py`
+calls unread, including one venv error of exactly the kind the guide warns
+about (`ALWAYS use this venv`). Asked directly when it reads the guide, in its
+own words: *"jamais spontanément en début de session [...] le déclencheur est
+systématiquement correctif, jamais préventif."*
+
+**What worked:** once read, the rules held for the rest of that session
+(Stop-and-Search, `force: true`, escaped CSS selectors correctly applied
+afterward) — reading is not the problem, initiating it is.
+
+**Signal retained — direct model input on the fix, not just the diagnosis:**
+asked what a technical gate would need to look like from its own side, the
+model specified three properties, verbatim: *"Un échec net et explicite (exit
+non nul [...]) plutôt qu'un warning silencieux [...] Le marqueur de « déjà lu
+» doit être scopé à la version du guide (pas juste à la session) [...] Éviter
+un jeton à extraire manuellement d'un endroit peu visible du texte."* Direct
+input into the design of `--guide-version` (v1.18.0, `V1_18_0_AUTONOMIE_ET_ROBUSTESSE.md`):
+hard `exit 1` (not a warning), a marker scoped to the guide's own version (not
+the session), and a token at a fixed, predictable location (line 3 of this
+file). Confirms the 2026-06-09 signal below was necessary but insufficient —
+`CLAUDE.md` only auto-loads for Claude Code sessions inside the Diwall
+repository itself; an external LLM calling the deployed binary from another
+project's session never sees it. Only a runtime gate closes that gap.
+
+---
+
 ## 2026-06-09 — Claude Sonnet 4.6 — v1.8.0 (pre-fixes) — Multi-target validation
 
 **Context:** simultaneous connection to `__HOST_SERVICE__` (Pretix), `__HOST_DEMO__`,

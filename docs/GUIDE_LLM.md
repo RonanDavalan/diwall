@@ -1,6 +1,9 @@
 # Diwall — LLM Guide (index)
 
-Version 3.5 — July 2026 (v1.17.2) — refined WAF heuristic, --ignorer-waf overrule
+<!-- notice-version: 3.6 -->
+Version 3.6 — July 2026 (v1.18.0) — mandatory guide-read lock (`--guide-version`),
+`--version`, `mode_conseille`, nested iframes (`iframe_chemin`), continuous
+structural monitoring
 
 **You are a language model. This is the entry point. Read it fully, then load
 the notice that matches your task.**
@@ -11,6 +14,54 @@ the notice that matches your task.**
 > ```bash
 > cat /opt/diwall/docs/MANUEL.md
 > ```
+
+---
+
+## Mandatory pre-flight — `--guide-version` (read this first, v1.18.0)
+
+`shot.py`, `rpa.py`, and `watch.py` refuse to run without proof you have read
+this file. This is the **only** exception to Diwall's opt-in design in the
+entire codebase — a deliberate one. A purely documentary convention failed
+repeatedly in practice: models called Diwall without reading anything first,
+hit avoidable errors, and only read the guide after being told to, correctively
+rather than preventively (see `docs/RADAR_MODELES.md` for the field evidence
+that motivated this).
+
+**The token is on line 3 of this file** — the `<!-- notice-version: X.Y -->`
+comment, same convention already used by the three notices below.
+
+```bash
+/opt/diwall/venv/bin/python3 /opt/diwall/shot.py --url <url> --guide-version 3.6
+```
+
+Once accepted, a local marker (`~/.config/diwall/guide_state.json`) is written
+and you will not be asked again on this machine, as this OS user — until this
+file's `notice-version` changes, at which point the check re-arms
+automatically for everyone.
+
+**Quick version check, no URL needed:**
+```bash
+/opt/diwall/venv/bin/python3 /opt/diwall/shot.py --version
+# → {"outil": "shot.py", "version": "1.18.0"}
+```
+Exits immediately, no Playwright launch. `--guide-version` is two different
+numbers from `--version` on purpose: `--version` reports the Diwall release
+you are running; `--guide-version` proves you read this specific file. Do not
+confuse the two — passing the Diwall release number to `--guide-version` will
+fail.
+
+**If you skip `--guide-version` and have no valid marker yet:**
+```json
+{
+  "succes": false,
+  "erreur": "guide_non_lu",
+  "version_installee": "1.18.0",
+  "guide_version_attendue": "3.6",
+  "message": "Lire docs/GUIDE_LLM.md, relever <!-- notice-version: X.Y --> en tête de fichier, relancer avec --guide-version X.Y"
+}
+```
+`exit 1`, on stderr. There is no bypass flag — the only way past it is to read
+this file, or to already hold a valid marker from a previous call.
 
 ---
 
@@ -120,6 +171,8 @@ stdout: one JSON line (v1.11.0). Use `--secrets` for non-default vault.
 | `attendre_mfa_ntfy` | `id_som`, [`timeout`] | Wait for TOTP via ntfy |
 | `nettoyer_overlay` | `selecteur` | Hide fixed overlays before SoM |
 | `declencher_scenario` | `scenario` | Inline a sub-scenario (max depth 5) |
+| `cliquer_iframe` | `iframe_selecteur` \| `iframe_chemin`, `selecteur` | Click inside a same/cross-origin iframe. `iframe_chemin` (array) for nested iframes (v1.18.0), exactly one of the two required |
+| `remplir_iframe` | `iframe_selecteur` \| `iframe_chemin`, `selecteur`, `valeur` | Fill inside an iframe. `valeur` can be `"depuis_vault"` |
 
 ---
 
@@ -145,6 +198,11 @@ Conditional keys (absent when inactive):
 - `auth_status` — only with `--auth-indicator`
 - `som_hors_viewport` — only if > 0 and SoM was active
 - `shadow_dom_actif` — only with `--shadow-dom`
+
+`etat.mode_conseille` (v1.18.0) — absent unless Diwall has real prior data for
+this host (a previous `diagnostic_dom.json` run). Never a guess, never an
+order: `{"mode": "full", "shadow_dom": true, "som_rafraichir": false,
+"raisons": ["react_detecte"]}`. Full detail in `GUIDE_LLM_MONITORING.md`.
 
 If `boussole` does not match your expectation: stop and investigate before any mutating action.
 
@@ -193,9 +251,9 @@ Already in an error? Route by symptom, not by task type:
 
 | Notice | Load when | Version |
 |---|---|---|
-| `GUIDE_LLM_INTERACTIONS.md` | Timeout on `cliquer`, CSS/showModal dialog, SoM IDs, strict mode violation, nth-match error, evaluer assertions, DOM mutations, Shadow DOM (`--shadow-dom`), cross-origin iframes | v1.5 |
+| `GUIDE_LLM_INTERACTIONS.md` | Timeout on `cliquer`, CSS/showModal dialog, SoM IDs, strict mode violation, nth-match error, evaluer assertions, DOM mutations, Shadow DOM (`--shadow-dom`), cross-origin/nested iframes (`iframe_chemin`) | v1.7 |
 | `GUIDE_LLM_SESSIONS.md` | Vault credentials, `--secrets`, session persistence, SPA navigation, multi-page flows, MFA/TOTP, auth_indicator, auth_indicator_negative, --no-capture, --checkpoint | v1.5 |
-| `GUIDE_LLM_MONITORING.md` | watch.py, pixel diff, long-running operations, `--screenshot-timeout`, interval_capture, journal.py, --replay-verifier | v1.6 |
+| `GUIDE_LLM_MONITORING.md` | watch.py, pixel diff, long-running operations, `--screenshot-timeout`, interval_capture, journal.py, --replay-verifier, `mode_conseille`, `monitor-verifier.sh` | v1.7 |
 
 > **Version check:** the version column is canonical. If your local copy of a notice shows
 > a lower version, reload it. Notice versions increment independently of Diwall releases.

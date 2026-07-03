@@ -1,6 +1,6 @@
 # Diwall — Operational manual
 
-**Version 1.17.2 — July 2026**
+**Version 1.18.0 — July 2026**
 
 This document answers one question: **how to do X with Diwall**.
 
@@ -37,23 +37,45 @@ v1.17.2 fixes (no new sections): [3e](#3e-waf-detection-signal-v1160-refined-v11
 (refined WAF heuristic, `--ignorer-waf`), [5i](#5i-resume-a-long-scenario-after-failure---checkpoint)
 (citizenship-cap checkpoint fix), [7j](#7j-som-id-drift-on-highly-dynamic-pages---som-rafraichir)
 (SoM collision cleanup).
+v1.18.0 additions: [1](#1-verify-the-installation) (`--version`/`--guide-version`
+mandatory pre-flight), [2e](#2e-mode_conseille--pre-flight-configuration-advice)
+(`mode_conseille`), [5k](#5k-nested-iframes--iframe_chemin) (`iframe_chemin`),
+[8g](#8g-continuous-structural-monitoring--monitor-verifiersh) (`monitor-verifier.sh`).
 
 ---
 
 ## 1. Verify the installation
 
 ```bash
+# Cheapest possible check — no Playwright, no URL, exit 0 immediately (v1.18.0)
+/opt/diwall/venv/bin/python3 /opt/diwall/shot.py --version
+# → {"outil": "shot.py", "version": "1.18.0"}
+```
+
+```bash
 # Full test in one command (~3 s)
 /opt/diwall/venv/bin/python3 /opt/diwall/shot.py \
-  --url https://example.com --mode fast
+  --url https://example.com --mode fast --guide-version 3.6
 ```
 
 Expected result: JSON on stdout with `"succes": true`.
 
+**`--guide-version` (v1.18.0):** `shot.py`, `rpa.py`, and `watch.py` refuse to
+run without it — unless a local marker from a previous accepted call already
+exists (`~/.config/diwall/guide_state.json`). The value is the
+`<!-- notice-version: X.Y -->` on line 3 of `docs/GUIDE_LLM.md` (currently
+`3.6`) — not the Diwall release number. See `docs/GUIDE_LLM.md` section
+"Mandatory pre-flight" for the full mechanism and the error format if you skip it.
+
+**Once the marker exists, `--guide-version` becomes optional again** — every
+other command example in this manual omits it deliberately, since a marker
+from any earlier successful call already covers them, as long as
+`docs/GUIDE_LLM.md`'s `notice-version` has not changed since.
+
 ```bash
 # Verify the installed version
 grep "__version__" /opt/diwall/shot.py
-# → __version__ = "1.17.2"
+# → __version__ = "1.18.0"
 
 # Verify playwright-stealth is available (v1.15.0)
 /opt/diwall/venv/bin/python3 -c "import playwright_stealth; print('stealth OK')"
@@ -137,6 +159,37 @@ block) before proceeding.
 `etat` does not check whether the URL or page content matches your business
 expectation — use `evaluer` with `attendu`/`contient`/`motif` (section 5d)
 for that.
+
+### 2e. `mode_conseille` — pre-flight configuration advice (v1.18.0)
+
+If Diwall has real prior data about the host you are calling — from an
+earlier `diagnostic_dom.json` run against it — `etat` carries a recommendation
+for your **next** call, never applied automatically:
+
+```json
+"etat": {
+  "pret_a_agir": true,
+  "niveau_confiance": "eleve",
+  "raisons": ["mode_conseille disponible : full recommandé (React détecté sur ce host)"],
+  "mode_conseille": {
+    "mode": "full",
+    "shadow_dom": true,
+    "som_rafraichir": false,
+    "raisons": ["react_detecte", "shadow_roots:3"]
+  }
+}
+```
+
+Get this data flowing for a host by running the diagnostic once:
+
+```bash
+/opt/diwall/venv/bin/python3 /opt/diwall/rpa.py \
+  --scenario /opt/diwall/scenarios/diagnostic_dom.json \
+  --url https://target.local/ --mode fast
+```
+
+No prior diagnostic for this host → `mode_conseille` is absent, never a
+guess. Full detail in `GUIDE_LLM_MONITORING.md`.
 
 ---
 
@@ -640,6 +693,21 @@ To find the inner selector: use `evaluer` on the iframe's content if it is
 same-origin (`document.querySelector('iframe').contentDocument...`), or
 consult the target application's own markup/documentation if cross-origin.
 
+### 5k. Nested iframes — `iframe_chemin` (v1.18.0)
+
+An iframe inside another iframe: replace `iframe_selecteur` with
+`iframe_chemin`, an ordered array — one CSS selector per nesting level, from
+outermost to innermost.
+
+```json
+{"type": "cliquer_iframe", "iframe_chemin": ["iframe#wrapper", "iframe#paiement"], "selecteur": "button.valider"},
+{"type": "remplir_iframe", "iframe_chemin": ["iframe#wrapper", "iframe#paiement"], "selecteur": "input[name=cvv]", "valeur": "depuis_vault", "vault_cle": "cvv"}
+```
+
+`iframe_selecteur` (single frame) and `iframe_chemin` (nested descent) are
+mutually exclusive — exactly one required per action. For a single-level
+iframe, keep using `iframe_selecteur` (section 5j).
+
 ---
 
 ## 6. Actions — complete reference
@@ -665,8 +733,8 @@ consult the target application's own markup/documentation if cross-origin.
 | `attendre_mfa_ntfy` | `id_som` | `timeout` | Waits for a TOTP code via ntfy, fills it into the SoM field |
 | `nettoyer_overlay` | `selecteur` | — | Hides blocking overlays (cookie banner, modal). Use before SoM |
 | `declencher_scenario` | `scenario` | — | Inlines a sub-scenario's actions. Max depth: 5 |
-| `cliquer_iframe` | `iframe_selecteur`, `selecteur` | `force` (bool) | Click inside a same/cross-origin iframe (v1.17.0). No SoM inside frames |
-| `remplir_iframe` | `iframe_selecteur`, `selecteur`, `valeur` | `vault_cle` | Fill inside a same/cross-origin iframe (v1.17.0). `valeur: "depuis_vault"` supported |
+| `cliquer_iframe` | `iframe_selecteur` \| `iframe_chemin`, `selecteur` | `force` (bool) | Click inside an iframe (v1.17.0). `iframe_chemin` for nested iframes (v1.18.0, section 5k). No SoM inside frames |
+| `remplir_iframe` | `iframe_selecteur` \| `iframe_chemin`, `selecteur`, `valeur` | `vault_cle` | Fill inside an iframe (v1.17.0). `iframe_chemin` for nested iframes (v1.18.0). `valeur: "depuis_vault"` supported |
 
 ---
 
@@ -906,6 +974,39 @@ done
   >> /var/log/diwall/cron.jsonl 2>&1
 ```
 
+### 8g. Continuous structural monitoring — `monitor-verifier.sh` (v1.18.0)
+
+Complements 8a–8f: `watch.py` monitors *appearance* (pixels/semantic).
+`scripts/monitor-verifier.sh` monitors *structure* (`http_status`,
+`dom_stats`, `evaluations`, SoM count) — zero image, zero LLM call, built on
+`--no-capture` + `--replay-verifier` (section 5h).
+
+```bash
+# First run — create the structural reference
+/opt/diwall/venv/bin/python3 /opt/diwall/rpa.py \
+  --scenario /opt/diwall/scenarios/sillage_login.json \
+  --sauver-verifier-reference /opt/diwall/references/sillage_login.ref.json
+
+# One check-and-alert pass — not a daemon, run it repeatedly via cron
+bash /opt/diwall/scripts/monitor-verifier.sh \
+  --scenario /opt/diwall/scenarios/sillage_login.json \
+  --reference /opt/diwall/references/sillage_login.ref.json \
+  --ntfy-topic diwall-monitoring
+```
+
+```bash
+# /etc/cron.d/diwall-monitor-structural
+*/15 * * * * diwall bash /opt/diwall/scripts/monitor-verifier.sh \
+  --scenario /opt/diwall/scenarios/sillage_login.json \
+  --reference /opt/diwall/references/sillage_login.ref.json \
+  --ntfy-topic diwall-monitoring \
+  >> /var/log/diwall/cron-structural.jsonl 2>&1
+```
+
+Stable → silence. Regression → one `ntfy` notification with the diff. Each
+invocation is an isolated process — no daemon, no memory-leak risk, and
+Navigation Citoyenne caps reset cleanly on every pass.
+
 ---
 
 ## 9. Operation log
@@ -946,6 +1047,7 @@ Fields in each entry:
 | `outil` | `shot.py` or `rpa.py` |
 | `cible_url` | Target URL |
 | `scenario` | Scenario file path (RPA mode) |
+| `source_scenario` | Scenario file name only, no path (v1.18.0) — powers `mode_conseille` (section 2e) |
 | `resultat` | `"succes"` or `"echec"` |
 | `mutatif` | `true` if at least one write action |
 | `duree_ms` | Duration in ms |
@@ -959,6 +1061,8 @@ Fields in each entry:
 
 | Flag | Default | Description |
 |---|---|---|
+| `--version` | — | Prints installed version and exits immediately — no Playwright, no other argument required (v1.18.0) |
+| `--guide-version X.Y` | — | Proof of reading `docs/GUIDE_LLM.md` — required unless a valid local marker already exists (v1.18.0, section 1) |
 | `--url URL` | required | URL to capture |
 | `--actions FILE` | — | JSON file of sequential actions |
 | `--output-dir DIR` | `/tmp/diwall` | PNG output directory |
@@ -989,6 +1093,8 @@ Propagates all relevant shot.py flags, plus:
 
 | Flag | Description |
 |---|---|
+| `--version` | Prints installed version and exits immediately (v1.18.0) |
+| `--guide-version X.Y` | Proof of reading `docs/GUIDE_LLM.md` — checked independently, same rule as shot.py (v1.18.0) |
 | `--scenario FILE` | Path to JSON or YAML scenario (required) |
 | `--url URL` | Overrides scenario URL without modifying the file |
 | `--stealth` | Propagated to shot.py |
@@ -1003,6 +1109,8 @@ Propagates all relevant shot.py flags, plus:
 
 | Flag | Description |
 |---|---|
+| `--version` | Prints installed version and exits immediately (v1.18.0) |
+| `--guide-version X.Y` | Proof of reading `docs/GUIDE_LLM.md` — checked independently, same rule as shot.py (v1.18.0) |
 | `--url URL` | URL to monitor |
 | `--sauver-reference` | Capture and save as reference |
 | `--comparer-pixel REF` | Pixel diff against PNG file REF |
@@ -1025,6 +1133,7 @@ Propagates all relevant shot.py flags, plus:
 |---|---|---|
 | 0 | Success | — |
 | 1 | Playwright error, failed action, rpa.py assertion | Read `erreur` in JSON. See `GUIDE_LLM_INTERACTIONS.md` |
+| 1 | `guide_non_lu` — missing/wrong `--guide-version`, no valid marker (v1.18.0) | Fires before Playwright launches. Read `docs/GUIDE_LLM.md`, relaunch with `--guide-version X.Y` (section 1) |
 | 2 | `viewport_mismatch` (watch.py) | Re-capture reference at same viewport |
 | 3 | `playwright` module not found | Invoke via `/opt/diwall/venv/bin/python3` |
 | 42 | `VaultFermeError` — vault not mounted or invalid checksum | Mount vault or verify credentials file |
@@ -1088,7 +1197,8 @@ Conditional keys (absent when inactive): `capture`, `capture_som`, `elements_som
 `evaluations`, `auth_status`, `stealth_actif`, `shadow_dom_actif`, `som_rafraichir_actif`,
 `som_hors_viewport`, `session_derive`, `citoyennete.plafond_atteint`, `citoyennete.waf_bloquants`,
 `citoyennete.indice_agressivite` (present whenever at least one action ran),
-`actions_executees_avant_echec`, `pages_visitees_avant_echec` (failure JSON only, v1.17.0).
+`actions_executees_avant_echec`, `pages_visitees_avant_echec` (failure JSON only, v1.17.0),
+`etat.mode_conseille` (present only with real prior `diagnostic_dom.json` data for this host, v1.18.0, section 2e).
 
 ### Error — format
 

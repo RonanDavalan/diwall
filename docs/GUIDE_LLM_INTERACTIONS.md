@@ -1,7 +1,7 @@
 # Diwall — Interactions guide (SoM, selectors, dialogs, assertions)
 
-<!-- notice-version: 1.5 -->
-Version 1.5 — July 2026 (v1.17.2) — --som-rafraichir collision cleanup on repeated captures
+<!-- notice-version: 1.7 -->
+Version 1.7 — July 2026 (v1.18.0) — nested iframes (`iframe_chemin`), FN14 (`force: true` in a script-opened dialog)
 
 Load this notice when: timeout on `cliquer`, CSS/showModal dialog, SoM IDs, strict mode
 violation, nth-match error, evaluer assertions, DOM mutations.
@@ -111,6 +111,20 @@ Playwright waits for the page to stabilise before screenshotting. Remove any int
 **FN13 — Batch checkboxes — prefer a single `evaluer` over multiple `cliquer`:**
 ```json
 {"type": "evaluer", "script": "(function(){ var cibles=['v1','v2']; Array.from(document.querySelectorAll('input[type=checkbox]')).filter(cb=>cibles.includes(cb.value)).forEach(cb=>{cb.checked=true;cb.dispatchEvent(new Event('change',{bubbles:true}));}); })()"}
+```
+
+**FN14 — `force: true` insufficient in a `<dialog>` opened by script (root cause unconfirmed):**
+On a `<dialog>` opened via `evaluer` (`showModal()`), `cliquer` with `force: true`
+on an inner element (checkbox, submit button) failed repeatedly with "Element
+is not visible" — despite `force: true` being designed to bypass exactly this
+check. Root cause not settled: a genuine limitation of `force` in this
+specific context, or a timing race between `showModal()` and layout
+availability at the moment of the next action in the same action list. Not
+generalized to all script-opened dialogs — a single-session observation. If
+`force: true` fails on an element inside a script-opened `<dialog>`, do not
+keep retrying it — switch to `evaluer` JS for the whole sequence:
+```json
+{"type": "evaluer", "script": "(function(){ document.getElementById('dialog-supp-X').showModal(); var cb=document.querySelector('#confirm-checkbox'); cb.checked=true; cb.dispatchEvent(new Event('change',{bubbles:true})); document.querySelector('#btn-submit').click(); })()"}
 ```
 
 **Conditional button with JS guard — silent no-op on `cliquer` (REX #62):**
@@ -484,3 +498,25 @@ Root limit above.
 **On failure:** Playwright's own interactability rules still apply inside the
 frame (e.g. `.fill()` refuses a `contenteditable` element in a read-only
 state) — `"force": true` is available on `cliquer_iframe`, matching `cliquer`.
+
+### Nested iframes — `iframe_chemin` (v1.18.0)
+
+An iframe inside another iframe needs a descent through each level in order —
+`iframe_selecteur` only targets a single, top-level frame. Use `iframe_chemin`
+instead: an ordered array of CSS selectors, one per nesting level.
+
+```json
+{"type": "cliquer_iframe", "iframe_chemin": ["iframe#wrapper", "iframe#paiement"], "selecteur": "button.valider"}
+{"type": "remplir_iframe", "iframe_chemin": ["iframe#wrapper", "iframe#paiement"], "selecteur": "input[name=cvv]", "valeur": "depuis_vault", "vault_cle": "cvv"}
+```
+
+Internally, this chains Playwright's `frame_locator()` once per element of the
+array — `page.frame_locator(chemin[0]).frame_locator(chemin[1])…` — down to
+the last one, on which the action runs.
+
+**`iframe_selecteur` and `iframe_chemin` are mutually exclusive — exactly one
+required.** Deliberately not a pluralised name (`iframe_selecteurs`): a
+one-letter difference between two keys is exactly the kind of thing that gets
+typo'd or misremembered on a generated action. Passing both, or neither, is a
+schema error. For a single-level iframe, keep using `iframe_selecteur` —
+`iframe_chemin` is strictly for multi-level descent, not a replacement.

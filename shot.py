@@ -11,7 +11,7 @@ import uuid
 from datetime import datetime, timezone
 from urllib.parse import urlparse
 
-__version__ = "1.17.2"
+__version__ = "1.18.0"
 
 # Permet d'importer lib/ depuis le même répertoire que shot.py
 sys.path.insert(0, os.path.dirname(os.path.abspath(__file__)))
@@ -496,8 +496,63 @@ def _construire_diwall_meta(profil, horodatage, modeles_appeles, url_finale):
     return meta
 
 
+def _traduire_diagnostic_en_conseil(evaluations_journal):
+    """v1.18.0 — traduit les `evaluations` (format journal) de la dernière
+    exécution de scenarios/diagnostic_dom.json sur ce host en recommandation
+    `mode_conseille`. Couplage assumé aux index fixes 3 (frameworks JS) et 4
+    (nombre de shadow roots) de ce scénario précis — fragile si son ordre
+    d'actions change, mais évite de parser le contenu des scripts (encore
+    plus fragile). Best-effort : toute erreur retourne None plutôt que de
+    faire échouer le calcul de l'etat.
+    """
+    try:
+        valeurs = [e.get("valeur_retournee") for e in evaluations_journal]
+        frameworks = json.loads(valeurs[3] or "{}")
+        shadow_roots = int(json.loads(valeurs[4] or "0"))
+    except (IndexError, TypeError, ValueError, json.JSONDecodeError):
+        return None
+
+    noms_frameworks = [k for k in ("React", "Vue", "Angular") if frameworks.get(k)]
+    if not noms_frameworks and shadow_roots == 0:
+        return None  # page structurellement simple — rien à recommander
+
+    raisons = []
+    if noms_frameworks:
+        raisons.append(f"framework_detecte:{','.join(noms_frameworks)}")
+    if shadow_roots > 0:
+        raisons.append(f"shadow_roots:{shadow_roots}")
+
+    return {
+        "mode": "full",
+        "shadow_dom": shadow_roots > 0,
+        "som_rafraichir": bool(noms_frameworks),
+        "raisons": raisons,
+    }
+
+
+def _calculer_mode_conseille(url_finale):
+    """v1.18.0 — interroge le journal pour la dernière exécution de
+    diagnostic_dom.json sur le host de `url_finale`. Jamais de spéculation :
+    absent si aucune donnée réelle n'existe pour ce host. Best-effort,
+    isolé de tout le reste — son échec ne dégrade jamais la sortie JSON.
+    """
+    try:
+        from lib import journal
+        from urllib.parse import urlparse as _urlparse
+        host = _urlparse(url_finale or "").hostname
+        if not host:
+            return None
+        evaluations_journal = journal.dernier_diagnostic_host(host)
+        if not evaluations_journal:
+            return None
+        return _traduire_diagnostic_en_conseil(evaluations_journal)
+    except Exception:
+        return None
+
+
 def _construire_etat(auth_status, citoyennete, derive_session, erreurs_js,
-                     waf_bloquants=None, erreurs_console=None, ignorer_waf=False):
+                     waf_bloquants=None, erreurs_console=None, ignorer_waf=False,
+                     mode_conseille=None):
     """Synthèse déterministe de l'état opérationnel (v1.16.0, item A).
 
     Calculée uniquement à partir de signaux déjà présents dans le run — aucun
@@ -567,7 +622,14 @@ def _construire_etat(auth_status, citoyennete, derive_session, erreurs_js,
     if not raisons:
         raisons.append("aucun signal de friction détecté")
 
-    return {"pret_a_agir": pret, "niveau_confiance": niveau, "raisons": raisons}
+    etat = {"pret_a_agir": pret, "niveau_confiance": niveau, "raisons": raisons}
+    if mode_conseille:
+        etat["mode_conseille"] = mode_conseille
+        resume = f"mode_conseille disponible : {mode_conseille['mode']} recommandé"
+        if mode_conseille["raisons"]:
+            resume += f" ({', '.join(mode_conseille['raisons'])})"
+        raisons.append(resume)
+    return etat
 
 
 def _nettoyer_session_ephemere(chemin_session, explicitement_demandee):
@@ -580,7 +642,7 @@ def _nettoyer_session_ephemere(chemin_session, explicitement_demandee):
 
 
 def _journaliser_run(result, actions, intention, cible_url, resultat, erreur=None,
-                     operation_id=None):
+                     operation_id=None, source_scenario=None):
     """Consigne le run dans le journal d'opérations (v1.4). Best-effort.
 
     N'altère jamais la sortie ni le code de retour de shot.py : toute
@@ -615,6 +677,7 @@ def _journaliser_run(result, actions, intention, cible_url, resultat, erreur=Non
         evaluations=result.get("evaluations"),
         operation_id=operation_id,
         citoyennete=result.get("citoyennete"),
+        source_scenario=source_scenario,
     )
 
 
@@ -767,6 +830,15 @@ def parse_args():
     p.add_argument("--no-evaluer", dest="no_evaluer", action="store_true",
                    help="Désactive l'action 'evaluer' — recommandé en production sur cibles "
                         "avec formulaires sensibles. (v1.15.1)")
+    p.add_argument("--version", action="store_true",
+                   help="Affiche la version installée et quitte immédiatement, sans Playwright (v1.18.0).")
+    p.add_argument("--guide-version", dest="guide_version", default=None,
+                   help="Jeton de lecture de docs/GUIDE_LLM.md — requis sauf marqueur local valide "
+                        "(v1.18.0). Valeur : <!-- notice-version: X.Y --> en tête de ce fichier.")
+    p.add_argument("--source-scenario", dest="source_scenario", default=None,
+                   help="Nom de fichier du scénario (sans chemin), transmis par rpa.py (v1.18.0). "
+                        "Plomberie interne pour mode_conseille — pas un paramètre destiné à un "
+                        "appel shot.py direct.")
     return p.parse_args()
 
 
@@ -822,6 +894,35 @@ def charger_actions(source):
         actions = data
     _valider_actions_vault(actions)
     return actions
+
+
+def _resoudre_frame_locator(page, a, type_action):
+    """Résout 'iframe_selecteur' (frame unique) ou 'iframe_chemin' (descente
+    imbriquée, v1.18.0) en un objet FrameLocator Playwright. Exactement un
+    des deux requis — même discipline que 'defiler' (px xor selecteur).
+    Le schéma (scenarios/schema.json) impose déjà cette contrainte quand
+    rpa.py valide le scénario ; ce contrôle défensif couvre aussi les appels
+    shot.py directs (--actions) qui ne passent pas par le validateur JSON
+    Schema de rpa.py.
+    """
+    iframe_sel = a.get("iframe_selecteur")
+    iframe_chemin = a.get("iframe_chemin")
+    if iframe_sel and iframe_chemin:
+        raise ValueError(
+            f"{type_action} : 'iframe_selecteur' et 'iframe_chemin' sont mutuellement exclusifs"
+        )
+    if iframe_chemin is not None:
+        if not isinstance(iframe_chemin, list) or not iframe_chemin:
+            raise ValueError(
+                f"{type_action} : 'iframe_chemin' doit être un tableau non vide de sélecteurs CSS"
+            )
+        locator = page.frame_locator(iframe_chemin[0])
+        for niveau in iframe_chemin[1:]:
+            locator = locator.frame_locator(niveau)
+        return locator
+    if not iframe_sel:
+        raise ValueError(f"{type_action} requiert 'iframe_selecteur' ou 'iframe_chemin'")
+    return page.frame_locator(iframe_sel)
 
 
 def executer_actions(page, actions, output_dir, timeout, mode_llm="local",
@@ -1143,21 +1244,17 @@ def executer_actions(page, actions, output_dir, timeout, mode_llm="local",
             # atteindre le contenu d'un iframe cross-origin). Pas de numérotation
             # SoM à l'intérieur du frame — ciblage par sélecteur CSS explicite
             # uniquement (limite documentée, GUIDE_LLM_INTERACTIONS.md).
-            iframe_sel = a.get("iframe_selecteur")
-            if not iframe_sel:
-                raise ValueError("cliquer_iframe requiert un champ 'iframe_selecteur'")
             if "selecteur" not in a:
                 raise ValueError("cliquer_iframe requiert un champ 'selecteur' (cible dans le frame)")
-            page.frame_locator(iframe_sel).locator(a["selecteur"]).click(
+            frame_locator = _resoudre_frame_locator(page, a, "cliquer_iframe")
+            frame_locator.locator(a["selecteur"]).click(
                 timeout=timeout, force=bool(a.get("force", False)),
             )
 
         elif t == "remplir_iframe":
-            iframe_sel = a.get("iframe_selecteur")
-            if not iframe_sel:
-                raise ValueError("remplir_iframe requiert un champ 'iframe_selecteur'")
             if "selecteur" not in a:
                 raise ValueError("remplir_iframe requiert un champ 'selecteur' (cible dans le frame)")
+            frame_locator = _resoudre_frame_locator(page, a, "remplir_iframe")
             valeur = a.get("valeur", "")
             if valeur == "depuis_vault":
                 cle = a.get("vault_cle")
@@ -1176,7 +1273,7 @@ def executer_actions(page, actions, output_dir, timeout, mode_llm="local",
                 else:
                     from lib.vault import lire_totp, domaine_depuis_url
                     valeur = lire_totp(domaine_depuis_url(page.url))
-            page.frame_locator(iframe_sel).locator(a["selecteur"]).fill(valeur, timeout=timeout)
+            frame_locator.locator(a["selecteur"]).fill(valeur, timeout=timeout)
 
         elif t == "defiler":
             px = a.get("px")
@@ -1317,6 +1414,13 @@ def _conf_navigation():
 
 
 def main():
+    args = parse_args()
+
+    # ── --version (v1.18.0) : zéro Playwright, zéro autre argument requis ─────
+    if args.version:
+        print(json.dumps({"outil": "shot.py", "version": __version__}))
+        sys.exit(0)
+
     import importlib.util
     if importlib.util.find_spec("playwright") is None:
         sys.stderr.write(
@@ -1324,6 +1428,16 @@ def main():
             "  Exécutez via le venv : /opt/diwall/venv/bin/python depuis /opt/diwall\n"
         )
         sys.exit(3)
+
+    # ── Verrou de lecture obligatoire (v1.18.0) ────────────────────────────────
+    # Avant tout autre traitement — y compris la validation --url. Exception
+    # consciente à la doctrine d'additivité de Diwall (seule du projet) :
+    # la documentation seule a échoué à se faire lire spontanément (retour
+    # terrain répété, cf. docs/RADAR_MODELES.md).
+    from lib.preflight_guide import guide_valide, erreur_guide_non_lu
+    if not guide_valide(args.guide_version):
+        print(json.dumps(erreur_guide_non_lu(__version__)), file=sys.stderr)
+        sys.exit(1)
 
     # Interdire les core dumps pour ce processus : si Playwright crashe
     # pendant qu'un credential est en mémoire, le noyau ne peut pas écrire
@@ -1337,8 +1451,6 @@ def main():
     # Générée avant toute autre chose : disponible dans la boussole de TOUTE
     # sortie JSON, y compris les échecs de validation précoces.
     operation_id = uuid.uuid4().hex[:12]
-
-    args = parse_args()
 
     # ── Résolution de --mode (avant toute validation) ─────────────────────────
     if args.mode == "fast":
@@ -1682,12 +1794,13 @@ def main():
                 waf_bloquants=citoyennete.get("waf_bloquants"),
                 erreurs_console=erreurs_console,
                 ignorer_waf=args.ignorer_waf,
+                mode_conseille=_calculer_mode_conseille(url_finale),
             )
         except Exception:
             pass  # etat est un confort de lecture, jamais un bloquant (item A)
         print(json.dumps(result, ensure_ascii=False))
         _journaliser_run(result, actions, args.intention, url_finale, "succes",
-                         operation_id=operation_id)
+                         operation_id=operation_id, source_scenario=args.source_scenario)
         _nettoyer_session_ephemere(
             getattr(args, "reprendre_session", None),
             explicitement_demandee=bool(args.sauver_session),
@@ -1713,7 +1826,8 @@ def main():
             }
             print(json.dumps(result, ensure_ascii=False))
             _journaliser_run(result, actions, args.intention, url_cible, "echec",
-                             erreur=f"VaultFermeError: {e}", operation_id=operation_id)
+                             erreur=f"VaultFermeError: {e}", operation_id=operation_id,
+                             source_scenario=args.source_scenario)
             sys.exit(VaultFermeError.CODE_SORTIE)
 
         capture_echec = None
@@ -1752,7 +1866,8 @@ def main():
         result["boussole"] = _boussole(operation_id)
         print(json.dumps(result, ensure_ascii=False))
         _journaliser_run(result, actions, args.intention, url_cible, "echec",
-                         erreur=f"{type(e).__name__}: {e}", operation_id=operation_id)
+                         erreur=f"{type(e).__name__}: {e}", operation_id=operation_id,
+                         source_scenario=args.source_scenario)
         _nettoyer_session_ephemere(
             getattr(args, "reprendre_session", None),
             explicitement_demandee=bool(getattr(args, "sauver_session", None)),

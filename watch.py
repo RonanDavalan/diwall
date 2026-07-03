@@ -13,7 +13,7 @@ from datetime import datetime, timezone
 from urllib.parse import urlparse
 
 
-__version__ = "1.9.6"
+__version__ = "1.18.0"
 
 REFERENCES_DIR = "/opt/diwall/references"
 SHOT_SCRIPT = "/opt/diwall/shot.py"
@@ -79,6 +79,11 @@ def parse_args():
                    help="Relance le diff sémantique LLM si verdict pixel != stable")
     p.add_argument("--sortie-json", dest="sortie_json", default=None,
                    help="Redirige le JSON de verdict vers un fichier (défaut : stdout)")
+    p.add_argument("--version", action="store_true",
+                   help="Affiche la version installée et quitte immédiatement (v1.18.0).")
+    p.add_argument("--guide-version", dest="guide_version", default=None,
+                   help="Jeton de lecture de docs/GUIDE_LLM.md — requis sauf marqueur local valide "
+                        "(v1.18.0). Valeur : <!-- notice-version: X.Y --> en tête de ce fichier.")
     p.add_argument("--intention", default=None,
                    help="Libellé métier du run, consigné dans le journal d'opérations (v1.4).")
     return p.parse_args()
@@ -699,6 +704,17 @@ def comparer_pixel(args):
 
 def main():
     args = parse_args()
+
+    # ── --version (v1.18.0) : quitte immédiatement ────────────────────────────
+    if args.version:
+        print(json.dumps({"outil": "watch.py", "version": __version__}))
+        sys.exit(0)
+
+    # ── Verrou de lecture obligatoire (v1.18.0) ────────────────────────────────
+    from lib.preflight_guide import guide_valide, erreur_guide_non_lu
+    if not guide_valide(args.guide_version):
+        print(json.dumps(erreur_guide_non_lu(__version__)), file=sys.stderr)
+        sys.exit(1)
 
     # ── Mode --comparer-pixel (lot 9.1) ───────────────────────────────────────
     if args.comparer_pixel:

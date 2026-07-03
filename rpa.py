@@ -20,7 +20,7 @@ Format du scénario :
 Le vault est résolu par lib/vault.py (DIWALL_VAULT_DIR > diwall.conf > ~/Vaults/Diwall/).
 Jamais de mot de passe dans les fichiers de scénario.
 """
-__version__ = "1.17.2"
+__version__ = "1.18.0"
 
 import argparse
 import json
@@ -261,7 +261,13 @@ def _comparer_surface_verifiable(reference, actuelle):
 
 def main():
     p = argparse.ArgumentParser(description="Diwall RPA — exécuteur de scénarios")
-    p.add_argument("--scenario", required=True, help="Chemin vers le fichier de scénario (JSON ou YAML)")
+    p.add_argument("--version", action="store_true",
+                   help="Affiche la version installée et quitte immédiatement, sans Playwright (v1.18.0).")
+    p.add_argument("--guide-version", dest="guide_version", default=None,
+                   help="Jeton de lecture de docs/GUIDE_LLM.md — requis sauf marqueur local valide "
+                        "(v1.18.0). Valeur : <!-- notice-version: X.Y --> en tête de ce fichier.")
+    p.add_argument("--scenario", required=False, default=None,
+                   help="Chemin vers le fichier de scénario (JSON ou YAML)")
     p.add_argument("--output-dir", dest="output_dir", default="/tmp/diwall",
                    help="Répertoire de sortie des captures (défaut : /tmp/diwall)")
     p.add_argument("--som", action="store_true", help="Active le Set-of-Mark sur la capture finale")
@@ -316,6 +322,23 @@ def main():
                         "enregistré dans FICHIER (session + index d'action). Crée FICHIER "
                         "au premier run, le supprime à la fin réussie du scénario. (v1.17.0)")
     args = p.parse_args()
+
+    if args.version:
+        print(json.dumps({"outil": "rpa.py", "version": __version__}))
+        sys.exit(0)
+
+    from lib.preflight_guide import guide_valide, erreur_guide_non_lu
+    if not guide_valide(args.guide_version):
+        print(json.dumps(erreur_guide_non_lu(__version__)), file=sys.stderr)
+        sys.exit(1)
+
+    if not args.scenario:
+        print(json.dumps({
+            "succes": False, "erreur": "argument_manquant",
+            "message": "--scenario est requis",
+            "boussole": _boussole(),
+        }))
+        sys.exit(2)
 
     if args.sauver_verifier_reference and args.replay_verifier:
         print(json.dumps({
@@ -450,6 +473,13 @@ def main():
         "--actions", json.dumps(actions),
         "--output-dir", args.output_dir,
         "--timeout", str(args.timeout),
+        # v1.18.0 — nom de fichier (sans chemin) pour mode_conseille /
+        # dernier_diagnostic_host. Pas de --guide-version à propager ici :
+        # le marqueur ~/.config/diwall/guide_state.json déjà validé par le
+        # garde-fou de rpa.py ci-dessus est visible du subprocess shot.py
+        # (même environnement, même utilisateur OS — env=os.environ.copy()
+        # plus bas).
+        "--source-scenario", os.path.basename(chemin_scenario),
     ]
     if args.som:
         cmd.append("--som")

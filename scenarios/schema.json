@@ -139,26 +139,36 @@
 
     "CliquerIframe": {
       "type": "object",
-      "required": ["type", "iframe_selecteur", "selecteur"],
+      "required": ["type", "selecteur"],
       "additionalProperties": false,
       "properties": {
         "type":             { "const": "cliquer_iframe" },
         "iframe_selecteur": { "type": "string", "minLength": 1,
                               "description": "CSS selector of the <iframe> element (same or cross-origin)" },
+        "iframe_chemin":    { "type": "array", "items": { "type": "string", "minLength": 1 },
+                              "minItems": 1,
+                              "description": "Ordered list of CSS selectors, one per nesting level, for an iframe nested inside another iframe (v1.18.0). Mutually exclusive with iframe_selecteur." },
         "selecteur":        { "type": "string", "minLength": 1,
                               "description": "CSS selector of the target inside the iframe content" },
         "force":            { "type": "boolean" }
-      }
+      },
+      "oneOf": [
+        { "required": ["iframe_selecteur"] },
+        { "required": ["iframe_chemin"] }
+      ]
     },
 
     "RemplirIframe": {
       "type": "object",
-      "required": ["type", "iframe_selecteur", "selecteur", "valeur"],
+      "required": ["type", "selecteur", "valeur"],
       "additionalProperties": false,
       "properties": {
         "type":             { "const": "remplir_iframe" },
         "iframe_selecteur": { "type": "string", "minLength": 1,
                               "description": "CSS selector of the <iframe> element (same or cross-origin)" },
+        "iframe_chemin":    { "type": "array", "items": { "type": "string", "minLength": 1 },
+                              "minItems": 1,
+                              "description": "Ordered list of CSS selectors, one per nesting level, for an iframe nested inside another iframe (v1.18.0). Mutually exclusive with iframe_selecteur." },
         "selecteur":        { "type": "string", "minLength": 1,
                               "description": "CSS selector of the target inside the iframe content" },
         "valeur":           { "type": "string" },
@@ -171,6 +181,12 @@
             "required": ["valeur"]
           },
           "then": { "required": ["vault_cle"] }
+        },
+        {
+          "oneOf": [
+            { "required": ["iframe_selecteur"] },
+            { "required": ["iframe_chemin"] }
+          ]
         }
       ]
     },
