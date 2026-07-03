@@ -29,11 +29,11 @@ cd "$REPO_ROOT"
 # Séparateur ';;;' choisi pour ne pas entrer en collision avec les '|' des
 # alternations regex. Maintenue en tête du script (pas d'input externe).
 PATTERNS=(
-    "host admin LAN;;;\\bsillage\\.__HOST_ADMIN__\\.local\\b;;;substituer par __HOST_ADMIN__ (URLs) ou depuis_vault (credentials)"
+    "host admin LAN;;;\\bsillage\\.ike4\\.local\\b;;;substituer par __HOST_ADMIN__ (URLs) ou depuis_vault (credentials)"
     "vitrine opérateur;;;\\bsillage\\.davalan\\.fr\\b;;;substituer par __HOST_ADMIN__"
     "host clone WP;;;\\bclone\\.davalan\\.fr\\b;;;substituer par __HOST_ADMIN__"
     "domaine opérateur;;;__DOMAINE_NOMINAL__;;;substituer par __DOMAINE_OPERATEUR__"
-    "host admin __HOST_ADMIN__;;;\\b__HOST_ADMIN__\\b;;;substituer par __HOST_ADMIN__"
+    "host admin IKE4;;;\\bIKE4\\b;;;substituer par __HOST_ADMIN__"
     "host VPS nominal;;;__HOST_VPS_NOMINAL__;;;substituer par __HOST_VPS__"
     "tenant nominal;;;__TENANT_NOMINAL__;;;substituer par __TENANT__"
     "client nominal;;;__CLIENT_NOMINAL__;;;substituer par __CLIENT_SANCTUARISE__"
@@ -44,6 +44,8 @@ PATTERNS=(
     "IP LAN 10.x.x.x;;;\\b10\\.[0-9]+\\.[0-9]+\\.[0-9]+\\b;;;substituer par __IP_LAN__"
     "IP LAN 172.16-31.x.x;;;\\b172\\.(1[6-9]|2[0-9]|3[0-1])\\.[0-9]+\\.[0-9]+\\b;;;substituer par __IP_LAN__"
     "IP VPS nominale;;;__IP_VPS_NOMINALE__;;;substituer par __IP_VPS__"
+    "mot de passe en clair scénario;;;Diwall2026!;;;remplacer par depuis_vault + vault_cle: password (règle n°6 CLAUDE.md)"
+    "domaine opérateur (forme nom de fichier);;;\\bdavalan_fr\\b;;;forme à underscores d'un nom de fichier — échappe au motif dotté davalan\\.fr, substituer par un nom neutre"
 )
 
 # ── Exceptions documentées ────────────────────────────────────────────────────
@@ -55,9 +57,10 @@ EXCEPTIONS=(
     "./README.md;;;prénom opérateur;;;crédit auteur public dans la section Credits"
     "./README.md;;;domaine opérateur;;;diwall.davalan.fr est le domaine public du projet Diwall"
     "./scripts/preflight-publication.sh;;;domaine opérateur;;;le script définit ses propres patterns — auto-exclusion"
-    "./scripts/preflight-publication.sh;;;host admin __HOST_ADMIN__;;;le script définit ses propres patterns — auto-exclusion"
+    "./scripts/preflight-publication.sh;;;host admin IKE4;;;le script définit ses propres patterns — auto-exclusion"
     "./scripts/preflight-publication.sh;;;username dans chemin;;;le script définit ses propres patterns — auto-exclusion"
     "./scripts/preflight-publication.sh;;;vault projet nommé;;;le script définit ses propres patterns — auto-exclusion"
+    "./scripts/preflight-publication.sh;;;mot de passe en clair scénario;;;le script définit ses propres patterns — auto-exclusion"
 )
 
 # ── Découverte du périmètre ───────────────────────────────────────────────────
@@ -107,7 +110,7 @@ if [[ $NB_FICHIERS -gt 0 ]]; then
         # grep -E : regex étendues ; -H : préfixer chemin ; -n : numéro ligne
         # On ignore le code retour 1 (= aucune correspondance) avec || true
         # Filtre additionnel : on saute les lignes où le pattern est dans un
-        # exemple « literal placeholder explanation » (ex. « ex. `__HOST_ADMIN__` »).
+        # exemple « literal placeholder explanation » (ex. « ex. `IKE4` »).
         # Approche simple : on signale tout match, c'est à l'opérateur d'arbitrer.
         if matches=$(grep -EnH "$regex" "${FICHIERS[@]}" 2>/dev/null); then
             while IFS= read -r ligne; do
