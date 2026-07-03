@@ -1,6 +1,6 @@
 # Diwall — LLM Guide (index)
 
-Version 3.4 — July 2026 (v1.15.0) — MANUEL.md operational reference, Navigation Citoyenne, --stealth, citoyennete metrics
+Version 3.5 — July 2026 (v1.17.2) — refined WAF heuristic, --ignorer-waf overrule
 
 **You are a language model. This is the entry point. Read it fully, then load
 the notice that matches your task.**
@@ -193,9 +193,9 @@ Already in an error? Route by symptom, not by task type:
 
 | Notice | Load when | Version |
 |---|---|---|
-| `GUIDE_LLM_INTERACTIONS.md` | Timeout on `cliquer`, CSS/showModal dialog, SoM IDs, strict mode violation, nth-match error, evaluer assertions, DOM mutations, Shadow DOM (`--shadow-dom`), cross-origin iframes | v1.4 |
-| `GUIDE_LLM_SESSIONS.md` | Vault credentials, `--secrets`, session persistence, SPA navigation, multi-page flows, MFA/TOTP, auth_indicator, auth_indicator_negative, --no-capture, --checkpoint | v1.4 |
-| `GUIDE_LLM_MONITORING.md` | watch.py, pixel diff, long-running operations, `--screenshot-timeout`, interval_capture, journal.py, --replay-verifier | v1.5 |
+| `GUIDE_LLM_INTERACTIONS.md` | Timeout on `cliquer`, CSS/showModal dialog, SoM IDs, strict mode violation, nth-match error, evaluer assertions, DOM mutations, Shadow DOM (`--shadow-dom`), cross-origin iframes | v1.5 |
+| `GUIDE_LLM_SESSIONS.md` | Vault credentials, `--secrets`, session persistence, SPA navigation, multi-page flows, MFA/TOTP, auth_indicator, auth_indicator_negative, --no-capture, --checkpoint | v1.5 |
+| `GUIDE_LLM_MONITORING.md` | watch.py, pixel diff, long-running operations, `--screenshot-timeout`, interval_capture, journal.py, --replay-verifier | v1.6 |
 
 > **Version check:** the version column is canonical. If your local copy of a notice shows
 > a lower version, reload it. Notice versions increment independently of Diwall releases.

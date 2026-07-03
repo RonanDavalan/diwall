@@ -1,6 +1,6 @@
 # Diwall — FAQ for LLMs
 
-Version 1.2 — July 2026 (v1.17.1) — iframe support correction, operation_id, etat, WAF signal, version table through v1.17.0
+Version 1.3 — July 2026 (v1.17.2) — refined WAF heuristic, `--ignorer-waf`, `waf_ignore_actif`, version table through v1.17.2
 
 Answers to technical questions raised by language models during real Diwall sessions.
 No attribution — these are recurring questions, not individual testimonies.
@@ -64,7 +64,8 @@ Plus conditional fields that appear only when active:
 | `shadow_dom_actif` | `--shadow-dom` active |
 | `stealth_actif` | `--stealth` active and applied successfully (v1.15.0) |
 | `som_rafraichir_actif` | `--som-rafraichir` active (v1.17.0) |
-| `citoyennete.waf_bloquants` | at least one navigation was flagged as a likely WAF block (v1.16.0) |
+| `citoyennete.waf_bloquants` | at least one navigation was flagged as a likely WAF block (v1.16.0, refined v1.17.2 — generic vendor names now matched on page title only, fewer false positives) |
+| `waf_ignore_actif` | `--ignorer-waf` active — a WAF block degrades `niveau_confiance` but no longer forces `pret_a_agir: false` on its own (v1.17.2) |
 
 `titre_page` is always present but may be empty (`""`) on `about:blank` or if Playwright
 cannot read the title before closing. `operation_id` (v1.16.0) uniquely identifies the
@@ -278,10 +279,11 @@ runs a single continuous session. The vault and journal are managed by the paren
 | Security hardening: `--no-evaluer`, journal permissions, URL scheme validation, `--ignore-tls-errors` | v1.15.1 |
 | `chemin_png` collision fix, early CLI rejection, `scenarios/exemples/` | v1.15.2 |
 | `etat` deterministic verdict, `operation_id`, passive WAF signal, `erreurs_console`, `indice_agressivite` | v1.16.0 |
-| `--replay-verifier`, `--checkpoint`, `--som-rafraichir`, `cliquer_iframe`/`remplir_iframe` | **v1.17.0** |
+| `--replay-verifier`, `--checkpoint`, `--som-rafraichir`, `cliquer_iframe`/`remplir_iframe` | v1.17.0 |
+| Vault write guard (journal/proof archiving), SoM collision cleanup, refined WAF heuristic + `--ignorer-waf`, checkpoint citizenship-cap fix | **v1.17.2** |
 
-**Current stable version: v1.17.1** (v1.17.1 is a documentation correction —
-no functional change to `shot.py`/`rpa.py` logic since v1.17.0).
+**Current stable version: v1.17.2** (v1.17.1 was a documentation-only
+correction; v1.17.2 is a fix patch — see the row above).
 
 The operation log (`/var/log/diwall/operations.jsonl`) and the friction index
 (`docs/RETOUR_EXPERIENCE.md`) cover the full history from v1.0.

@@ -1,6 +1,6 @@
 # Diwall — Human operator guide
 
-Version 1.3 — July 2026 (v1.17.1) — Citizen Navigation, pitfalls table extended
+Version 1.4 — July 2026 (v1.17.2) — WAF pitfall entry refined with --ignorer-waf
 
 ---
 

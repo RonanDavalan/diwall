@@ -1,6 +1,6 @@
 # Diwall — Operational manual
 
-**Version 1.17.1 — July 2026**
+**Version 1.17.2 — July 2026**
 
 This document answers one question: **how to do X with Diwall**.
 
@@ -28,11 +28,15 @@ No architectural descriptions. Commands that work.
 10. [CLI flags — reference](#10-cli-flags--reference)
 11. [Exit codes and output](#11-exit-codes-and-output)
 
-v1.16.0 additions: [2d](#2d-read-etat-for-a-go-no-go-decision) (`etat`), [3e](#3e-waf-detection-signal-v1160) (WAF signal).
+v1.16.0 additions: [2d](#2d-read-etat-for-a-go-no-go-decision) (`etat`), [3e](#3e-waf-detection-signal-v1160-refined-v1172) (WAF signal).
 v1.17.0 additions: [5h](#5h-structural-non-regression-without-pixels---replay-verifier)
 (`--replay-verifier`), [5i](#5i-resume-a-long-scenario-after-failure---checkpoint)
 (`--checkpoint`), [5j](#5j-target-elements-inside-an-iframe) (iframe actions),
 [7j](#7j-som-id-drift-on-highly-dynamic-pages---som-rafraichir) (`--som-rafraichir`).
+v1.17.2 fixes (no new sections): [3e](#3e-waf-detection-signal-v1160-refined-v1172)
+(refined WAF heuristic, `--ignorer-waf`), [5i](#5i-resume-a-long-scenario-after-failure---checkpoint)
+(citizenship-cap checkpoint fix), [7j](#7j-som-id-drift-on-highly-dynamic-pages---som-rafraichir)
+(SoM collision cleanup).
 
 ---
 
@@ -49,7 +53,7 @@ Expected result: JSON on stdout with `"succes": true`.
 ```bash
 # Verify the installed version
 grep "__version__" /opt/diwall/shot.py
-# → __version__ = "1.17.1"
+# → __version__ = "1.17.2"
 
 # Verify playwright-stealth is available (v1.15.0)
 /opt/diwall/venv/bin/python3 -c "import playwright_stealth; print('stealth OK')"
@@ -604,6 +608,13 @@ written with the count of completed actions and a session file. **Relaunch
 the exact same command** to resume: already-completed actions are skipped.
 On full success, the checkpoint file is deleted automatically.
 
+A run stopped by a citizenship cap (`max_actions_par_run`/`max_pages_par_run`)
+is treated the same way as a partial failure since v1.17.2 — the checkpoint
+is updated with the actual progress, not deleted. Before v1.17.2 it was
+deleted in this case too (it returns the same `succes: true` signal as a
+fully completed tronçon), silently losing all remaining progress on long
+scenarios.
+
 DOM state (open modals, half-filled forms) is never preserved across a
 resume — only cookies/`localStorage` and the action-list position are. Do
 not rely on `--checkpoint` to resume mid-way through a single multi-step
@@ -795,6 +806,12 @@ click. `boussole.som_rafraichir_actif: true` when active. Recommended on
 pages with frequent DOM churn between capture and action; no effect on
 default behaviour when not passed.
 
+Since v1.17.2, the injector also purges markers left by a previous `--som`
+capture in the same page before renumbering — without this, an element
+hidden or scrolled out between two captures could keep a stale
+`data-dw-som-id`, colliding with a freshly numbered element and resolving to
+the wrong one.
+
 ### 7k. Site blocked by WAF (immediate 403)
 
 ```bash
@@ -964,6 +981,7 @@ Fields in each entry:
 | `--reprendre-session FILE` | — | Resumes a saved session |
 | `--interval-capture N` | 0 | Periodic captures every N seconds during `attendre`, `pause` |
 | `--som-rafraichir` | off | Stable SoM resolution by attribute instead of live re-indexing (v1.17.0, section 7j) |
+| `--ignorer-waf` | off | A detected WAF block degrades `niveau_confiance` but no longer forces `pret_a_agir: false` on its own (v1.17.2, section 3e) |
 
 ### rpa.py
 
@@ -976,6 +994,7 @@ Propagates all relevant shot.py flags, plus:
 | `--stealth` | Propagated to shot.py |
 | `--mode fast\|full` | Propagated to shot.py |
 | `--som-rafraichir` | Propagated to shot.py (v1.17.0, section 7j) |
+| `--ignorer-waf` | Propagated to shot.py (v1.17.2, section 3e) |
 | `--sauver-verifier-reference FILE` | Saves structural reference for `--replay-verifier` (v1.17.0, section 5h) |
 | `--replay-verifier FILE` | Compares run against a structural reference, exit 1 on regression (v1.17.0, section 5h) |
 | `--checkpoint FILE` | Resumes a long scenario after a mid-run failure (v1.17.0, section 5i) |
@@ -1053,7 +1072,7 @@ Propagates all relevant shot.py flags, plus:
     "citoyennete": { "pages_visitees": 0, "actions_executees": 3, "duree_totale_ms": 2400, "indice_agressivite": 0.33 }
   },
   "diwall_meta": {
-    "version_shot": "1.17.1",
+    "version_shot": "1.17.2",
     "profil": "operator",
     "modeles_appeles": []
   }

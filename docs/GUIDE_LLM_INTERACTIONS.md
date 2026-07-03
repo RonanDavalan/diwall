@@ -1,7 +1,7 @@
 # Diwall — Interactions guide (SoM, selectors, dialogs, assertions)
 
-<!-- notice-version: 1.4 -->
-Version 1.4 — July 2026 (v1.17.0) — --som-rafraichir stable identity, cross-origin iframe primitives
+<!-- notice-version: 1.5 -->
+Version 1.5 — July 2026 (v1.17.2) — --som-rafraichir collision cleanup on repeated captures
 
 Load this notice when: timeout on `cliquer`, CSS/showModal dialog, SoM IDs, strict mode
 violation, nth-match error, evaluer assertions, DOM mutations.
@@ -257,6 +257,13 @@ to it — regardless of what else changed around it. If it was removed: an
 honest "élément SoM non trouvé" error, never a click on the wrong target.
 Opt-in, zero effect on default behavior — recommended on pages with frequent
 DOM churn between capture and action (long scenarios, live-updating dashboards).
+
+**Collision cleanup on repeated captures (v1.17.2):** the injector now purges
+markers left by a previous `--som` capture in the same page before
+renumbering. Without this, an element hidden or scrolled out between two
+captures kept its stale `data-dw-som-id`, which could collide with a freshly
+numbered element and make `--som-rafraichir` resolve to the wrong one instead
+of failing honestly.
 
 ```bash
 /opt/diwall/venv/bin/python3 /opt/diwall/shot.py \

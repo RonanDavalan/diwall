@@ -1,7 +1,7 @@
 # Diwall — Sessions guide (vault, credentials, SPA, MFA, multi-page)
 
-<!-- notice-version: 1.4 -->
-Version 1.4 — July 2026 (v1.17.0) — checkpoint section for long scenarios
+<!-- notice-version: 1.5 -->
+Version 1.5 — July 2026 (v1.17.2) — vault write guard, checkpoint citizenship-cap fix
 
 Load this notice when: vault credentials, `--secrets`, session persistence, SPA navigation,
 multi-page flows, MFA/TOTP, auth_indicator, --no-capture.

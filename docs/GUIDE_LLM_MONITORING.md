@@ -1,7 +1,7 @@
 # Diwall — Monitoring guide (watch.py, long ops, screenshot timeouts, journal)
 
-<!-- notice-version: 1.5 -->
-Version 1.5 — July 2026 (v1.17.0) — --replay-verifier structural non-regression
+<!-- notice-version: 1.6 -->
+Version 1.6 — July 2026 (v1.17.2) — waf_ignore_actif boussole key, refined WAF heuristic
 
 Load this notice when: watch.py, pixel diff, long-running operations, `--screenshot-timeout`,
 interval_capture, journal.py, FN7/FN8/FN9.
@@ -21,7 +21,7 @@ in this table in the same commit (design rule, see below).
 | `repertoire` | string | always | `os.getcwd()` at invocation |
 | `url_courante` | string | always | final URL after navigation and actions |
 | `titre_page` | string | always | empty string if `page.title()` fails |
-| `citoyennete` | object | always | `{pages_visitees, actions_executees, duree_totale_ms}`; sub-key `plafond_atteint` only if `max_pages_par_run` or `max_actions_par_run` was hit; sub-key `waf_bloquants` (integer, v1.16.0) only if at least one navigation (initial or `naviguer` action) was flagged as WAF-blocked; sub-key `indice_agressivite` (float, v1.16.0) present whenever at least one action ran |
+| `citoyennete` | object | always | `{pages_visitees, actions_executees, duree_totale_ms}`; sub-key `plafond_atteint` only if `max_pages_par_run` or `max_actions_par_run` was hit — since v1.17.2, `rpa.py --checkpoint` treats this as a partial run and preserves progress instead of deleting the checkpoint; sub-key `waf_bloquants` (integer, v1.16.0, refined v1.17.2) only if at least one navigation (initial or `naviguer` action) was flagged as WAF-blocked; sub-key `indice_agressivite` (float, v1.16.0) present whenever at least one action ran |
 | `operation_id` | string (12 hex chars) | always | unified run identity (v1.16.0, item B) — same value in the journal entry for this run and in the isolated temp directory path |
 | `session_derive` | object | conditional | `--reprendre-session` active **and** final URL diverged from the URL saved at `--sauver-session` time |
 | `auth_status` | string (`"active"`\|`"inactive"`) | conditional | `--auth-indicator` provided |
@@ -29,6 +29,7 @@ in this table in the same commit (design rule, see below).
 | `shadow_dom_actif` | boolean (`true`) | conditional | `--shadow-dom` active |
 | `stealth_actif` | boolean (`true`) | conditional | `--stealth` active |
 | `tls_errors_ignored` | boolean (`true`) | conditional | `--ignore-tls-errors` active |
+| `waf_ignore_actif` | boolean (`true`) | conditional | `--ignorer-waf` active (v1.17.2) — a WAF block degrades `niveau_confiance` but no longer forces `pret_a_agir: false` on its own |
 
 Do not assert the absence of conditional keys as a failure signal. Check `auth_status`
 value (`"active"` / `"inactive"`), not its presence alone.
