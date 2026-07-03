@@ -20,7 +20,7 @@ Format du scénario :
 Le vault est résolu par lib/vault.py (DIWALL_VAULT_DIR > diwall.conf > ~/Vaults/Diwall/).
 Jamais de mot de passe dans les fichiers de scénario.
 """
-__version__ = "1.17.1"
+__version__ = "1.17.2"
 
 import argparse
 import json
@@ -285,6 +285,9 @@ def main():
     p.add_argument("--som-rafraichir", dest="som_rafraichir", action="store_true",
                    help="Résolution SoM stable par attribut, anti-dérive d'identité (v1.17.0). "
                         "Propagé à shot.py.")
+    p.add_argument("--ignorer-waf", dest="ignorer_waf", action="store_true",
+                   help="Un blocage WAF dégrade niveau_confiance mais ne force plus "
+                        "pret_a_agir à false à lui seul (v1.17.2). Propagé à shot.py.")
     p.add_argument("--auth-indicator-negative", dest="auth_indicator_negative", default=None,
                    help="Sélecteur CSS dont la présence indique l'ABSENCE d'auth (v1.14.0). "
                         "Propagé à shot.py.")
@@ -474,6 +477,8 @@ def main():
         cmd.append("--shadow-dom")
     if args.som_rafraichir or scenario.get("som_rafraichir"):
         cmd.append("--som-rafraichir")
+    if args.ignorer_waf or scenario.get("ignorer_waf"):
+        cmd.append("--ignorer-waf")
     if auth_indicator_negative:
         cmd += ["--auth-indicator-negative", auth_indicator_negative]
     if args.mode:
@@ -548,14 +553,22 @@ def main():
             file=sys.stderr,
         )
 
-    # ── Mise à jour du checkpoint (v1.17.0, item 2) ───────────────────────────
+    # ── Mise à jour du checkpoint (v1.17.0, item 2 ; v1.17.2, plafond) ────────
     if args.checkpoint and sortie is not None:
-        if result.returncode == 0:
+        plafond_atteint = (sortie.get("citoyennete") or {}).get("plafond_atteint")
+        if result.returncode == 0 and not plafond_atteint:
             # Tronçon restant entièrement exécuté — plus rien à reprendre.
             if os.path.isfile(args.checkpoint):
                 os.remove(args.checkpoint)
         else:
-            delta = sortie.get("actions_executees_avant_echec")
+            # v1.17.2 (FR-80) : un plafond de citoyenneté atteint retourne
+            # succes: true / exit 0 comme un tronçon terminé — sans ce test
+            # explicite, le checkpoint était supprimé à tort et la progression
+            # perdue, alors qu'il restait des actions à exécuter.
+            if plafond_atteint:
+                delta = (sortie.get("citoyennete") or {}).get("actions_executees")
+            else:
+                delta = sortie.get("actions_executees_avant_echec")
             if delta is not None:
                 n_avant = 0
                 if reprise_checkpoint:

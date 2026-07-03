@@ -2580,3 +2580,34 @@ question reste ouverte ; un nouveau panel commercial avec intention d'usage rée
 est le seul moyen de trancher honnêtement.
 
 **Version :** Diwall v1.16.0. Session 47 — 2 juillet 2026.
+
+---
+
+### FR-80 — `rpa.py --checkpoint` n'a pas repris un long scénario multi-pages
+
+**Description :** scénario de 113 actions (login + 36 navigations vers des fiches
+« Gérer » de clones Sillage, un audit exhaustif demandé par l'opérateur) lancé avec
+`--checkpoint /tmp/gerer.checkpoint.json`. Premier appel : `succes: true`,
+`plafond_atteint: max_actions_par_run`, seulement 8 des 36 pages visitées (login +
+7 navigations avant plafond). Le fichier de checkpoint attendu pour la reprise
+n'existait plus après ce premier run — seul un `*.session.json` subsistait — comme
+si le scénario avait été considéré terminé, alors qu'il restait 28 pages non
+visitées. Une boucle appelant `rpa.py --checkpoint` une seconde fois s'est donc
+arrêtée immédiatement, faute de fichier de checkpoint à reprendre.
+
+**Contournement appliqué :** découpage manuel du scénario en 6 fichiers indépendants
+de ~7 URLs chacun, chacun avec son propre login complet (`remplir`/`cliquer` sur le
+formulaire), exécutés séquentiellement sans `--checkpoint`. Fonctionne, mais chaque
+batch repaie le coût d'un login complet (5 actions) au lieu de réutiliser une
+session — surconsommation d'actions/pages face au plafond de citoyenneté que
+`--checkpoint` est censé précisément amortir sur un run long.
+
+**Non investigué ce soir** (budget de session déjà consommé sur le diagnostic
+métier) : si le bug vient de la condition de fin de checkpoint (peut-être un
+mauvais calcul du nombre d'actions restantes, ou une confusion entre « plafond de
+citoyenneté atteint » et « scénario terminé »), ou d'une interaction spécifique avec
+`--secrets` + `--reprendre-session` implicite. Reproductible avec n'importe quel
+scénario JSON dépassant ~8-9 navigations pleine-page et `--checkpoint` sur le même
+fichier de sortie.
+
+**Version :** Diwall v1.17.0. Session Sillage — 2/07 au 3/07/2026.

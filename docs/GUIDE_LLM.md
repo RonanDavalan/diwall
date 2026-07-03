@@ -301,3 +301,17 @@ count for this run) and `etat.niveau_confiance: "faible"` with
 `etat.pret_a_agir: false`. The detection is heuristic (keyword match) — treat
 it as a fast signal, not a certain verdict; a false positive is possible on a
 page that legitimately mentions one of these terms.
+
+**Refined heuristic (v1.17.2):** generic vendor names (`cloudflare`, `akamai`)
+are now matched only against the page title, not the full raw HTML — matching
+the whole page previously false-positived on any page loading an ordinary CDN
+resource (e.g. `cdnjs.cloudflare.com`), unrelated to an actual block.
+Challenge-page phrases (`captcha`, `checking your browser`, `cf-error-details`,
+etc.) still match against the full HTML.
+
+**Overrule — `--ignorer-waf` (v1.17.2):** if a residual false positive still
+blocks you on a page you have independently confirmed is not blocked, pass
+`--ignorer-waf` (shot.py and rpa.py). `waf_bloquants` still degrades
+`etat.niveau_confiance`, but no longer forces `etat.pret_a_agir: false` on its
+own — `boussole.waf_ignore_actif: true` records the decision. Do not use this
+flag reflexively; confirm the page content yourself first.

@@ -41,12 +41,27 @@ otherwise the default vault in `diwall.conf` is used.
 **If the vault is closed** (gocryptfs not mounted): shot.py exits with `VaultFermeError(42)`.
 Do not try to mount the vault yourself — ask the operator to run the mount script.
 
-**Critical — unmounted vault and write operations:**
-`VaultFermeError` only protects reads. If a vault is not mounted, its directory
-exists on disk but is empty and unencrypted. Any file written there is stored
-in plain text. Before creating or updating a credential file, confirm the vault
-is mounted: the directory must be non-empty. If in doubt, stop and ask the
-operator to verify — never write credentials assuming the vault is open.
+**Unmounted vault and internal writes (fixed in v1.17.2):**
+Diwall's own operations journal (`operations.jsonl`) and mutative-run proof
+archiving (`preuves/`) now detect a closed vault before writing: if the
+configured path is inside the vault but the vault is not currently mounted,
+the journal entry is redirected to a local fallback
+(`/tmp/diwall/operations.fallback.jsonl`, permissions 700/600) instead of
+being written in clear text on the raw host directory, and proof archiving is
+skipped entirely rather than duplicating authenticated screenshots outside
+the vault. Note: the fallback location is not encrypted either — it is a
+lesser evil (already the existing degraded-write behavior on any journal
+failure), not a substitute for a mounted vault.
+
+**Still your responsibility — writing new credential files:**
+The internal guard above only covers Diwall's own journal/proof writes. If
+you construct or update a *credential file* yourself (e.g., via a shell
+command or `evaluer` outside Diwall's `depuis_vault` mechanism), the same
+risk applies and is not automatically caught: the vault directory, if
+unmounted, exists on disk but is empty and unencrypted. Before creating or
+updating a credential file, confirm the vault is mounted — the directory
+must be non-empty. If in doubt, stop and ask the operator to verify — never
+write credentials assuming the vault is open.
 
 ---
 
@@ -177,6 +192,12 @@ resume point.
 - On a failure with no recoverable progress (e.g. vault closed before any
   action ran): the checkpoint file is left untouched — retry is identical
   to before.
+- **Citizenship cap reached (fixed in v1.17.2):** if the run stops because
+  `max_actions_par_run`/`max_pages_par_run` was hit, it returns `succes: true`
+  like a genuinely completed tronçon — before v1.17.2 the checkpoint was
+  deleted in this case too, silently losing the remaining progress on long
+  scenarios. It is now updated with the run's actual progress, same as a
+  partial failure — relaunch the same command to continue.
 
 **Not a substitute for `--sauver-session`/`--reprendre-session` used directly**
 — checkpoints are the right tool specifically for *long, single-scenario* runs

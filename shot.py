@@ -11,7 +11,7 @@ import uuid
 from datetime import datetime, timezone
 from urllib.parse import urlparse
 
-__version__ = "1.17.1"
+__version__ = "1.17.2"
 
 # Permet d'importer lib/ depuis le même répertoire que shot.py
 sys.path.insert(0, os.path.dirname(os.path.abspath(__file__)))
@@ -50,6 +50,11 @@ _SOM_INJECTER_JS = """() => {
     document.body.appendChild(container);
     const items = [];
     let num = 1;
+    // v1.17.2 : purge des marquages d'un appel SoM précédent dans la même page —
+    // sans ça, un élément taggé puis devenu invisible/hors-critère garde son
+    // ancien data-dw-som-id, qui peut entrer en collision avec un nouveau numéro
+    // et faire résoudre --som-rafraichir vers le mauvais élément (Qwen, signal 1).
+    document.querySelectorAll('[data-dw-som-id]').forEach(el => el.removeAttribute('data-dw-som-id'));
     document.querySelectorAll(SELECTORS).forEach(el => {
         let p = el.parentElement; while (p) { if (p.tagName === 'DIALOG' && !p.hasAttribute('open')) return; p = p.parentElement; }
         const s = window.getComputedStyle(el);
@@ -169,6 +174,11 @@ _SOM_INJECTER_JS_SHADOW = """() => {
     document.body.appendChild(container);
     const items = [];
     let num = 1;
+    // v1.17.2 : même purge que la variante standard (voir _SOM_INJECTER_JS),
+    // via queryShadowAll pour atteindre aussi les attributs posés dans un
+    // shadow root lors d'un appel précédent — document.querySelectorAll seul
+    // ne traverse pas la frontière shadow.
+    queryShadowAll('[data-dw-som-id]', document).forEach(el => el.removeAttribute('data-dw-som-id'));
     queryShadowAll(SELECTORS, document).forEach(el => {
         let p = el.parentElement; while (p) { if (p.tagName === 'DIALOG' && !p.hasAttribute('open')) return; p = p.parentElement; }
         const s = window.getComputedStyle(el);
@@ -372,19 +382,31 @@ def _valider_schema_url(url):
 # l'arbitre pas : décision session 47 (« Diwall est un outil de perception,
 # pas un arbitre moral de l'accès »). Heuristique par mots-clés — faux positifs
 # possibles, à traiter comme un signal rapide, jamais comme un verdict certain.
-_WAF_MOTS_CLES = (
-    "cloudflare", "captcha", "access denied", "attention required",
+_WAF_MOTS_CLES_GENERIQUES = ("cloudflare", "akamai")
+_WAF_MOTS_CLES_CHALLENGE = (
+    "captcha", "access denied", "attention required",
     "checking your browser", "just a moment", "cf-error-details",
-    "sorry, you have been blocked", "request blocked", "akamai",
+    "sorry, you have been blocked", "request blocked",
 )
 
 
 def _detecter_waf(http_status, titre_page, html_snippet):
-    """True si un blocage WAF est probable — 403/429, ou mot-clé de blocage."""
+    """True si un blocage WAF est probable — 403/429, ou mot-clé de blocage.
+
+    v1.17.2 : les noms de fournisseur génériques (cloudflare, akamai) ne sont
+    matchés que sur le titre de page — les matcher contre le HTML brut entier
+    produisait un faux-positif systématique sur toute page chargeant une
+    ressource CDN ordinaire (ex. <script src="cdnjs.cloudflare.com/...">),
+    sans rapport avec un blocage réel. Les expressions propres à une page de
+    challenge (captcha, "just a moment"...) restent matchées sur le HTML brut.
+    """
     if http_status in (403, 429):
         return True
+    titre = (titre_page or "").lower()
+    if any(mot in titre for mot in _WAF_MOTS_CLES_GENERIQUES):
+        return True
     texte = f"{titre_page or ''} {html_snippet or ''}".lower()
-    return any(mot in texte for mot in _WAF_MOTS_CLES)
+    return any(mot in texte for mot in _WAF_MOTS_CLES_CHALLENGE)
 
 
 # ── Statistiques DOM structurelles (--no-capture) ────────────────────────────
@@ -475,7 +497,7 @@ def _construire_diwall_meta(profil, horodatage, modeles_appeles, url_finale):
 
 
 def _construire_etat(auth_status, citoyennete, derive_session, erreurs_js,
-                     waf_bloquants=None, erreurs_console=None):
+                     waf_bloquants=None, erreurs_console=None, ignorer_waf=False):
     """Synthèse déterministe de l'état opérationnel (v1.16.0, item A).
 
     Calculée uniquement à partir de signaux déjà présents dans le run — aucun
@@ -489,6 +511,11 @@ def _construire_etat(auth_status, citoyennete, derive_session, erreurs_js,
     de rpa.py). Il agrège uniquement les signaux que shot.py peut déterminer
     par lui-même : authentification, dérive de session, plafond de
     citoyenneté, friction réseau/applicative (WAF, erreurs JS/console).
+
+    `ignorer_waf` (v1.17.2) : quand actif, un blocage WAF dégrade toujours
+    `niveau_confiance` mais ne force plus `pret_a_agir` à `False` à lui seul —
+    évite qu'un faux-positif résiduel bloque l'agent de façon binaire sur une
+    page saine (Z.ai, signal 3).
     """
     raisons = []
     pret = True
@@ -526,9 +553,16 @@ def _construire_etat(auth_status, citoyennete, derive_session, erreurs_js,
             niveau = "modere"
 
     if waf_bloquants:
-        raisons.append("blocage WAF détecté (signal non fatal, à interpréter)")
-        pret = False
-        niveau = "faible"
+        if ignorer_waf:
+            raisons.append(
+                "blocage WAF détecté, ignoré sur demande explicite (--ignorer-waf)"
+            )
+            if niveau == "eleve":
+                niveau = "modere"
+        else:
+            raisons.append("blocage WAF détecté (signal non fatal, à interpréter)")
+            pret = False
+            niveau = "faible"
 
     if not raisons:
         raisons.append("aucun signal de friction détecté")
@@ -711,6 +745,11 @@ def parse_args():
                         "ré-indexer le DOM courant (v1.17.0). Protège cliquer_som/remplir_som "
                         "contre la dérive d'identité sur pages fortement dynamiques. Opt-in : "
                         "comportement par défaut inchangé sans ce flag.")
+    p.add_argument("--ignorer-waf", dest="ignorer_waf", action="store_true",
+                   help="Un blocage WAF détecté dégrade niveau_confiance mais ne force plus "
+                        "pret_a_agir à false à lui seul (v1.17.2). À utiliser quand un "
+                        "faux-positif résiduel de _detecter_waf bloque l'agent sur une page "
+                        "saine. Opt-in : comportement par défaut (blocage) inchangé sans ce flag.")
     p.add_argument("--auth-indicator-negative", dest="auth_indicator_negative", default=None,
                    help="Sélecteur CSS dont la présence indique l'ABSENCE d'authentification "
                         "(v1.14.0). À utiliser avec --auth-indicator pour les interfaces à "
@@ -1627,6 +1666,8 @@ def main():
             result["boussole"]["stealth_actif"] = True
         if args.ignore_tls_errors:
             result["boussole"]["tls_errors_ignored"] = True
+        if args.ignorer_waf:
+            result["boussole"]["waf_ignore_actif"] = True
         result["citoyennete"] = citoyennete
         result["boussole"]["citoyennete"] = citoyennete
         if args.reprendre_session and derive_session is not None:
@@ -1640,6 +1681,7 @@ def main():
                 auth_status, citoyennete, derive_session, erreurs_js,
                 waf_bloquants=citoyennete.get("waf_bloquants"),
                 erreurs_console=erreurs_console,
+                ignorer_waf=args.ignorer_waf,
             )
         except Exception:
             pass  # etat est un confort de lecture, jamais un bloquant (item A)

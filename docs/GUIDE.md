@@ -270,7 +270,7 @@ CAPTURE=$(python3 -c "import json; d=json.load(open('/tmp/out.json')); print(d['
 | Click has no effect on out-of-viewport button | Add `{"type":"defiler","selecteur":"#the-button"}` before the click |
 | `auth_status: "active"` even on the login page | Positive selector is ambiguous (persistent header) — add `--auth-indicator-negative .btn-login` |
 | Web Components elements not numbered by SoM | Add `--shadow-dom` (Angular, Lit, Stencil) |
-| `citoyennete.waf_bloquants` appears on a page that is not actually blocked | Detection is keyword-based (v1.16.0) — false positives happen on pages that legitimately discuss blocking/detection. Treat as a signal, not a verdict |
+| `citoyennete.waf_bloquants` appears on a page that is not actually blocked | Detection is keyword-based (v1.16.0, refined v1.17.2) — treat as a signal, not a verdict. If it persists on a page you've confirmed is not blocked, add `--ignorer-waf` |
 | `cliquer_som` clicks the wrong element on a page that mutated between capture and click | Add `--som-rafraichir` (v1.17.0) — resolves by a stable marker instead of live re-indexing |
 | A long RPA scenario fails partway through and you don't want to replay completed steps | Add `--checkpoint FILE` (v1.17.0) — relaunch the same command to resume; DOM state is not preserved, only session + action position |
 | Interactive elements inside an iframe are invisible to Diwall | SoM cannot number iframe content (same-origin or cross-origin) — use `cliquer_iframe`/`remplir_iframe` (v1.17.0) with an explicit CSS selector |

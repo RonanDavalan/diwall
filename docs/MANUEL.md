@@ -239,7 +239,7 @@ Note: both target pages discuss bot detection in their own content, which
 can trigger `citoyennete.waf_bloquants` as a false positive (section 3e) —
 expected on this specific benchmark, not a sign of an actual block.
 
-### 3e. WAF detection signal (v1.16.0)
+### 3e. WAF detection signal (v1.16.0, refined v1.17.2)
 
 Diwall flags a probable WAF block passively — HTTP 403/429, or a title/HTML
 keyword match (`Cloudflare`, `CAPTCHA`, `checking your browser`, etc.). This
@@ -254,6 +254,12 @@ is a signal, never an exception — the run completes normally:
 When present and `> 0`: `etat.niveau_confiance` is `"faible"` and
 `etat.pret_a_agir` is `false`. Decide yourself whether to retry with
 `--stealth`, change target, or stop — Diwall does not abort the run for you.
+
+Since v1.17.2, generic vendor names (`Cloudflare`, `Akamai`) only match the
+page title — matching the full HTML previously false-positived on ordinary
+CDN resource references. If a false positive persists, `--ignorer-waf`
+degrades `niveau_confiance` without forcing `pret_a_agir: false`
+(`boussole.waf_ignore_actif: true` records the override).
 The detection is keyword-based and can produce false positives on pages that
 legitimately discuss blocking/detection (e.g. a bot-detection benchmark
 page) — treat it as a fast signal, not a certain verdict.

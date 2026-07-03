@@ -136,9 +136,24 @@ def archiver_preuves(operation_id, captures):
 
     Retourne la liste des chemins archivés. Best-effort : une copie qui
     échoue est ignorée. Appelée uniquement pour les runs mutatifs.
+
+    Garde-fou vault (v1.17.2) : si <preuves> est configuré à l'intérieur du
+    coffre credentials mais que celui-ci n'est pas monté, n'archive rien —
+    les captures restent à leur emplacement d'origine plutôt que d'être
+    dupliquées en clair sur le disque hôte nu. Pas de repli vers `/tmp/` ici
+    (contrairement au journal) : des captures d'écran authentifiées sont plus
+    sensibles qu'une ligne de journal neutralisée.
     """
+    preuves_dir = _preuves_dir()
+    if _ecriture_vault_bloquee(preuves_dir):
+        print(
+            "⚠ journal : preuves non archivées (coffre fermé — "
+            "preuves configurées dans le vault)",
+            file=sys.stderr,
+        )
+        return list(captures or [])
     mois = datetime.now().strftime("%Y-%m")
-    dest_dir = os.path.join(_preuves_dir(), mois, operation_id)
+    dest_dir = os.path.join(preuves_dir, mois, operation_id)
     try:
         os.makedirs(dest_dir, exist_ok=True)
     except OSError as e:
@@ -253,6 +268,44 @@ def _gid_diwall():
         return -1
 
 
+def _ecriture_vault_bloquee(repertoire):
+    """True si `repertoire` est configuré à l'intérieur du vault_dir de
+    l'opérateur mais que ce coffre n'est actuellement pas monté (v1.17.2).
+
+    Ne s'applique jamais au chemin système par défaut (`/var/log/diwall/`) ni
+    à un `journal.chemin`/preuves personnalisé hors du vault — uniquement au
+    cas où l'opérateur a délibérément configuré le journal ou les preuves à
+    l'intérieur du coffre credentials. Constat terrain à l'origine du
+    correctif : écriture silencieuse en clair sur le disque hôte nu quand ce
+    garde-fou était absent.
+    """
+    try:
+        from lib.vault import _chemin_vault, _coffre_est_monte
+        vault_dir = os.path.realpath(os.path.expanduser(_chemin_vault()))
+    except Exception:
+        return False
+    cible = os.path.realpath(repertoire)
+    if cible != vault_dir and not cible.startswith(vault_dir + os.sep):
+        return False
+    return not _coffre_est_monte(repertoire)
+
+
+def _ecrire_fallback(ligne, raison):
+    """Écrit dans le fallback local (spec 36_ §2.3), sans consolidation auto.
+
+    Si le fallback lui-même échoue, l'exception remonte pour être avalée par
+    l'enveloppe best-effort de l'appelant (`enregistrer_operation`).
+    """
+    fb = _fallback_path()
+    fb_dir = os.path.dirname(fb) or "."
+    os.makedirs(fb_dir, mode=0o700, exist_ok=True)
+    fd_fb = os.open(fb, os.O_CREAT | os.O_WRONLY | os.O_APPEND, 0o600)
+    with os.fdopen(fd_fb, "a", encoding="utf-8") as f:
+        f.write(ligne)
+        f.flush()
+    print(f"⚠ journal : {raison}, entrée écrite dans {fb}", file=sys.stderr)
+
+
 def _ecrire_ligne(entree):
     """Append atomique d'une ligne JSON, sous verrou exclusif.
 
@@ -264,12 +317,21 @@ def _ecrire_ligne(entree):
     cette note.
 
     Permissions : 640 + groupe diwall (C2 v1.15.1).
+    Garde-fou vault (v1.17.2) : si le chemin configuré est à l'intérieur du
+    coffre credentials mais que celui-ci n'est pas monté, écrit directement
+    dans le fallback local plutôt que de recréer l'arborescence en clair sur
+    le disque hôte nu.
     """
     path = _journal_path()
     repertoire = os.path.dirname(path)
+    ligne = json.dumps(entree, ensure_ascii=False) + "\n"
+
+    if repertoire and _ecriture_vault_bloquee(repertoire):
+        _ecrire_fallback(ligne, "coffre fermé — journal configuré dans le vault")
+        return
+
     if repertoire:
         os.makedirs(repertoire, mode=0o2770, exist_ok=True)
-    ligne = json.dumps(entree, ensure_ascii=False) + "\n"
     try:
         fd = os.open(path, os.O_CREAT | os.O_WRONLY | os.O_APPEND, 0o640)
         gid = _gid_diwall()
@@ -287,20 +349,4 @@ def _ecrire_ligne(entree):
             finally:
                 fcntl.flock(f.fileno(), fcntl.LOCK_UN)
     except OSError:
-        # Fallback sans consolidation auto (spec 36_ §2.3).
-        # En cas d'échec du fallback lui-même, on abandonne silencieusement.
-        try:
-            fb = _fallback_path()
-            fb_dir = os.path.dirname(fb) or "."
-            os.makedirs(fb_dir, mode=0o700, exist_ok=True)
-            fd_fb = os.open(fb, os.O_CREAT | os.O_WRONLY | os.O_APPEND, 0o600)
-            with os.fdopen(fd_fb, "a", encoding="utf-8") as f:
-                f.write(ligne)
-                f.flush()
-            print(
-                f"⚠ journal : log principal inaccessible, "
-                f"entrée écrite dans {fb}",
-                file=sys.stderr,
-            )
-        except OSError:
-            raise  # remonte pour être avalée par l'enveloppe best-effort
+        _ecrire_fallback(ligne, "log principal inaccessible")
