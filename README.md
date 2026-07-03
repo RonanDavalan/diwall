@@ -120,6 +120,13 @@ mkdir -p ~/Vaults/<your-project>/Diwall
 # Create ~/Vaults/<your-project>/Diwall/<hostname>.json with your credentials
 ```
 
+**Alternative — Debian package:** download the `.deb` asset from the
+[latest release](https://github.com/RonanDavalan/diwall/releases) and
+`sudo apt install ./diwall_1.18.0-1_all.deb`. Six `diwall-*` commands become
+available; see `docs/MANUEL.md` section 1a for the full reference. This
+channel and the git-clone channel above are mutually exclusive on a single
+machine.
+
 ## Uninstallation
 
 ```bash

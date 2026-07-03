@@ -61,16 +61,25 @@ EXCEPTIONS=(
     "./scripts/preflight-publication.sh;;;username dans chemin;;;le script définit ses propres patterns — auto-exclusion"
     "./scripts/preflight-publication.sh;;;vault projet nommé;;;le script définit ses propres patterns — auto-exclusion"
     "./scripts/preflight-publication.sh;;;mot de passe en clair scénario;;;le script définit ses propres patterns — auto-exclusion"
+    "./debian/control;;;domaine opérateur;;;champ Maintainer/Homepage requis par le format debian/control"
+    "./debian/control;;;prénom opérateur;;;champ Maintainer requis par le format debian/control"
+    "./debian/changelog;;;domaine opérateur;;;signature de changelog requise par le format Debian"
+    "./debian/changelog;;;prénom opérateur;;;signature de changelog requise par le format Debian"
+    "./debian/copyright;;;domaine opérateur;;;attribution requise par le format debian/copyright"
+    "./debian/copyright;;;prénom opérateur;;;attribution requise par le format debian/copyright"
 )
 
 # ── Découverte du périmètre ───────────────────────────────────────────────────
-# .md + .py + .sh + .yaml + scénarios JSON — hors .git, venv, node_modules.
+# .md + .py + .sh + .yaml + scénarios JSON + debian/* (packaging .deb, sans
+# extension : control, postinst, postrm, rules, wrappers) — hors .git, venv,
+# node_modules.
 mapfile -d '' FICHIERS < <(find . -type f \( \
     -name '*.md' \
     -o -name '*.py' \
     -o -name '*.sh' \
     -o -name '*.yaml' \
     -o \( -name '*.json' -path './scenarios/*' \) \
+    -o -path './debian/*' \
     \) \
     -not -path './.git/*' \
     -not -path './venv/*' \

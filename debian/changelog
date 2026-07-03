@@ -1,0 +1,8 @@
+diwall (1.18.0-1) unstable; urgency=medium
+
+  * Initial Debian packaging — alternative distribution channel alongside
+    the existing git-clone + install.sh flow. Packages v1.18.0 as-is,
+    no functional version bump. Config moved to /etc/diwall/diwall.conf
+    for this channel; six /usr/bin/diwall-* wrapper commands added.
+
+ -- Ronan Davalan <ronan@davalan.fr>  Fri, 03 Jul 2026 12:00:00 +0200

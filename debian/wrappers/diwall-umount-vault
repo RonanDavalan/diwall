@@ -1,0 +1,3 @@
+#!/bin/sh
+# diwall-umount-vault — wrapper for the .deb distribution channel.
+exec /opt/diwall/scripts/umount-vault.sh --config /etc/diwall/diwall.conf "$@"

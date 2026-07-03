@@ -1,0 +1,4 @@
+#!/bin/sh
+# diwall-monitor-verifier — wrapper for the .deb distribution channel.
+# monitor-verifier.sh does not read diwall.conf — plain passthrough.
+exec /opt/diwall/scripts/monitor-verifier.sh "$@"

@@ -1,0 +1,39 @@
+#!/bin/sh
+# postrm — Diwall .deb distribution channel.
+# remove : code + venv + system user/group removed. /var/log/diwall (journal,
+#          evidence) and /etc/diwall (config) preserved — clean reinstall
+#          possible without losing operational history.
+# purge  : additionally removes /var/log/diwall and /etc/diwall.
+# ~/Vaults/ is never touched in either case — it lives under the operator's
+# own $HOME, entirely outside dpkg's purview, no exclusion logic needed.
+set -e
+
+DEST="/opt/diwall"
+GROUPE="diwall"
+
+case "$1" in
+    remove)
+        rm -rf "$DEST/venv"
+        if getent passwd "$GROUPE" >/dev/null; then
+            deluser --system "$GROUPE" || true
+        fi
+        if getent group "$GROUPE" >/dev/null; then
+            delgroup --system "$GROUPE" || true
+        fi
+        ;;
+    purge)
+        rm -rf "$DEST/venv"
+        rm -rf /var/log/diwall
+        rm -rf /etc/diwall
+        if getent passwd "$GROUPE" >/dev/null; then
+            deluser --system "$GROUPE" || true
+        fi
+        if getent group "$GROUPE" >/dev/null; then
+            delgroup --system "$GROUPE" || true
+        fi
+        ;;
+esac
+
+#DEBHELPER#
+
+exit 0

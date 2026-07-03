@@ -58,8 +58,9 @@ class VaultNonConfigureError(Exception):
 
 
 def _lire_conf() -> dict:
-    if os.path.isfile(_CONF_PATH):
-        with open(_CONF_PATH, encoding="utf-8") as f:
+    conf_path = os.path.expanduser(os.environ.get("DIWALL_CONF", _CONF_PATH))
+    if os.path.isfile(conf_path):
+        with open(conf_path, encoding="utf-8") as f:
             return json.load(f)
     return {}
 
@@ -81,12 +82,13 @@ def _chemin_vault() -> str:
     conf = _lire_conf()
     if "vault_dir" in conf:
         return os.path.expanduser(conf["vault_dir"])
+    conf_path_effectif = os.path.expanduser(os.environ.get("DIWALL_CONF", _CONF_PATH))
     raise VaultNonConfigureError(
         f"Aucune configuration vault active.\n"
-        f"  {_CONF_PATH} est absent ou ne contient pas de clé 'vault_dir'.\n"
+        f"  {conf_path_effectif} est absent ou ne contient pas de clé 'vault_dir'.\n"
         f"  Créez-le depuis le modèle :\n"
-        f"    sudo cp /opt/diwall/diwall-sample.conf {_CONF_PATH}\n"
-        f"    sudo nano {_CONF_PATH}  # → {{\"vault_dir\": \"~/Vaults/<PROJET>/Diwall\"}}"
+        f"    sudo cp /opt/diwall/diwall-sample.conf {conf_path_effectif}\n"
+        f"    sudo nano {conf_path_effectif}  # → {{\"vault_dir\": \"~/Vaults/<PROJET>/Diwall\"}}"
     )
 
 

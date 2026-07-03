@@ -4,6 +4,53 @@ History of decisions and discoveries by session, in reverse chronological order.
 
 ---
 
+## 2026-07-03 — Debian package (native `.deb`, alternative distribution channel)
+
+**Work done:**
+
+- Native `debhelper` packaging (`debian/control`, `changelog`, `copyright`,
+  `rules`, `postinst`, `postrm`) — an alternative to the existing git-clone +
+  `install.sh` channel, never a replacement. Packages v1.18.0 as-is, no
+  functional version bump on `shot.py`/`rpa.py`/`watch.py`.
+- `postinst` mirrors `install.sh`'s logic (system user/group, venv, pip,
+  Chromium via Playwright) — network access required at install time,
+  documented in `debian/control`. `Architecture: all` — no per-arch binary
+  content.
+- Configuration moves to `/etc/diwall/diwall.conf` on this channel (a native
+  Debian conffile location), distinct from the git-clone channel's
+  `/opt/diwall/diwall.conf` — both paths coexist, never conflated.
+- `lib/vault.py::_lire_conf()` now respects the `DIWALL_CONF` environment
+  variable (previously only `_chemin_vault()` did) — fixes a latent
+  inconsistency where `shot.py`'s Citizen Navigation caps
+  (`_conf_navigation()`) silently ignored `DIWALL_CONF`, unlike vault
+  resolution. Purely additive: unset `DIWALL_CONF` preserves the exact prior
+  default (`/opt/diwall/diwall.conf`).
+- Six `/usr/bin/diwall-*` wrapper commands (`diwall-shot`, `diwall-rpa`,
+  `diwall-watch`, `diwall-mount-vault`, `diwall-umount-vault`,
+  `diwall-monitor-verifier`) — thin, non-invasive: `mount-vault.sh` /
+  `umount-vault.sh` themselves are untouched, the wrapper alone injects
+  `--config /etc/diwall/diwall.conf`.
+- `postrm` distinguishes `remove` (code + venv + system user/group) from
+  `purge` (also removes `/var/log/diwall` and `/etc/diwall`). `~/Vaults/` is
+  never touched by either — outside dpkg's purview by construction.
+- `scripts/preflight-publication.sh` scope extended to `debian/*` (no file
+  extension on `control`/`postinst`/`postrm`/`rules` meant they were
+  previously unscanned); three documented exceptions added for the
+  Maintainer/Homepage/Copyright fields Debian's own format requires.
+
+**Validation:** package builds cleanly (`dpkg-buildpackage -us -uc -b`),
+`lintian` clean of all actionable findings (remaining warnings — `/opt`
+placement, per-file interpreter path, missing man pages — are accepted,
+consistent with a self-distributed package outside the official Debian
+archive). Installed and removed on a live host: `postinst`/`postrm` both
+idempotent, vault and journal data untouched throughout. Regression:
+`v1.17.2_validation` 4/4, `v1.18.0_validation` 5/5.
+
+**Docs:** `README.md`, `docs/MANUEL.md` (new section 1a) — installation via
+`.deb`, command table, config path difference, `remove`/`purge` semantics.
+
+---
+
 ## 2026-07-03 — Session 48 (v1.18.0 — Guide-read lock, mode_conseille, nested iframes, structural monitoring)
 
 **Work done:**

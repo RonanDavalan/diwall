@@ -88,6 +88,46 @@ ls ~/Vaults/__PROJET__/Diwall/
 If `ls ~/Vaults/...` returns an empty list or an error:
 → mount the vault: `bash ~/git/Diwall/Diwall/scripts/mount-vault.sh`
 
+### 1a. Alternative install channel — the `.deb` package
+
+Everything above assumes the git-clone + `install.sh` channel. A native
+Debian package is also available as a release asset on GitHub — an
+alternative channel, never a replacement; the two are mutually exclusive on
+a single machine (both target `/opt/diwall/`).
+
+```bash
+sudo apt install ./diwall_1.18.0-1_all.deb
+diwall-shot --version
+```
+
+Installing the `.deb` requires network access (dependency install and
+Chromium download happen during `postinst`). Six commands become available,
+each a thin wrapper — no functional difference from the git-clone channel's
+own invocations:
+
+| Command | Wraps |
+|---|---|
+| `diwall-shot` | `shot.py` |
+| `diwall-rpa` | `rpa.py` |
+| `diwall-watch` | `watch.py` |
+| `diwall-mount-vault` | `scripts/mount-vault.sh` |
+| `diwall-umount-vault` | `scripts/umount-vault.sh` |
+| `diwall-monitor-verifier` | `scripts/monitor-verifier.sh` |
+
+**Configuration lives at a different path on this channel:**
+`/etc/diwall/diwall.conf` (not `/opt/diwall/diwall.conf`) — a template is
+dropped at `/etc/diwall/diwall-sample.conf`, never auto-activated:
+
+```bash
+sudo cp /etc/diwall/diwall-sample.conf /etc/diwall/diwall.conf
+sudo nano /etc/diwall/diwall.conf
+sudo usermod -aG diwall $USER
+```
+
+`apt remove diwall` keeps `/var/log/diwall/` (operations journal, evidence)
+intact — `apt purge diwall` also removes it. `~/Vaults/` is never touched by
+either, on both channels.
+
 ---
 
 ## 2. Capture a page

@@ -27,3 +27,11 @@ venv/
 .idea/
 *.swp
 *~
+
+# Debian packaging — artefacts de build (dpkg-buildpackage), jamais commités
+debian/.debhelper/
+debian/diwall/
+debian/debhelper-build-stamp
+debian/diwall.substvars
+debian/files
+debian/*.log
