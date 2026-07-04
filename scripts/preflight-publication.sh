@@ -3,7 +3,12 @@
 # dans les fichiers Markdown du dépôt avant un push public.
 #
 # Usage :
-#   bash scripts/preflight-publication.sh [--verbose]
+#   bash scripts/preflight-publication.sh [--verbose] [--historique]
+#
+# --historique : audite en plus l'historique git complet (git log --all -p),
+#   pas seulement l'arbre de travail — jamais invoqué par
+#   scripts/hooks/pre-push (qui appelle ce script sans argument), réservé à
+#   l'usage manuel ou CI planifiée (v1.18.0+ : quelques secondes sur 17 motifs).
 #
 # Sortie :
 #   exit 0 — aucune fuite, publication possible.
@@ -17,9 +22,14 @@
 set -euo pipefail
 
 VERBOSE=0
-if [[ "${1:-}" == "--verbose" ]]; then
-    VERBOSE=1
-fi
+HISTORIQUE=0
+for arg in "$@"; do
+    case "$arg" in
+        --verbose)    VERBOSE=1 ;;
+        --historique) HISTORIQUE=1 ;;
+        *) echo "Option inconnue : $arg" >&2; exit 2 ;;
+    esac
+done
 
 REPO_ROOT="$(cd "$(dirname "$0")/.." && pwd)"
 cd "$REPO_ROOT"
@@ -67,7 +77,26 @@ EXCEPTIONS=(
     "./debian/changelog;;;prénom opérateur;;;signature de changelog requise par le format Debian"
     "./debian/copyright;;;domaine opérateur;;;attribution requise par le format debian/copyright"
     "./debian/copyright;;;prénom opérateur;;;attribution requise par le format debian/copyright"
+    "./LICENSE;;;prénom opérateur;;;crédit auteur MIT — hors périmètre de l'audit courant (fichier sans extension), visible uniquement en --historique"
 )
+
+# Fonction partagée entre l'audit courant et l'audit historique (--historique) —
+# un couple (fichier, label) exempté l'est dans les deux modes, sans dupliquer
+# la logique de recherche. Positionne EXEMPTE_RAISON si un match est trouvé.
+est_exempte() {
+    local fichier="$1" label="$2"
+    local exc exc_fichier exc_reste exc_label
+    for exc in "${EXCEPTIONS[@]}"; do
+        exc_fichier="${exc%%;;;*}"
+        exc_reste="${exc#*;;;}"
+        exc_label="${exc_reste%%;;;*}"
+        if [[ "$fichier" == "$exc_fichier" && "$label" == "$exc_label" ]]; then
+            EXEMPTE_RAISON="${exc_reste#*;;;}"
+            return 0
+        fi
+    done
+    return 1
+}
 
 # ── Découverte du périmètre ───────────────────────────────────────────────────
 # .md + .py + .sh + .yaml + scénarios JSON + debian/* (packaging .deb, sans
@@ -116,29 +145,18 @@ if [[ $NB_FICHIERS -gt 0 ]]; then
         reste="${entree#*;;;}"
         regex="${reste%%;;;*}"
         recommandation="${reste#*;;;}"
-        # grep -E : regex étendues ; -H : préfixer chemin ; -n : numéro ligne
+        # grep -E : regex étendues ; -i : insensible à la casse (v1.18.0+ —
+        # une variante tout-majuscules d'un hôte neutralisé avait traversé
+        # l'audit sans -i lors de l'incident du 03/07/2026, cf. ADDENDUM) ;
+        # -H : préfixer chemin ; -n : numéro ligne.
         # On ignore le code retour 1 (= aucune correspondance) avec || true
-        # Filtre additionnel : on saute les lignes où le pattern est dans un
-        # exemple « literal placeholder explanation » (ex. « ex. `IKE4` »).
-        # Approche simple : on signale tout match, c'est à l'opérateur d'arbitrer.
-        if matches=$(grep -EnH "$regex" "${FICHIERS[@]}" 2>/dev/null); then
+        if matches=$(grep -EinH "$regex" "${FICHIERS[@]}" 2>/dev/null); then
             while IFS= read -r ligne; do
                 [[ -z "$ligne" ]] && continue
                 fichier_match="${ligne%%:*}"
-                # Vérifier si <fichier_match × label> a une exception documentée
-                exempte=0
-                for exc in "${EXCEPTIONS[@]}"; do
-                    exc_fichier="${exc%%;;;*}"
-                    exc_reste="${exc#*;;;}"
-                    exc_label="${exc_reste%%;;;*}"
-                    exc_raison="${exc_reste#*;;;}"
-                    if [[ "$fichier_match" == "$exc_fichier" && "$label" == "$exc_label" ]]; then
-                        exempte=1
-                        [[ $VERBOSE -eq 1 ]] && echo "SKIP  [$label] $ligne (exception : $exc_raison)"
-                        break
-                    fi
-                done
-                if [[ $exempte -eq 0 ]]; then
+                if est_exempte "$fichier_match" "$label"; then
+                    [[ $VERBOSE -eq 1 ]] && echo "SKIP  [$label] $ligne (exception : $EXEMPTE_RAISON)"
+                else
                     NB_FUITES=$((NB_FUITES + 1))
                     FUITES_PAR_PATTERN["$label"]=$(( ${FUITES_PAR_PATTERN["$label"]:-0} + 1 ))
                     echo "FUITE [$label] $ligne"
@@ -147,6 +165,63 @@ if [[ $NB_FICHIERS -gt 0 ]]; then
             done <<< "$matches"
         fi
     done
+fi
+
+# ── Audit historique (--historique) ───────────────────────────────────────────
+# Scanne l'historique git complet (git log --all -p), pas seulement l'arbre de
+# travail — une fuite introduite puis « corrigée » dans un commit ultérieur
+# restait invisible à l'audit courant indéfiniment (cause racine de l'incident
+# du 03/07/2026 : plusieurs tokens réels ont dormi en historique des semaines
+# sans jamais déclencher de signal). Jamais invoqué par scripts/hooks/pre-push.
+# -G"$regex" : pickaxe git, ne renvoie que les commits où le motif a été ajouté
+# ou retiré — bien plus rapide qu'un scan ligne à ligne de tout l'historique
+# pour chacun des 17 motifs (mesuré : ~2-3 s au total sur l'historique réel).
+NB_FUITES_HISTORIQUE=0
+declare -A FUITES_HISTORIQUE_PAR_PATTERN
+
+if [[ $HISTORIQUE -eq 1 ]]; then
+    echo "--- Audit historique (git log --all -p) ---"
+    for entree in "${PATTERNS[@]}"; do
+        label="${entree%%;;;*}"
+        reste="${entree#*;;;}"
+        regex="${reste%%;;;*}"
+        recommandation="${reste#*;;;}"
+        fichier_courant=""
+        while IFS= read -r ligne; do
+            if [[ "$ligne" == "diff --git a/"* ]]; then
+                fichier_courant="./$(echo "$ligne" | sed -E 's#^diff --git a/(.*) b/.*#\1#')"
+                continue
+            fi
+            case "$ligne" in
+                +++*|---*) continue ;;
+                [+-]*) ;;
+                *) continue ;;
+            esac
+            if echo "$ligne" | grep -Eiq -- "$regex"; then
+                if est_exempte "$fichier_courant" "$label"; then
+                    [[ $VERBOSE -eq 1 ]] && echo "SKIP HIST [$label] $fichier_courant: ${ligne:0:200} (exception : $EXEMPTE_RAISON)"
+                else
+                    NB_FUITES_HISTORIQUE=$((NB_FUITES_HISTORIQUE + 1))
+                    FUITES_HISTORIQUE_PAR_PATTERN["$label"]=$(( ${FUITES_HISTORIQUE_PAR_PATTERN["$label"]:-0} + 1 ))
+                    echo "FUITE HISTORIQUE [$label] $fichier_courant: ${ligne:0:200}"
+                    echo "       → $recommandation"
+                fi
+            fi
+        done < <(git log --all -p -E -G"$regex" -- . 2>/dev/null)
+    done
+    echo
+    echo "=== Résumé historique ==="
+    if [[ $NB_FUITES_HISTORIQUE -eq 0 ]]; then
+        echo "OK — aucune fuite historique."
+    else
+        echo "FUITES HISTORIQUES par pattern :"
+        for label in "${!FUITES_HISTORIQUE_PAR_PATTERN[@]}"; do
+            printf "  %-30s %s occurrences\n" "$label" "${FUITES_HISTORIQUE_PAR_PATTERN[$label]}"
+        done
+        echo
+        echo "Total historique : $NB_FUITES_HISTORIQUE occurrence(s) — voir ADDENDUM pour arbitrage."
+    fi
+    echo
 fi
 
 # ── Audit secrets dans les YAML publiés sous diwall.conf.d/ (v1.3) ────────────
@@ -334,13 +409,16 @@ echo
 echo "=== Résumé ==="
 if [[ $NB_FUITES -eq 0 ]]; then
     echo "OK — aucune fuite, smoke test réussi. Publication possible."
-    exit 0
+else
+    echo "FUITES par pattern :"
+    for label in "${!FUITES_PAR_PATTERN[@]}"; do
+        printf "  %-30s %s occurrences\n" "$label" "${FUITES_PAR_PATTERN[$label]}"
+    done
+    echo
+    echo "Total : $NB_FUITES occurrence(s) — publication BLOQUÉE."
 fi
 
-echo "FUITES par pattern :"
-for label in "${!FUITES_PAR_PATTERN[@]}"; do
-    printf "  %-30s %s occurrences\n" "$label" "${FUITES_PAR_PATTERN[$label]}"
-done
-echo
-echo "Total : $NB_FUITES occurrence(s) — publication BLOQUÉE."
+if [[ $NB_FUITES -eq 0 && $NB_FUITES_HISTORIQUE -eq 0 ]]; then
+    exit 0
+fi
 exit 1
