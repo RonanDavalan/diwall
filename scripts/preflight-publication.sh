@@ -38,24 +38,14 @@ cd "$REPO_ROOT"
 # Format : "label;;;regex_etendue;;;recommandation"
 # Séparateur ';;;' choisi pour ne pas entrer en collision avec les '|' des
 # alternations regex. Maintenue en tête du script (pas d'input externe).
+#
+# Uniquement des motifs génériques ici (plages RFC1918, aucune valeur réelle) —
+# les motifs propres à l'instance Diwall (hôtes réels, IP de VPS, identifiants)
+# vivent hors de ce dépôt public, voir bloc « Motifs privés » ci-dessous.
 PATTERNS=(
-    "host admin LAN;;;\\bsillage\\.ike4\\.local\\b;;;substituer par __HOST_ADMIN__ (URLs) ou depuis_vault (credentials)"
-    "vitrine opérateur;;;\\bsillage\\.davalan\\.fr\\b;;;substituer par __HOST_ADMIN__"
-    "host clone WP;;;\\bclone\\.davalan\\.fr\\b;;;substituer par __HOST_ADMIN__"
-    "domaine opérateur;;;__DOMAINE_NOMINAL__;;;substituer par __DOMAINE_OPERATEUR__"
-    "host admin IKE4;;;\\bIKE4\\b;;;substituer par __HOST_ADMIN__"
-    "host VPS nominal;;;__HOST_VPS_NOMINAL__;;;substituer par __HOST_VPS__"
-    "tenant nominal;;;__TENANT_NOMINAL__;;;substituer par __TENANT__"
-    "client nominal;;;__CLIENT_NOMINAL__;;;substituer par __CLIENT_SANCTUARISE__"
-    "prénom opérateur;;;__PRENOM_NOMINAL__;;;reformuler (« l'opérateur ») ou pseudonymiser"
-    "username dans chemin;;;/home/<user>(/|\\b);;;relativiser en ~ ou ~/<utilisateur>/"
-    "vault projet nommé;;;~/Vaults/<PROJET>/;;;substituer par ~/Vaults/<PROJET>/"
     "IP LAN 192.168.x.x;;;\\b192\\.168\\.[0-9]+\\.[0-9]+\\b;;;substituer par __IP_LAN__"
     "IP LAN 10.x.x.x;;;\\b10\\.[0-9]+\\.[0-9]+\\.[0-9]+\\b;;;substituer par __IP_LAN__"
     "IP LAN 172.16-31.x.x;;;\\b172\\.(1[6-9]|2[0-9]|3[0-1])\\.[0-9]+\\.[0-9]+\\b;;;substituer par __IP_LAN__"
-    "IP VPS nominale;;;__IP_VPS_NOMINALE__;;;substituer par __IP_VPS__"
-    "mot de passe en clair scénario;;;Diwall2026!;;;remplacer par depuis_vault + vault_cle: password (règle n°6 CLAUDE.md)"
-    "domaine opérateur (forme nom de fichier);;;\\bdavalan_fr\\b;;;forme à underscores d'un nom de fichier — échappe au motif dotté davalan\\.fr, substituer par un nom neutre"
 )
 
 # ── Exceptions documentées ────────────────────────────────────────────────────
@@ -63,22 +53,26 @@ PATTERNS=(
 # Un match qui satisfait <fichier == chemin_fichier ET label == label_pattern>
 # est silencieusement ignoré. À documenter explicitement : tout ajout exige une
 # raison pérenne (typiquement : crédit auteur, citation d'une norme, etc.).
-EXCEPTIONS=(
-    "./README.md;;;prénom opérateur;;;crédit auteur public dans la section Credits"
-    "./README.md;;;domaine opérateur;;;diwall.davalan.fr est le domaine public du projet Diwall"
-    "./scripts/preflight-publication.sh;;;domaine opérateur;;;le script définit ses propres patterns — auto-exclusion"
-    "./scripts/preflight-publication.sh;;;host admin IKE4;;;le script définit ses propres patterns — auto-exclusion"
-    "./scripts/preflight-publication.sh;;;username dans chemin;;;le script définit ses propres patterns — auto-exclusion"
-    "./scripts/preflight-publication.sh;;;vault projet nommé;;;le script définit ses propres patterns — auto-exclusion"
-    "./scripts/preflight-publication.sh;;;mot de passe en clair scénario;;;le script définit ses propres patterns — auto-exclusion"
-    "./debian/control;;;domaine opérateur;;;champ Maintainer/Homepage requis par le format debian/control"
-    "./debian/control;;;prénom opérateur;;;champ Maintainer requis par le format debian/control"
-    "./debian/changelog;;;domaine opérateur;;;signature de changelog requise par le format Debian"
-    "./debian/changelog;;;prénom opérateur;;;signature de changelog requise par le format Debian"
-    "./debian/copyright;;;domaine opérateur;;;attribution requise par le format debian/copyright"
-    "./debian/copyright;;;prénom opérateur;;;attribution requise par le format debian/copyright"
-    "./LICENSE;;;prénom opérateur;;;crédit auteur MIT — hors périmètre de l'audit courant (fichier sans extension), visible uniquement en --historique"
-)
+# Vide par défaut — aucune des 3 plages IP génériques ci-dessus n'a d'exception
+# connue ; les exceptions propres à l'instance vivent avec leurs motifs, dans
+# le fichier privé sourcé ci-dessous.
+EXCEPTIONS=()
+
+# ── Motifs privés (instance) ──────────────────────────────────────────────────
+# Jamais commité dans ce dépôt — hôtes réels, IP, identifiants nominaux vivent
+# hors du dépôt public (doctrine triptyque méthode/instance de
+# PROCEDURES_LLM/INDEX.md). Absent = audit réduit aux motifs génériques
+# ci-dessus + secrets YAML génériques + audit structurel credentials scénarios
+# (aucun des deux ne contient de valeur réelle) — dégradation propre, jamais
+# un échec bruyant, y compris pour un tiers qui clone sans _CADRE/.
+PATTERNS_PRIVES="${DIWALL_PREFLIGHT_PATTERNS:-$HOME/git/Diwall/_CADRE/SPECIFICATIONS/PROCEDURES_LLM/instance/preflight_patterns.sh}"
+if [[ -f "$PATTERNS_PRIVES" ]]; then
+    # shellcheck disable=SC1090
+    source "$PATTERNS_PRIVES"
+    echo "Motifs privés : chargés ($PATTERNS_PRIVES)"
+else
+    echo "Motifs privés : absents — audit réduit aux motifs génériques"
+fi
 
 # Fonction partagée entre l'audit courant et l'audit historique (--historique) —
 # un couple (fichier, label) exempté l'est dans les deux modes, sans dupliquer
