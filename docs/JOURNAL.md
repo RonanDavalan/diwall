@@ -4,6 +4,21 @@ History of decisions and discoveries by session, in reverse chronological order.
 
 ---
 
+## 2026-07-04 — Closure hygiene: remaining hardcoded hostname
+
+**Work done:** closure audit (`PROTOCOLE_CLOTURE.md` instruction n°1) found
+the development/production machine's real hostname still hardcoded in four
+places — three in prose (`docs/JOURNAL.md`, `docs/RETOUR_EXPERIENCE.md`,
+two occurrences) and two in a test fixture
+(`scenarios/v1.4_validation/verifier.py`, a `diwall_meta` example payload).
+Reworded to generic phrasing / generic fixture values respectively. No
+functional change — `test_t1_mutatif_preuves` re-verified green after the
+rename. `scripts/preflight-publication.sh`'s closure rsync check
+(`PROTOCOLE_CLOTURE.md`) also gained a `--exclude='debian/'` entry, missing
+since the Debian packaging work below introduced that directory.
+
+---
+
 ## 2026-07-03 — Debian package (native `.deb`, alternative distribution channel)
 
 **Work done:**
@@ -689,7 +704,7 @@ T-C2 green (exit 3 cleanly relayed by rpa.py).
 T-D1 green (without `--secrets`: behaviour strictly identical to v1.9.8).
 Preflight exit 0. Smoke tests 3/3.
 
-**Note T-A2:** `/tmp` on neo is a mounted tmpfs — VaultFermeError does not trigger on `/tmp`.
+**Note T-A2:** `/tmp` on the deployment machine is a mounted tmpfs — VaultFermeError does not trigger on `/tmp`.
 Consistent with honest limit T1 (tmpfs = active mount). Test uses an unmounted directory
 to validate rejection.
 

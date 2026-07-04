@@ -2135,7 +2135,7 @@ Claude Sillage. Vérification PHP par Sillage, commit Sillage `a762dbe`.
 # Note 19/06/2026 — Lacune : __HOST_ADMIN__ inaccessible depuis Diwall (cert auto-signé)
 
 **Contexte** : validation migration __HOST_VPS__ Phase 1 — tentative de capture `https://__HOST_ADMIN__/`
-depuis neo via shot.py (Playwright Chromium).
+depuis la machine de développement via shot.py (Playwright Chromium).
 
 **Comportement** : `succes: false`, http_status absent. Playwright rejette le certificat
 auto-signé de `__HOST_ADMIN__` sans option de contournement exposée par shot.py.
@@ -2456,7 +2456,7 @@ Dans les deux cas, `url_au_moment_capture` = `?vue=login` — la page SSE a prob
 
 ## Session recherche commerciale multi-sites — 27 juin 2026 — FR-77 : WAF bloquent 39 % des sites e-commerce
 
-**Contexte :** utilisation de Diwall pour une recherche d'achat en ligne sur des sites francophones de commerce (consoles de jeu reconditionnées, budget ≤ 200 €). 23 sites ciblés. Opérateur : Qwen (via OpenCode). Machine : neo. Version : Diwall v1.14.0.
+**Contexte :** utilisation de Diwall pour une recherche d'achat en ligne sur des sites francophones de commerce (consoles de jeu reconditionnées, budget ≤ 200 €). 23 sites ciblés. Opérateur : Qwen (via OpenCode). Machine : la machine de développement. Version : Diwall v1.14.0.
 
 ### FR-77 — Blocage WAF systématique sur les grands sites e-commerce
 
@@ -2533,7 +2533,7 @@ manifeste public sur `__DOMAINE_OPERATEUR__` section Philosophie.
 
 **Description :** en tentant de mesurer l'impact de `--stealth` (item F de la v1.16.0,
 benchmark post-consolidation), découverte que `--stealth` n'a **jamais fonctionné en
-production sur neo depuis son introduction en v1.15.0**. Le paquet `playwright-stealth`
+production depuis son introduction en v1.15.0**. Le paquet `playwright-stealth`
 installé (2.0.3, conforme à `requirements.txt >=2.0`) a changé d'API entre la 1.x et la
 2.x : la fonction `stealth_sync(page)` importée par `shot.py` n'existe plus. L'import
 échouait silencieusement (`except ImportError`), `--stealth` se dégradait en no-op, et

@@ -28,8 +28,8 @@ os.environ["DIWALL_PREUVES"] = os.path.join(_TMP, "preuves")
 from lib import journal  # noqa: E402
 
 META = {
-    "hostname_executant": "neo",
-    "utilisateur_executant": "ron",
+    "hostname_executant": "test-host",
+    "utilisateur_executant": "test-user",
     "profil_actif": "(aucun — comportement strict)",
     "modeles_utilises": [],
 }
@@ -78,7 +78,7 @@ def test_t1_mutatif_preuves():
         ("intention présente", (e.get("intention") or "").startswith("Suppression")),
         ("captures archivées sous preuves/ et existantes", preuves_ok),
         ("hostname/utilisateur repris de diwall_meta",
-         e.get("hostname_executant") == "neo" and e.get("utilisateur_executant") == "ron"),
+         e.get("hostname_executant") == "test-host" and e.get("utilisateur_executant") == "test-user"),
         ("actions résumées présentes", "cliquer_som#10" in (e.get("actions") or [])),
     ])
 
