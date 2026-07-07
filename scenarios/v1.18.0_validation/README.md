@@ -28,10 +28,10 @@ to Diwall's additive-only doctrine — see `V1_18_0_AUTONOMIE_ET_ROBUSTESSE.md`.
 Any subprocess call to `shot.py`/`rpa.py`/`watch.py` in the pre-existing
 validation suites (`v1.15.2_validation`, `v1.16.0_validation`,
 `v1.17.0_validation`, `v1.17.2_validation`) now requires either
-`--guide-version 3.6` or a valid local marker
+`--guide-version 3.7` or a valid local marker
 (`~/.config/diwall/guide_state.json`) for the OS user running the suite —
 seed it once before running any of them:
 
 ```bash
-/opt/diwall/venv/bin/python3 shot.py --url https://example.com --no-capture --guide-version 3.6
+/opt/diwall/venv/bin/python3 shot.py --url https://example.com --no-capture --guide-version 3.7
 ```

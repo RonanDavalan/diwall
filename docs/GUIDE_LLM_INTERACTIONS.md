@@ -1,7 +1,7 @@
 # Diwall — Interactions guide (SoM, selectors, dialogs, assertions)
 
-<!-- notice-version: 1.7 -->
-Version 1.7 — July 2026 (v1.18.0) — nested iframes (`iframe_chemin`), FN14 (`force: true` in a script-opened dialog)
+<!-- notice-version: 1.8 -->
+Version 1.8 — July 2026 (v1.19.0) — nested iframes (`iframe_chemin`), FN14 (`force: true` in a script-opened dialog), practical depth guidance for `iframe_chemin`
 
 Load this notice when: timeout on `cliquer`, CSS/showModal dialog, SoM IDs, strict mode
 violation, nth-match error, evaluer assertions, DOM mutations.
@@ -520,3 +520,19 @@ one-letter difference between two keys is exactly the kind of thing that gets
 typo'd or misremembered on a generated action. Passing both, or neither, is a
 schema error. For a single-level iframe, keep using `iframe_selecteur` —
 `iframe_chemin` is strictly for multi-level descent, not a replacement.
+
+### Practical depth guidance for `iframe_chemin` (v1.19.0)
+
+There is no hard-coded depth limit — Playwright chains `frame_locator()` once
+per array element regardless of length. On deeply nested structures (some
+admin consoles embed several layers), expect resolution time to grow with
+each added level, and treat a very long chain as a signal to look for a
+shorter path first: if a frame partway down the chain is same-origin, check
+whether `evaluer` against its `contentDocument` reaches the target directly,
+without descending further.
+
+No specific number of levels is documented as a breaking point — none has
+been measured yet, and a guessed threshold would be exactly the kind of
+unmeasured recommendation Diwall avoids elsewhere (see the WAF signal's
+honesty about being heuristic, not certain). This section will gain a
+concrete number once a real run produces one.

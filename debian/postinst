@@ -25,6 +25,13 @@ case "$1" in
         chmod 755 "$DEST/scripts"
         chmod 755 "$DEST/scripts"/*.sh
 
+        # watch.py invokes shot.py as a direct subprocess (relies on the
+        # shebang + execute bit, not "python3 shot.py") — missing from the
+        # initial packaging (dh_fixperms leaves regular files at 644),
+        # caught by a real install/remove test on this cycle. The
+        # git-clone channel's deploy.sh already sets this (line ~202).
+        chmod 755 "$DEST/shot.py" "$DEST/watch.py" "$DEST/rpa.py" "$DEST/journal.py"
+
         if [ ! -f "$DEST/venv/bin/python3" ]; then
             echo "Diwall: creating Python virtual environment..."
             python3 -m venv "$DEST/venv"
@@ -43,6 +50,13 @@ case "$1" in
         chmod 2770 /var/log/diwall
         chown root:"$GROUPE" /var/log/diwall/preuves
         chmod 2770 /var/log/diwall/preuves
+
+        # watch.py writes reference PNGs here (--sauver-reference) — missing
+        # in the initial packaging, caught by a real install/remove test on
+        # v1.19.0 (git-clone channel's install.sh already creates this).
+        mkdir -p "$DEST/references"
+        chown root:"$GROUPE" "$DEST/references"
+        chmod 770 "$DEST/references"
 
         mkdir -p /etc/diwall
         chown root:"$GROUPE" /etc/diwall

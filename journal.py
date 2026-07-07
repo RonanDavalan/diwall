@@ -13,7 +13,7 @@ Exemples :
 
 Spécification : _CADRE/SPECIFICATIONS/35_JOURNAL_OPERATIONS.md §étape 6.
 """
-__version__ = "1.14.1"
+__version__ = "1.15.0"
 
 import argparse
 import glob
@@ -163,6 +163,15 @@ def main():
             print(f"      intention : {e['intention']}")
         if e.get("actions"):
             print(f"      actions   : {', '.join(e['actions'])}")
+        if e.get("chainage"):
+            # v1.19.0 — arbre d'appels des scénarios chaînés (declencher_scenario),
+            # indenté par profondeur, trié par position dans la liste aplatie.
+            print("      chainage  :")
+            for c in sorted(e["chainage"],
+                             key=lambda c: (c.get("action_debut", 0), c.get("profondeur", 0))):
+                indent = "  " * c.get("profondeur", 0)
+                print(f"        {indent}{c.get('scenario', '?')} "
+                      f"(actions {c.get('action_debut', '?')}-{c.get('action_fin', '?')})")
         if e.get("captures"):
             print(f"      preuves   : {len(e['captures'])} → {e['captures'][0]}")
         if e.get("erreur"):

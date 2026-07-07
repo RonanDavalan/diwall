@@ -1,3 +1,33 @@
+diwall (1.19.0-1) unstable; urgency=medium
+
+  * mode_conseille now filtered to successful diagnostic_dom.json runs only
+    (lib/journal.py) — a mid-run failure no longer feeds a recommendation.
+  * chainage traceability for declencher_scenario: rpa.py builds an ordered
+    call tree, lib/journal.py records it, journal.py renders it as an
+    indented tree per matching entry — absent on runs without chaining.
+  * Guide-read lock re-armed: notice-version 3.6 -> 3.7 (lib/preflight_guide.py
+    resynchronised in the same commit).
+  * scripts/verifier-coherence.sh (git source only, not packaged): static
+    doc/code coherence check (notice-version vs index table, argparse flags
+    vs docs).
+  * Documentation: --ignorer-waf decision rule, etat's declarative nature
+    clarified (not a gate), guide-lock's cooperative-nature limit documented,
+    iframe_chemin depth guidance, reference-safe assertion guidance for
+    --replay-verifier, zero-delay guidance for local targets, new
+    docs/ACCESS_OBSERVATIONS.md registry.
+  * postinst: create /opt/diwall/references/ (770 root:diwall) — missing
+    from the initial packaging, caught by a real install/remove test on
+    this very cycle (watch.py --sauver-reference failed with
+    PermissionError on a fresh install). install.sh already created this
+    directory; postinst did not.
+  * postinst: chmod 755 on shot.py/watch.py/rpa.py/journal.py — missing
+    from the initial packaging (dh_fixperms leaves regular files at 644).
+    watch.py invokes shot.py as a direct subprocess relying on the shebang
+    and execute bit, not "python3 shot.py" — failed with PermissionError
+    on a fresh install. The git-clone channel's deploy.sh already sets this.
+
+ -- Ronan Davalan <ronan@davalan.fr>  Tue, 07 Jul 2026 12:00:00 +0200
+
 diwall (1.18.0-1) unstable; urgency=medium
 
   * Initial Debian packaging — alternative distribution channel alongside

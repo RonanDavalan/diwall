@@ -11,7 +11,7 @@ import uuid
 from datetime import datetime, timezone
 from urllib.parse import urlparse
 
-__version__ = "1.18.0"
+__version__ = "1.19.0"
 
 # Permet d'importer lib/ depuis le même répertoire que shot.py
 sys.path.insert(0, os.path.dirname(os.path.abspath(__file__)))
@@ -642,7 +642,7 @@ def _nettoyer_session_ephemere(chemin_session, explicitement_demandee):
 
 
 def _journaliser_run(result, actions, intention, cible_url, resultat, erreur=None,
-                     operation_id=None, source_scenario=None):
+                     operation_id=None, source_scenario=None, chainage=None):
     """Consigne le run dans le journal d'opérations (v1.4). Best-effort.
 
     N'altère jamais la sortie ni le code de retour de shot.py : toute
@@ -650,6 +650,10 @@ def _journaliser_run(result, actions, intention, cible_url, resultat, erreur=Non
 
     `operation_id` (v1.16.0, item B) : transmis tel quel — le journal réutilise
     l'identité de run générée par shot.py au lieu d'en régénérer une nouvelle.
+
+    `chainage` (v1.19.0) : transmis tel quel depuis rpa.py (--chainage), qui
+    l'a construit lors de l'aplatissement des `declencher_scenario`. Absent
+    sur un run sans chaînage — additif strict.
     """
     try:
         from lib import journal
@@ -678,6 +682,7 @@ def _journaliser_run(result, actions, intention, cible_url, resultat, erreur=Non
         operation_id=operation_id,
         citoyennete=result.get("citoyennete"),
         source_scenario=source_scenario,
+        chainage=chainage,
     )
 
 
@@ -839,6 +844,10 @@ def parse_args():
                    help="Nom de fichier du scénario (sans chemin), transmis par rpa.py (v1.18.0). "
                         "Plomberie interne pour mode_conseille — pas un paramètre destiné à un "
                         "appel shot.py direct.")
+    p.add_argument("--chainage", dest="chainage", default=None,
+                   help="Arbre de chaînage (JSON), transmis par rpa.py quand le scénario utilise "
+                        "declencher_scenario (v1.19.0). Plomberie interne pour la traçabilité du "
+                        "journal — pas un paramètre destiné à un appel shot.py direct.")
     return p.parse_args()
 
 
@@ -1512,6 +1521,14 @@ def main():
             }))
             sys.exit(1)
 
+    # v1.19.0 — arbre de chaînage transmis par rpa.py (--chainage), plomberie
+    # interne pour le journal. Best-effort : un JSON malformé ne bloque jamais
+    # le run, exactement comme mode_conseille.
+    try:
+        chainage = json.loads(args.chainage) if args.chainage else None
+    except (json.JSONDecodeError, TypeError):
+        chainage = None
+
     # ── Validation schéma URL principale ────────────────────────────────────
     try:
         _valider_schema_url(args.url)
@@ -1800,7 +1817,8 @@ def main():
             pass  # etat est un confort de lecture, jamais un bloquant (item A)
         print(json.dumps(result, ensure_ascii=False))
         _journaliser_run(result, actions, args.intention, url_finale, "succes",
-                         operation_id=operation_id, source_scenario=args.source_scenario)
+                         operation_id=operation_id, source_scenario=args.source_scenario,
+                         chainage=chainage)
         _nettoyer_session_ephemere(
             getattr(args, "reprendre_session", None),
             explicitement_demandee=bool(args.sauver_session),
@@ -1827,7 +1845,7 @@ def main():
             print(json.dumps(result, ensure_ascii=False))
             _journaliser_run(result, actions, args.intention, url_cible, "echec",
                              erreur=f"VaultFermeError: {e}", operation_id=operation_id,
-                             source_scenario=args.source_scenario)
+                             source_scenario=args.source_scenario, chainage=chainage)
             sys.exit(VaultFermeError.CODE_SORTIE)
 
         capture_echec = None
@@ -1867,7 +1885,7 @@ def main():
         print(json.dumps(result, ensure_ascii=False))
         _journaliser_run(result, actions, args.intention, url_cible, "echec",
                          erreur=f"{type(e).__name__}: {e}", operation_id=operation_id,
-                         source_scenario=args.source_scenario)
+                         source_scenario=args.source_scenario, chainage=chainage)
         _nettoyer_session_ephemere(
             getattr(args, "reprendre_session", None),
             explicitement_demandee=bool(getattr(args, "sauver_session", None)),

@@ -20,7 +20,7 @@ Format du scénario :
 Le vault est résolu par lib/vault.py (DIWALL_VAULT_DIR > diwall.conf > ~/Vaults/Diwall/).
 Jamais de mot de passe dans les fichiers de scénario.
 """
-__version__ = "1.18.0"
+__version__ = "1.19.0"
 
 import argparse
 import json
@@ -143,6 +143,13 @@ def _aplatir_actions(actions, profondeur=0):
     Résolution récursive : chaque declencher_scenario est remplacé par les
     actions du sous-scénario correspondant. Profondeur max : 5 niveaux.
     Le vault et le journal restent gérés par le run parent.
+
+    Retourne `(resultat, chainage)` (v1.19.0) : `chainage` est la liste
+    ordonnée des sous-scénarios rencontrés, chacun sous la forme
+    `{"scenario", "profondeur", "action_debut", "action_fin"}` — indices dans
+    la liste `resultat` finale (aplatie). Vide si le scénario n'utilise pas
+    declencher_scenario. Permet à `journal.py` de reconstruire l'arbre
+    d'appels d'un scénario chaîné après un échec en profondeur.
     """
     if profondeur > 5:
         print(json.dumps({
@@ -155,6 +162,7 @@ def _aplatir_actions(actions, profondeur=0):
         sys.exit(1)
 
     resultat = []
+    chainage = []
     for a in actions:
         if not isinstance(a, dict) or a.get("type") != "declencher_scenario":
             resultat.append(a)
@@ -179,8 +187,22 @@ def _aplatir_actions(actions, profondeur=0):
                 "boussole": _boussole(),
             }))
             sys.exit(1)
-        resultat.extend(_aplatir_actions(sous.get("actions", []), profondeur + 1))
-    return resultat
+        debut = len(resultat)
+        sous_actions, sous_chainage = _aplatir_actions(sous.get("actions", []), profondeur + 1)
+        resultat.extend(sous_actions)
+        chainage.append({
+            "scenario": nom,
+            "profondeur": profondeur + 1,
+            "action_debut": debut,
+            "action_fin": len(resultat) - 1,
+        })
+        for entree_c in sous_chainage:
+            chainage.append({
+                **entree_c,
+                "action_debut": entree_c["action_debut"] + debut,
+                "action_fin": entree_c["action_fin"] + debut,
+            })
+    return resultat, chainage
 
 
 def resoudre_chemin_scenario(arg: str) -> tuple:
@@ -374,7 +396,17 @@ def main():
 
     # Chaînage : inline les sous-scénarios avant toute autre opération (v1.9.2).
     actions_brutes = scenario.get("actions", [])
-    actions = _aplatir_actions(actions_brutes)
+    actions, chainage = _aplatir_actions(actions_brutes)
+    if chainage:
+        # v1.19.0 — entrée racine (profondeur 0), ajoutée seulement si un
+        # chaînage réel a eu lieu : un scénario sans declencher_scenario ne
+        # doit produire aucun champ chainage dans le journal (additif strict).
+        chainage.insert(0, {
+            "scenario": os.path.basename(chemin_scenario),
+            "profondeur": 0,
+            "action_debut": 0,
+            "action_fin": len(actions) - 1,
+        })
 
     # Linter SoM : vérifie les id entiers avant Playwright (v1.9.2).
     _linter_som(actions, chemin_scenario)
@@ -481,6 +513,10 @@ def main():
         # plus bas).
         "--source-scenario", os.path.basename(chemin_scenario),
     ]
+    if chainage:
+        # v1.19.0 — plomberie interne vers lib/journal.py, comme
+        # --source-scenario ci-dessus. Absent si le scénario n'a pas chaîné.
+        cmd += ["--chainage", json.dumps(chainage)]
     if args.som:
         cmd.append("--som")
     if args.a11y:

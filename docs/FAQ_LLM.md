@@ -1,6 +1,6 @@
 # Diwall — FAQ for LLMs
 
-Version 1.4 — July 2026 (v1.18.0) — mandatory `--guide-version` pre-flight lock, `mode_conseille`, `iframe_chemin`, version table through v1.18.0
+Version 1.5 — July 2026 (v1.19.0) — mandatory `--guide-version` pre-flight lock, `mode_conseille`, `iframe_chemin`, version table through v1.18.0, `etat` is declarative not a gate
 
 Answers to technical questions raised by language models during real Diwall sessions.
 No attribution — these are recurring questions, not individual testimonies.
@@ -11,7 +11,7 @@ No attribution — these are recurring questions, not individual testimonies.
 
 ### Q: I got `"erreur": "guide_non_lu"` and exit 1 before anything ran — what happened?
 
-**You have not proven you read `docs/GUIDE_LLM.md` yet (v1.18.0).**
+**You have not proven you read `docs/GUIDE_LLM.md` yet (v1.18.0+).**
 
 `shot.py`, `rpa.py`, and `watch.py` all refuse to launch Playwright without
 either `--guide-version X.Y` (the `<!-- notice-version: X.Y -->` value found
@@ -23,8 +23,8 @@ incident that motivated it.
 
 ```bash
 cat /opt/diwall/docs/GUIDE_LLM.md
-# read it, find "<!-- notice-version: 3.6 -->" near the top, then:
-/opt/diwall/venv/bin/python3 /opt/diwall/shot.py --url <url> --guide-version 3.6
+# read it, find "<!-- notice-version: X.Y -->" near the top (currently 3.7), then:
+/opt/diwall/venv/bin/python3 /opt/diwall/shot.py --url <url> --guide-version 3.7
 ```
 
 You will not be asked again on this machine, as this OS user, until
@@ -34,10 +34,10 @@ You will not be asked again on this machine, as this OS user, until
 
 ```bash
 /opt/diwall/venv/bin/python3 /opt/diwall/shot.py --version
-# → {"outil": "shot.py", "version": "1.18.0"}
+# → {"outil": "shot.py", "version": "1.19.0"}
 ```
 
-No Playwright launch, no `--url` needed, exit 0 immediately (v1.18.0). Same
+No Playwright launch, no `--url` needed, exit 0 immediately (v1.18.0+). Same
 flag on `rpa.py` and `watch.py`. Distinct from `--guide-version` — one reports
 the Diwall release, the other proves you read the guide. Passing one where
 the other is expected fails.
@@ -111,6 +111,27 @@ run and names its temporary-file directory under `/tmp/diwall/<operation_id>/`.
 The JSON root also carries a deterministic `etat` object (`pret_a_agir`,
 `niveau_confiance`, `raisons`, v1.16.0) synthesizing these signals into one
 go/no-go read — see `docs/MANUEL.md` section 2d.
+
+---
+
+### Q: Does `etat.pret_a_agir: false` block my next action?
+
+**No. `etat` is a report, not a gate — Diwall never checks it before running
+an action.**
+
+No verb dispatcher reads `pret_a_agir`. Seeing `false` means Diwall perceived
+a friction worth your attention (a probable WAF block, JS/console errors, a
+citizenship cap reached, a session drift) before you act — it is descriptive,
+not a permission system. The decision to stop, investigate `raisons` further,
+or proceed with the mutating action you had planned always belongs to you.
+
+This is worth asking explicitly because `etat`'s shape — three confidence
+levels, a boolean readiness flag — reads like a gate at a glance, even though
+it functions as a synthesis of signals already present elsewhere in the JSON
+(`auth_status`, `citoyennete.plafond_atteint`, `derive_session`, `erreurs_js`,
+`erreurs_console`, WAF detection). If you find yourself refusing to act
+purely because the flag is `false`, without having read `raisons` first, you
+are treating a signal as an authority it does not have.
 
 ---
 
@@ -333,9 +354,10 @@ runs a single continuous session. The vault and journal are managed by the paren
 | `etat` deterministic verdict, `operation_id`, passive WAF signal, `erreurs_console`, `indice_agressivite` | v1.16.0 |
 | `--replay-verifier`, `--checkpoint`, `--som-rafraichir`, `cliquer_iframe`/`remplir_iframe` | v1.17.0 |
 | Vault write guard (journal/proof archiving), SoM collision cleanup, refined WAF heuristic + `--ignorer-waf`, checkpoint citizenship-cap fix | v1.17.2 |
-| Mandatory `--guide-version`/`--version` pre-flight lock, `mode_conseille`, nested iframes (`iframe_chemin`), `scripts/monitor-verifier.sh` | **v1.18.0** |
+| Mandatory `--guide-version`/`--version` pre-flight lock, `mode_conseille`, nested iframes (`iframe_chemin`), `scripts/monitor-verifier.sh` | v1.18.0 |
+| `mode_conseille` filtered to successful diagnostics only, `chainage` traceability for `declencher_scenario`, `etat` clarified as declarative | **v1.19.0** |
 
-**Current stable version: v1.18.0** (v1.17.1 was a documentation-only
+**Current stable version: v1.19.0** (v1.17.1 was a documentation-only
 correction; v1.17.2 was a fix patch — see the rows above).
 
 The operation log (`/var/log/diwall/operations.jsonl`) and the friction index

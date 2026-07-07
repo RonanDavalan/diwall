@@ -1,9 +1,9 @@
 # Diwall — LLM Guide (index)
 
-<!-- notice-version: 3.6 -->
-Version 3.6 — July 2026 (v1.18.0) — mandatory guide-read lock (`--guide-version`),
-`--version`, `mode_conseille`, nested iframes (`iframe_chemin`), continuous
-structural monitoring
+<!-- notice-version: 3.7 -->
+Version 3.7 — July 2026 (v1.19.0) — `etat` is declarative not a gate,
+`--ignorer-waf` decision rule, guide-lock's cooperative-nature limit
+documented
 
 **You are a language model. This is the entry point. Read it fully, then load
 the notice that matches your task.**
@@ -17,7 +17,7 @@ the notice that matches your task.**
 
 ---
 
-## Mandatory pre-flight — `--guide-version` (read this first, v1.18.0)
+## Mandatory pre-flight — `--guide-version` (read this first, v1.18.0+)
 
 `shot.py`, `rpa.py`, and `watch.py` refuse to run without proof you have read
 this file. This is the **only** exception to Diwall's opt-in design in the
@@ -31,7 +31,7 @@ that motivated this).
 comment, same convention already used by the three notices below.
 
 ```bash
-/opt/diwall/venv/bin/python3 /opt/diwall/shot.py --url <url> --guide-version 3.6
+/opt/diwall/venv/bin/python3 /opt/diwall/shot.py --url <url> --guide-version 3.7
 ```
 
 Once accepted, a local marker (`~/.config/diwall/guide_state.json`) is written
@@ -42,7 +42,7 @@ automatically for everyone.
 **Quick version check, no URL needed:**
 ```bash
 /opt/diwall/venv/bin/python3 /opt/diwall/shot.py --version
-# → {"outil": "shot.py", "version": "1.18.0"}
+# → {"outil": "shot.py", "version": "1.19.0"}
 ```
 Exits immediately, no Playwright launch. `--guide-version` is two different
 numbers from `--version` on purpose: `--version` reports the Diwall release
@@ -55,13 +55,22 @@ fail.
 {
   "succes": false,
   "erreur": "guide_non_lu",
-  "version_installee": "1.18.0",
-  "guide_version_attendue": "3.6",
+  "version_installee": "1.19.0",
+  "guide_version_attendue": "3.7",
   "message": "Lire docs/GUIDE_LLM.md, relever <!-- notice-version: X.Y --> en tête de fichier, relancer avec --guide-version X.Y"
 }
 ```
 `exit 1`, on stderr. There is no bypass flag — the only way past it is to read
 this file, or to already hold a valid marker from a previous call.
+
+**Known limit (v1.19.0):** this lock is cooperative by nature — a model that
+already holds a token from a prior context (its own memory, a copy-pasted
+value) can pass `--guide-version 3.7` without having reread this file's
+current content. Diwall accepts this rather than harden it: a challenge tied
+to file content would complicate a mechanism meant to stay lightweight, and a
+model willing to fabricate a token would defeat a stronger check just as
+easily. The lock's purpose is to make skipping the guide a deliberate act
+instead of an accident — not to make lying about it technically impossible.
 
 ---
 
@@ -208,6 +217,26 @@ If `boussole` does not match your expectation: stop and investigate before any m
 
 ---
 
+## `etat` is declarative — never a gate (v1.19.0)
+
+`etat.pret_a_agir`, `etat.niveau_confiance`, and `etat.raisons` (v1.16.0) are a
+**report Diwall gives you**, not a control it exercises over you. No verb
+dispatcher checks `pret_a_agir` before running — Diwall does not refuse to
+execute an action because this key is `false`. When you see
+`pret_a_agir: false`, it means Diwall perceived a friction (probable WAF
+block, JS/console errors, a citizenship cap reached, a session drift) worth
+your attention before you act — it is the dashboard, not the speed limiter.
+The decision to stop, investigate further, or proceed always belongs to you.
+
+This distinction is worth stating explicitly because `etat`'s shape (three
+confidence states, a boolean readiness flag) reads like a gate at a glance,
+even though it functions as a synthesis. If you find yourself refusing to act
+purely because `pret_a_agir: false`, without having read `raisons` first,
+you are treating a signal as a permission system — re-read `raisons`, decide
+on the actual friction, not on the flag's shape.
+
+---
+
 ## Choosing a capture mode
 
 | Goal | Recommended command |
@@ -251,9 +280,9 @@ Already in an error? Route by symptom, not by task type:
 
 | Notice | Load when | Version |
 |---|---|---|
-| `GUIDE_LLM_INTERACTIONS.md` | Timeout on `cliquer`, CSS/showModal dialog, SoM IDs, strict mode violation, nth-match error, evaluer assertions, DOM mutations, Shadow DOM (`--shadow-dom`), cross-origin/nested iframes (`iframe_chemin`) | v1.7 |
+| `GUIDE_LLM_INTERACTIONS.md` | Timeout on `cliquer`, CSS/showModal dialog, SoM IDs, strict mode violation, nth-match error, evaluer assertions, DOM mutations, Shadow DOM (`--shadow-dom`), cross-origin/nested iframes (`iframe_chemin`) | v1.8 |
 | `GUIDE_LLM_SESSIONS.md` | Vault credentials, `--secrets`, session persistence, SPA navigation, multi-page flows, MFA/TOTP, auth_indicator, auth_indicator_negative, --no-capture, --checkpoint | v1.5 |
-| `GUIDE_LLM_MONITORING.md` | watch.py, pixel diff, long-running operations, `--screenshot-timeout`, interval_capture, journal.py, --replay-verifier, `mode_conseille`, `monitor-verifier.sh` | v1.7 |
+| `GUIDE_LLM_MONITORING.md` | watch.py, pixel diff, long-running operations, `--screenshot-timeout`, interval_capture, journal.py, --replay-verifier, `mode_conseille`, `monitor-verifier.sh` | v1.9 |
 
 > **Version check:** the version column is canonical. If your local copy of a notice shows
 > a lower version, reload it. Notice versions increment independently of Diwall releases.
@@ -373,3 +402,13 @@ blocks you on a page you have independently confirmed is not blocked, pass
 `etat.niveau_confiance`, but no longer forces `etat.pret_a_agir: false` on its
 own — `boussole.waf_ignore_actif: true` records the decision. Do not use this
 flag reflexively; confirm the page content yourself first.
+
+**Decision rule for legitimate overrule (v1.19.0):** pass `--ignorer-waf` only
+after an independent, non-mutating check has shown the page is actually
+usable — at minimum, a `--mode fast` + `evaluer` pass (or a prior
+`diagnostic_dom.json` run) confirming the expected content and interactive
+surfaces (forms, buttons) are present and functional. Never as a first
+response to a `waf_bloquants` signal, and never wired automatically into a
+scenario — the override stays visible in `boussole.waf_ignore_actif` precisely
+so the choice remains auditable after the fact, not because the choice itself
+needs justifying to Diwall.

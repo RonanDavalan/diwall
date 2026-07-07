@@ -23,7 +23,7 @@ WATCH = os.path.join(RACINE, "watch.py")
 MONITOR = os.path.join(RACINE, "scripts", "monitor-verifier.sh")
 FIXTURE_DIR = os.path.join(RACINE, "scenarios", "interoperabilite", "fixture")
 PYTHON = sys.executable
-GUIDE_VERSION = "3.6"
+GUIDE_VERSION = "3.7"  # resynchronise v1.19.0 — voir docs/GUIDE_LLM.md notice-version
 
 
 def _verdict(nom, conditions):
@@ -101,7 +101,7 @@ def test_2_guide_version_gate():
         ("sans jeton ni marqueur -> exit 1", r1.returncode == 1),
         ("erreur structurée guide_non_lu", payload1.get("erreur") == "guide_non_lu"),
         ("jeton incorrect -> exit 1", r2.returncode == 1),
-        ("jeton correct (3.6) -> exit 0", r3.returncode == 0),
+        ("jeton correct (3.7) -> exit 0", r3.returncode == 0),
         ("marqueur créé après jeton correct", marqueur_existe),
         ("marqueur en permissions 600", marqueur_perms_ok),
         ("appel suivant sans jeton -> exit 0 (marqueur réutilisé)", r4.returncode == 0),

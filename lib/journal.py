@@ -177,7 +177,7 @@ def enregistrer_operation(outil, version, cible_url, resultat, actions,
                           diwall_meta=None, intention=None, captures=None,
                           erreur=None, mutatif=None, evaluations=None,
                           operation_id=None, citoyennete=None,
-                          source_scenario=None):
+                          source_scenario=None, chainage=None):
     """Compose et écrit une entrée de journal. Best-effort, ne lève jamais.
 
     Réutilise les champs d'environnement de `diwall_meta` (v1.3.2) :
@@ -197,6 +197,13 @@ def enregistrer_operation(outil, version, cible_url, resultat, actions,
     transmis par rpa.py via --source-scenario. Permet à `mode_conseille`
     d'identifier fiablement une entrée issue de `diagnostic_dom.json` sans
     parser le contenu des scripts journalisés.
+
+    `chainage` (v1.19.0) : liste ordonnée de
+    `{"scenario", "profondeur", "action_debut", "action_fin"}` produite par
+    `rpa.py::_aplatir_actions()` quand le scénario utilise
+    `declencher_scenario` — absente sinon (additif strict). Permet de
+    reconstruire l'arbre d'appels d'un scénario chaîné après un échec en
+    profondeur, sans quoi le journal ne montre qu'une liste plate d'actions.
     """
     try:
         meta = diwall_meta or {}
@@ -224,6 +231,8 @@ def enregistrer_operation(outil, version, cible_url, resultat, actions,
             entree["intention"] = intention
         if source_scenario:
             entree["source_scenario"] = source_scenario
+        if chainage:
+            entree["chainage"] = chainage
         actions_resumees = resumer_actions(actions)
         if actions_resumees:
             entree["actions"] = actions_resumees
@@ -363,10 +372,12 @@ def _ecrire_ligne(entree):
 def dernier_diagnostic_host(host):
     """v1.18.0 — retourne les `evaluations` (format journal, liste de
     {"script", "valeur_retournee"}) de la dernière entrée `operations.jsonl`
-    dont `source_scenario == "diagnostic_dom.json"` et dont l'host de
-    `cible_url` correspond à `host`. None si aucune entrée trouvée, si le
-    journal est illisible, ou sur toute erreur — best-effort, ne lève jamais
-    (alimente `mode_conseille`, un confort de lecture, jamais un bloquant).
+    dont `source_scenario == "diagnostic_dom.json"`, `resultat == "succes"`
+    (v1.19.0 — un diagnostic interrompu à mi-course ne doit jamais alimenter
+    un conseil) et dont l'host de `cible_url` correspond à `host`. None si
+    aucune entrée trouvée, si le journal est illisible, ou sur toute erreur —
+    best-effort, ne lève jamais (alimente `mode_conseille`, un confort de
+    lecture, jamais un bloquant).
 
     Le journal est append-only : la dernière ligne qui correspond est la
     plus récente, pas besoin de trier par timestamp.
@@ -384,6 +395,8 @@ def dernier_diagnostic_host(host):
                 except json.JSONDecodeError:
                     continue
                 if entree.get("source_scenario") != "diagnostic_dom.json":
+                    continue
+                if entree.get("resultat") != "succes":
                     continue
                 if urlparse(entree.get("cible_url") or "").hostname != host:
                     continue

@@ -1,5 +1,6 @@
 """
-preflight_guide.py — v1.18.0 : verrou de lecture obligatoire de docs/GUIDE_LLM.md.
+preflight_guide.py — verrou de lecture obligatoire de docs/GUIDE_LLM.md
+(introduit v1.18.0, jeton resynchronisé v1.19.0).
 
 Contexte : un LLM tiers appelant shot.py/rpa.py/watch.py sans avoir lu le
 guide au préalable produit des erreurs évitables (venv, permissions). La
@@ -23,7 +24,7 @@ même de la fonctionnalité, pas un effet de bord à minimiser.
 import json
 import os
 
-GUIDE_VERSION_ATTENDUE = "3.6"
+GUIDE_VERSION_ATTENDUE = "3.7"
 
 _MARQUEUR_PATH = os.path.join(os.path.expanduser("~"), ".config", "diwall", "guide_state.json")
 

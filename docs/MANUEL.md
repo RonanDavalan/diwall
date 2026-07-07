@@ -1,6 +1,6 @@
 # Diwall — Operational manual
 
-**Version 1.18.0 — July 2026**
+**Version 1.19.0 — July 2026**
 
 This document answers one question: **how to do X with Diwall**.
 
@@ -47,24 +47,24 @@ mandatory pre-flight), [2e](#2e-mode_conseille--pre-flight-configuration-advice)
 ## 1. Verify the installation
 
 ```bash
-# Cheapest possible check — no Playwright, no URL, exit 0 immediately (v1.18.0)
+# Cheapest possible check — no Playwright, no URL, exit 0 immediately (v1.18.0+)
 /opt/diwall/venv/bin/python3 /opt/diwall/shot.py --version
-# → {"outil": "shot.py", "version": "1.18.0"}
+# → {"outil": "shot.py", "version": "1.19.0"}
 ```
 
 ```bash
 # Full test in one command (~3 s)
 /opt/diwall/venv/bin/python3 /opt/diwall/shot.py \
-  --url https://example.com --mode fast --guide-version 3.6
+  --url https://example.com --mode fast --guide-version 3.7
 ```
 
 Expected result: JSON on stdout with `"succes": true`.
 
-**`--guide-version` (v1.18.0):** `shot.py`, `rpa.py`, and `watch.py` refuse to
+**`--guide-version` (v1.18.0+):** `shot.py`, `rpa.py`, and `watch.py` refuse to
 run without it — unless a local marker from a previous accepted call already
 exists (`~/.config/diwall/guide_state.json`). The value is the
 `<!-- notice-version: X.Y -->` on line 3 of `docs/GUIDE_LLM.md` (currently
-`3.6`) — not the Diwall release number. See `docs/GUIDE_LLM.md` section
+`3.7`) — not the Diwall release number. See `docs/GUIDE_LLM.md` section
 "Mandatory pre-flight" for the full mechanism and the error format if you skip it.
 
 **Once the marker exists, `--guide-version` becomes optional again** — every
@@ -75,7 +75,7 @@ from any earlier successful call already covers them, as long as
 ```bash
 # Verify the installed version
 grep "__version__" /opt/diwall/shot.py
-# → __version__ = "1.18.0"
+# → __version__ = "1.19.0"
 
 # Verify playwright-stealth is available (v1.15.0)
 /opt/diwall/venv/bin/python3 -c "import playwright_stealth; print('stealth OK')"
@@ -96,7 +96,7 @@ alternative channel, never a replacement; the two are mutually exclusive on
 a single machine (both target `/opt/diwall/`).
 
 ```bash
-sudo apt install ./diwall_1.18.0-1_all.deb
+sudo apt install ./diwall_1.19.0-1_all.deb
 diwall-shot --version
 ```
 
@@ -272,7 +272,28 @@ Configured in `/opt/diwall/diwall.conf`:
 }
 ```
 
-`min_action_delay_ms`: minimum delay (ms) between each action. Production value: 800 ms.
+`min_action_delay_ms`: minimum delay (ms) between each action. Shipped
+default: 800 ms.
+
+**Local development — set it to `0` (v1.19.0):** the 800 ms
+default protects a distracted operator on their *first, unconfigured* run
+against the public internet — it has no protective purpose against your own
+development/production machine, where nothing is being asked to behave. Set
+the key explicitly in your local `diwall.conf`:
+
+```json
+{
+  "navigation": {
+    "min_action_delay_ms": 0
+  }
+}
+```
+
+Keep the 800 ms default (or raise it) for any target reached over the public
+internet. The value is always a conscious choice attached to the target, not
+a fixed property of the tool — see the WAF and stealth guidance in
+`docs/GUIDE_LLM.md` for the same principle applied to blocking behaviour.
+
 The `max_pages_par_run` and `max_actions_par_run` caps cleanly stop the run
 if exceeded. No exception — the output JSON will contain:
 

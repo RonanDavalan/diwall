@@ -4,6 +4,87 @@ History of decisions and discoveries by session, in reverse chronological order.
 
 ---
 
+## 2026-07-07 — Session 50 (v1.19.0 — The responsible agent, not the constrained one)
+
+**Context:** consolidation cycle following a cross-model signal review after
+v1.18.0 (7 sources, one duplicate extraction detected and merged). Framed by
+a new governance doctrine written the same session: a three-category
+taxonomy for constraints (data-security hard locks / comprehension locks /
+navigation-behaviour defaults), settling a real risk of the tool's Citizen
+Navigation posture drifting from "educate the operator" toward "constrain
+the tool" — the opposite of the intended design.
+
+**Work done:**
+
+- `mode_conseille` (v1.18.0) now filters on `resultat == "succes"` in
+  `lib/journal.py::dernier_diagnostic_host()` — a diagnostic run interrupted
+  mid-way no longer feeds a configuration recommendation. Closes a gap in the
+  "never a guess" promise made at v1.18.0's introduction.
+- `chainage` traceability for `declencher_scenario`: `rpa.py::_aplatir_actions()`
+  now returns an ordered call tree (`{scenario, profondeur, action_debut,
+  action_fin}`) alongside the flattened action list; `lib/journal.py` records
+  it on the journal entry when present; root `journal.py` renders it as an
+  indented tree under each matching entry. Absent on any run without chaining
+  — purely additive, no change to the non-chained path.
+- Guide-read lock re-armed: `docs/GUIDE_LLM.md` `notice-version` 3.6 → 3.7,
+  `lib/preflight_guide.py::GUIDE_VERSION_ATTENDUE` synchronised in the same
+  commit (the token is hardcoded by design — never read dynamically from the
+  doc file — so the two must always move together).
+- `scripts/verifier-coherence.sh` (git source only, never packaged): static
+  doc/code coherence check — notice-version headers vs the index table in
+  `GUIDE_LLM.md`, and every `argparse` flag in `shot.py`/`rpa.py`/`watch.py`
+  against `docs/`. Caught its own first real finding on this cycle (the new
+  `chainage` field lacked a journal-fields-table row — fixed before this
+  entry) and confirmed three pre-existing gaps in `watch.py` (`--prompt`,
+  `--heatmap-tile`, `--sortie-json`), left unfixed as out of scope for this
+  cycle and flagged for a future documentation pass.
+- Documentation: `--ignorer-waf` decision rule (when overrule is legitimate),
+  `etat` explicitly clarified as declarative — never a gate — correcting a
+  real misreading of `pret_a_agir` by a partner model on v1.18.0's release;
+  the guide-lock's cooperative-nature limit documented rather than hardened;
+  qualitative (unmeasured, no invented number) depth guidance for
+  `iframe_chemin`; reference-safe assertion guidance for
+  `--replay-verifier`/`monitor-verifier.sh` (assert shape, not volatile
+  values); zero-delay guidance for `min_action_delay_ms` on local targets
+  (shipped default of 800 ms unchanged — a deliberate choice protecting an
+  unconfigured first run against the public internet, not a doctrine of
+  slowness); new `docs/ACCESS_OBSERVATIONS.md` registry (neutral, dated
+  access outcomes — seeded from the already-published FR-77/FR-79 data only).
+
+**Debian package:** `diwall_1.19.0-1_all.deb` built (`dpkg-buildpackage -us
+-uc -b`), `lintian` within the same accepted tolerances as v1.18.0 (`/opt`
+placement, per-file interpreter path, missing man pages — inherent to a
+self-distributed package outside the official archive, not new).
+
+**Real install/remove test on the development/production machine** (git-clone channel cleanly uninstalled
+first via `uninstall.sh`, vault/journal config backed up and restored)
+uncovered two real `postinst` bugs, invisible to static inspection:
+
+- `/opt/diwall/references/` (target of `watch.py --sauver-reference`) was
+  never created — `install.sh` (git-clone channel) does this, `postinst`
+  did not. Fresh install failed with `PermissionError`.
+- `shot.py`/`watch.py`/`rpa.py`/`journal.py` were never chmod'd to `755` by
+  `postinst` (`dh_fixperms` leaves regular files at `644`). `watch.py`
+  invokes `shot.py` as a direct subprocess (shebang + execute bit, not
+  `python3 shot.py`) — fresh install failed with `PermissionError`.
+  `deploy.sh` (git-clone channel) already sets this.
+
+Both fixed in `debian/postinst`, package rebuilt, full cycle replayed
+(purge → reinstall → 3/3 smoke test → `preflight-publication.sh` exit 0) —
+green on the development/production machine. Source and deployed code/docs confirmed byte-identical
+(`diff -rq`). The development/production machine now runs the `.deb` channel in production.
+
+**Process fix:** this live test was initially treated as a risky action
+requiring prior confirmation — corrected: it is now a mandatory, automatic
+step of any cycle touching packaged files (`PROTOCOLE_CLOTURE.md` instruction
+1bis, private `_CADRE/`), never deferred.
+
+**Validation:** see the session's ADDENDUM for exact commands and full
+regression results.
+
+**Technical decision:** `watch.py` untouched this cycle — no functional
+change to it, matching the per-file version bump discipline already in place.
+
 ## 2026-07-04 — Closure hygiene: remaining hardcoded hostname
 
 **Work done:** closure audit (`PROTOCOLE_CLOTURE.md` instruction n°1) found

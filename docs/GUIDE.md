@@ -1,6 +1,6 @@
-# Diwall — Human operator guide
+# Diwall — Operator guide
 
-Version 1.5 — July 2026 (v1.18.0) — continuous structural monitoring, mandatory model guide-read lock
+Version 1.7 — July 2026 (v1.19.0) — continuous structural monitoring, mandatory model guide-read lock, zero-delay guidance for local targets, title/wording no longer singles out "human" operators
 
 ---
 
@@ -51,6 +51,12 @@ duration) and respects configurable courtesy delays and hard caps
 measurably are treated as inseparable — see `docs/RETOUR_EXPERIENCE.md`
 FR-77/FR-78/FR-79 for the field context that shaped this.
 
+**Local targets — the courtesy delay is not a doctrine, it is a default
+(v1.19.0):** the shipped `min_action_delay_ms: 800` protects
+an unconfigured first run against the public internet — it is meaningless
+against your own development/production machine. Set it to `0` in your local
+`diwall.conf` for local debugging; see `docs/MANUEL.md` section 3b.
+
 ### When Diwall is the right tool
 
 | Use case | Diwall suitable? |
@@ -68,7 +74,7 @@ For discouraged cases, see `docs/GUIDE_LLM.md` section "When NOT to use Diwall"
 
 ---
 
-**This document is for human operators using Diwall.**
+**This document is written for the person operating Diwall.**
 
 It complements `GUIDE_LLM.md` (intended for models) with concrete examples,
 step-by-step procedures, and reminders on common stumbling points.

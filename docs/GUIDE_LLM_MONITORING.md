@@ -1,7 +1,7 @@
 # Diwall — Monitoring guide (watch.py, long ops, screenshot timeouts, journal)
 
-<!-- notice-version: 1.7 -->
-Version 1.7 — July 2026 (v1.18.0) — `mode_conseille` pre-flight advice, `scripts/monitor-verifier.sh` continuous structural monitoring
+<!-- notice-version: 1.9 -->
+Version 1.9 — July 2026 (v1.19.0) — `mode_conseille` pre-flight advice, `scripts/monitor-verifier.sh` continuous structural monitoring, reference-safe assertion guidance for `--replay-verifier`, `--prompt`/`--heatmap-tile`/`--sortie-json` documented
 
 Load this notice when: watch.py, pixel diff, long-running operations, `--screenshot-timeout`,
 interval_capture, journal.py, FN7/FN8/FN9.
@@ -88,15 +88,25 @@ semantic analysis. It does **not** loop by itself — call it from a shell loop 
 - `--sauver-reference` — capture and save the current page as reference
 - `--comparer-pixel REF_PNG` — quantitative pixel diff against REF_PNG
 - `--comparer` — semantic LLM diff against stored reference
+- `--prompt TEXTE` — override the default LLM prompt used by `--comparer`
+  (replaces the built-in comparison instructions with your own wording —
+  useful to focus the model's attention on a specific zone or concern)
 - `--seuil-bruit N` — max RGB delta per pixel to consider unchanged (default: 5)
 - `--seuil-stable F` — upper bound for `stable` verdict (default: 0.002)
 - `--seuil-regression F` — lower bound for `regression` verdict (default: 0.05)
 - `--heatmap` — also produce a PNG heatmap of changed zones
+- `--heatmap-tile N` — heatmap tile side in pixels (default: 16); a smaller
+  tile gives finer-grained localisation of changed zones at the cost of a
+  noisier-looking heatmap, a larger tile smooths minor pixel noise into
+  fewer, broader blocks
 - `--llm-en-complement` — re-run LLM diff only when pixel verdict is `drift` or `regression`
 - `--exclure-zone X,Y,W,H` — ignore a zone during diff (repeatable)
 - `--nom NOM` — named view, for multiple reference views per URL
 - `--ntfy-url URL` — push alert to ntfy when regression detected
 - `--timeout MS` — Playwright capture timeout for this run (default: 10000)
+- `--sortie-json FICHIER` — redirect the verdict JSON to FICHIER instead of
+  stdout (useful in cron mode alongside `--ntfy-url`, to keep a per-run
+  artifact without relying on shell redirection)
 
 **Verdict bands:**
 
@@ -287,6 +297,37 @@ construction (timestamps, `operation_id`, `duree_ms`, `boussole.ip_locale`).
 identity across runs is not guaranteed stable (see `--som-rafraichir` below
 for why).
 
+### Writing reference-safe assertions (v1.19.0)
+
+The exclusion list above (timestamps, `operation_id`, `duree_ms`,
+`boussole.ip_locale`) only covers fields Diwall itself produces. Anything
+your own `evaluer` actions read from the target page is your responsibility:
+a `--sauver-verifier-reference` capture freezes `evaluations[]` values at
+reference time. If a scenario reads a legitimately dynamic value — a visitor
+counter, a live timestamp, a session-specific ID rendered in the DOM — every
+later `--replay-verifier` run diffs against a value that has since changed,
+producing a false `regression` on an actually healthy page.
+
+**Wrong (brittle) — asserts the exact value:**
+```json
+{"type": "evaluer", "script": "document.querySelector('.visitor-count').textContent"}
+```
+Matches `"128"` at reference time, fails on the very next run once the
+counter increments — a false regression, not a real one.
+
+**Correct — assert the shape, not the value:**
+```json
+{"type": "evaluer", "script": "!isNaN(parseInt(document.querySelector('.visitor-count').textContent))"}
+```
+Returns a stable `true` regardless of the counter's actual reading — the
+check is "a numeric counter is present and rendering", which is what a
+structural non-regression test should verify.
+
+Apply this whenever building a reference for `monitor-verifier.sh` or
+`--replay-verifier`: any field expected to change between runs by design
+(timestamps, counters, session tokens visible in the DOM) should be asserted
+as a shape (`typeof`, a regex match, non-empty) — never as an exact value.
+
 ---
 
 ## Continuous structural monitoring — `scripts/monitor-verifier.sh` (v1.18.0)
@@ -362,6 +403,7 @@ tail -n 10 /var/log/diwall/operations.jsonl | python3 -m json.tool --no-ensure-a
 | `url` | Target URL |
 | `scenario` | Scenario file path (rpa mode) |
 | `source_scenario` | Scenario file name only, no path (v1.18.0) — set when `rpa.py --scenario` is used; lets `mode_conseille` reliably identify a `diagnostic_dom.json` run without parsing script contents |
+| `chainage` | List of `{scenario, profondeur, action_debut, action_fin}` (v1.19.0) — present only when the scenario used `declencher_scenario`; built by `rpa.py::_aplatir_actions()` while inlining sub-scenarios, indices refer to the final flattened action list. Absent on a run without chaining. `journal.py` (root CLI) renders it as an indented tree under each matching entry. |
 | `succes` | boolean |
 | `modeles_appeles` | list of LLM models called during the run |
 | `duree_ms` | wall-clock duration in ms |
