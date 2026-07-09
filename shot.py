@@ -11,7 +11,7 @@ import uuid
 from datetime import datetime, timezone
 from urllib.parse import urlparse
 
-__version__ = "1.19.0"
+__version__ = "1.20.0"
 
 # Permet d'importer lib/ depuis le même répertoire que shot.py
 sys.path.insert(0, os.path.dirname(os.path.abspath(__file__)))
@@ -949,6 +949,7 @@ def executer_actions(page, actions, output_dir, timeout, mode_llm="local",
     intermediaires = []
     stream_captures = []
     evaluations = []
+    latences_actions = []
     stream_dir = None
     # run_id dérivé de operation_id (v1.16.0, item B) — jamais supprimé,
     # conserve son rôle historique (nom du sous-répertoire stream/).
@@ -987,6 +988,7 @@ def executer_actions(page, actions, output_dir, timeout, mode_llm="local",
     for idx, a in enumerate(actions):
         t = a.get("type")
         iv = _resoudre_intervalle(a)
+        _t0_latence = time.time()
 
         actions_executees += 1
         if max_actions_par_run > 0 and actions_executees > max_actions_par_run:
@@ -1382,6 +1384,16 @@ def executer_actions(page, actions, output_dir, timeout, mode_llm="local",
         else:
             raise ValueError(f"Type d'action inconnu : {t!r}")
 
+        # Profilage latence par action (v1.20.0) — même point d'atteinte que le
+        # marqueur de progression ci-dessous : uniquement si l'action s'est
+        # terminée sans exception et sans plafond de citoyenneté atteint avant
+        # dispatch. Coût de mesure nul (un time.time() déjà en cours).
+        latences_actions.append({
+            "index": idx,
+            "type": t,
+            "latence_ms": int((time.time() - _t0_latence) * 1000),
+        })
+
         # Point de progression (v1.17.0, item 2) — atteint uniquement si l'action
         # ci-dessus s'est terminée sans exception. `progress` (dict mutable
         # fourni par l'appelant) reste donc figé sur le dernier état réussi si
@@ -1404,7 +1416,7 @@ def executer_actions(page, actions, output_dir, timeout, mode_llm="local",
         citoyennete["waf_bloquants"] = waf_bloquants
     if actions_executees > 0:
         citoyennete["indice_agressivite"] = round(actions_ecriture / actions_executees, 3)
-    return intermediaires, stream_captures, evaluations, modeles_appeles, citoyennete
+    return intermediaires, stream_captures, evaluations, modeles_appeles, citoyennete, latences_actions
 
 
 def _conf_navigation():
@@ -1667,7 +1679,7 @@ def main():
             # (avant la fermeture implicite par la sortie du bloc `with`) —
             # dernière occasion de sauvegarder la session pour un checkpoint.
             try:
-                interm, stream_captures, evaluations, modeles_appeles, citoyennete = executer_actions(
+                interm, stream_captures, evaluations, modeles_appeles, citoyennete, latences_actions = executer_actions(
                     page, actions, args.output_dir, args.timeout, args.llm,
                     interval_capture_default=args.interval_capture,
                     modeles_appeles=modeles_appeles,
@@ -1799,6 +1811,7 @@ def main():
             result["boussole"]["waf_ignore_actif"] = True
         result["citoyennete"] = citoyennete
         result["boussole"]["citoyennete"] = citoyennete
+        result["latences_actions"] = latences_actions
         if args.reprendre_session and derive_session is not None:
             result["boussole"]["session_derive"] = derive_session
         if auth_status is not None:

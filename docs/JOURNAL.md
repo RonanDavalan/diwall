@@ -4,6 +4,104 @@ History of decisions and discoveries by session, in reverse chronological order.
 
 ---
 
+## 2026-07-10 — Session 53 (v1.20.0 — Observability + human-operator compass demonstration cases)
+
+**Context:** first point of entry queued at the close of session 52
+(08/07/2026): the three Copilot signals grouped as v1.20.0, plus the
+human-operator-compass demonstration content already specified in
+`BOUSSOLE_OPERATEUR_HUMAIN.md`. Both had PHASE_PLANIFICATION and
+PHASE_DOCUMENTATION already closed — executed directly on the operator's
+green light, no new planning round.
+
+**v1.20.0 — code:**
+
+- `journal.py --erreurs`: `store_true` flag filtering `resultat != "succes"`,
+  same pattern as the existing `--mutatif` filter.
+- `latences_actions`: `shot.py::executer_actions()` now times each action
+  dispatch (`time.time()` before/after), exposed as an always-present JSON
+  root key — `[]` when no actions ran, one `{"index", "type", "latence_ms"}`
+  entry per action that actually dispatched (an action skipped by a
+  citizenship-cap break before dispatch produces no entry, consistent with
+  `citoyennete.actions_executees` not counting it either). Complements the
+  existing global `citoyennete.duree_totale_ms`.
+- `__version__` → 1.20.0 (`shot.py`, `journal.py`); `rpa.py`/`watch.py`
+  untouched this cycle, left at their prior version (per-file bump
+  discipline).
+- Guide-read lock re-armed: `notice-version` 3.7 → 3.8
+  (`lib/preflight_guide.py::GUIDE_VERSION_ATTENDUE` resynchronised in the
+  same commit); `GUIDE_LLM_MONITORING.md` 1.9 → 1.10 (routing row updated
+  for both new items).
+- Docs: `docs/MANUEL.md` and `docs/GUIDE_LLM_MONITORING.md` document
+  `latences_actions` and `journal.py --erreurs`.
+- Tests: `scenarios/v1.20.0_validation/` — 3/3 green (`--erreurs` filter,
+  `latences_actions` always-present + two-action structure end-to-end).
+
+**Human-operator-compass demonstration cases (`docs/GUIDE.md`):**
+
+- Case 1 (local CSS/JS troubleshooting) shipped as a real, runnable,
+  committed scenario: `scenarios/exemples/depannage_local.json` (fast probe
+  + `erreurs_js`/`erreurs_console` + `--som` + pixel-diff validation
+  pattern), run end-to-end against `example.com` as the reproducible
+  stand-in target.
+- Cases 2 (hardware component comparison) and 3 (SPA documentation
+  synthesis) documented as prose only, no scenario file committed for
+  either — deliberate, per the doctrine arbitrated 08/07/2026: naming a
+  real third-party shop or payment provider in a public scenario is a
+  commercial decision that belongs to the operator, and a public scenario
+  pinned to one named commercial target degrades with that site's anti-bot
+  posture (FR-77: 39% immediate block rate on the sampled sites) rather
+  than staying reproducible.
+
+**Debian package:** `diwall_1.20.0-1_all.deb` built twice this cycle — first
+covering the two v1.20.0 code items only, installed as a real in-place
+upgrade over the v1.19.0-1 package active in production (`sudo apt install
+./diwall_1.20.0-1_all.deb`, never `dpkg -i` alone), which is the real
+scenario this item exists to validate (Copilot signal 1: no upgrade path had
+ever been tested, every prior cycle was a purge-then-install). `diwall.conf`
+checksum and `preuves/` permissions confirmed unchanged before/after,
+`dpkg -l` confirmed `1.20.0-1`, three smoke tests green. A second build
+folded in the demonstration-cases doc/scenario additions and was reinstalled
+over the first, so that the version actually running in production and the
+git source tree stayed byte-identical (`diff -rq` on every touched
+file/directory) before this session closes — same discipline as session 50.
+`lintian` within the same accepted tolerances as v1.18.0/v1.19.0 (`/opt`
+placement, per-file interpreter path, missing man pages, plus the
+postinst-driven `chmod`/`chown` and shipped-non-executable warnings, both
+structural to the existing packaging design, not new this cycle).
+
+**Process fix (this cycle):** `scripts/preflight-publication.sh` scanned
+`debian/*` without excluding the gitignored build-staging subdirectories
+(`debian/diwall/`, `debian/.debhelper/`, and related regenerated files) —
+running the mandatory preflight right after a local `dpkg-buildpackage`
+produced false-positive "leak" findings (Maintainer/changelog duplicated
+into the staging tree) on content git will never actually publish. Fixed by
+adding the same exclusions `.gitignore` already declares for those paths.
+
+**Comment tester / comment lancer :**
+
+```bash
+# Suite de tests v1.20.0 (journal.py --erreurs, latences_actions)
+# depuis la racine du dépôt source ~/git/Diwall/Diwall/
+/opt/diwall/venv/bin/python3 scenarios/v1.20.0_validation/verifier.py
+
+# journal.py --erreurs en conditions reelles
+/opt/diwall/venv/bin/python3 /opt/diwall/journal.py --erreurs
+
+# Scenario exemple 1 (depannage local)
+/opt/diwall/venv/bin/python3 /opt/diwall/rpa.py \
+  --scenario /opt/diwall/scenarios/exemples/depannage_local.json \
+  --guide-version 3.8
+
+# Preflight avant toute publication
+cd ~/git/Diwall/Diwall && bash scripts/preflight-publication.sh
+```
+
+**Statut : PHASE_EXECUTION + PHASE_VALIDATION closes. `_CADRE/` et `Diwall/`
+non encore commités — commit et décision push/release à la charge de la
+suite de session (voir ADDENDUM du jour).**
+
+---
+
 ## 2026-07-07 — Session 50 (v1.19.0 — The responsible agent, not the constrained one)
 
 **Context:** consolidation cycle following a cross-model signal review after

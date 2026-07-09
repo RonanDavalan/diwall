@@ -24,7 +24,7 @@ même de la fonctionnalité, pas un effet de bord à minimiser.
 import json
 import os
 
-GUIDE_VERSION_ATTENDUE = "3.7"
+GUIDE_VERSION_ATTENDUE = "3.8"
 
 _MARQUEUR_PATH = os.path.join(os.path.expanduser("~"), ".config", "diwall", "guide_state.json")
 

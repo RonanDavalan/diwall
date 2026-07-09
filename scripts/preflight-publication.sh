@@ -95,7 +95,12 @@ est_exempte() {
 # ── Découverte du périmètre ───────────────────────────────────────────────────
 # .md + .py + .sh + .yaml + scénarios JSON + debian/* (packaging .deb, sans
 # extension : control, postinst, postrm, rules, wrappers) — hors .git, venv,
-# node_modules.
+# node_modules, et hors sous-répertoires de debian/ regénérés à chaque build
+# (gitignorés, jamais publiés — cf. .gitignore : debian/.debhelper/,
+# debian/diwall/, debian/debhelper-build-stamp, debian/diwall.substvars,
+# debian/files, debian/*.log). Sans cette exclusion, un dpkg-buildpackage
+# local fait remonter de faux positifs (Maintainer/changelog dupliqués dans
+# le staging) sur du contenu que git ne poussera jamais.
 mapfile -d '' FICHIERS < <(find . -type f \( \
     -name '*.md' \
     -o -name '*.py' \
@@ -107,6 +112,12 @@ mapfile -d '' FICHIERS < <(find . -type f \( \
     -not -path './.git/*' \
     -not -path './venv/*' \
     -not -path './node_modules/*' \
+    -not -path './debian/.debhelper/*' \
+    -not -path './debian/diwall/*' \
+    -not -path './debian/debhelper-build-stamp' \
+    -not -path './debian/diwall.substvars' \
+    -not -path './debian/files' \
+    -not -path './debian/*.log' \
     -print0)
 
 NB_FICHIERS=${#FICHIERS[@]}

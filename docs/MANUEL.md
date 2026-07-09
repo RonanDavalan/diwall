@@ -1,6 +1,6 @@
 # Diwall — Operational manual
 
-**Version 1.19.0 — July 2026**
+**Version 1.20.0 — July 2026**
 
 This document answers one question: **how to do X with Diwall**.
 
@@ -41,6 +41,8 @@ v1.18.0 additions: [1](#1-verify-the-installation) (`--version`/`--guide-version
 mandatory pre-flight), [2e](#2e-mode_conseille--pre-flight-configuration-advice)
 (`mode_conseille`), [5k](#5k-nested-iframes--iframe_chemin) (`iframe_chemin`),
 [8g](#8g-continuous-structural-monitoring--monitor-verifiersh) (`monitor-verifier.sh`).
+v1.20.0 additions: [9](#9-operation-log) (`journal.py --erreurs`),
+[11](#11-exit-codes-and-output) (`latences_actions` per-action timing).
 
 ---
 
@@ -49,13 +51,13 @@ mandatory pre-flight), [2e](#2e-mode_conseille--pre-flight-configuration-advice)
 ```bash
 # Cheapest possible check — no Playwright, no URL, exit 0 immediately (v1.18.0+)
 /opt/diwall/venv/bin/python3 /opt/diwall/shot.py --version
-# → {"outil": "shot.py", "version": "1.19.0"}
+# → {"outil": "shot.py", "version": "1.20.0"}
 ```
 
 ```bash
 # Full test in one command (~3 s)
 /opt/diwall/venv/bin/python3 /opt/diwall/shot.py \
-  --url https://example.com --mode fast --guide-version 3.7
+  --url https://example.com --mode fast --guide-version 3.8
 ```
 
 Expected result: JSON on stdout with `"succes": true`.
@@ -64,7 +66,7 @@ Expected result: JSON on stdout with `"succes": true`.
 run without it — unless a local marker from a previous accepted call already
 exists (`~/.config/diwall/guide_state.json`). The value is the
 `<!-- notice-version: X.Y -->` on line 3 of `docs/GUIDE_LLM.md` (currently
-`3.7`) — not the Diwall release number. See `docs/GUIDE_LLM.md` section
+`3.8`) — not the Diwall release number. See `docs/GUIDE_LLM.md` section
 "Mandatory pre-flight" for the full mechanism and the error format if you skip it.
 
 **Once the marker exists, `--guide-version` becomes optional again** — every
@@ -75,7 +77,7 @@ from any earlier successful call already covers them, as long as
 ```bash
 # Verify the installed version
 grep "__version__" /opt/diwall/shot.py
-# → __version__ = "1.19.0"
+# → __version__ = "1.20.0"
 
 # Verify playwright-stealth is available (v1.15.0)
 /opt/diwall/venv/bin/python3 -c "import playwright_stealth; print('stealth OK')"
@@ -96,7 +98,7 @@ alternative channel, never a replacement; the two are mutually exclusive on
 a single machine (both target `/opt/diwall/`).
 
 ```bash
-sudo apt install ./diwall_1.19.0-1_all.deb
+sudo apt install ./diwall_1.20.0-1_all.deb
 diwall-shot --version
 ```
 
@@ -1099,6 +1101,10 @@ tail -n 10 ~/Vaults/__PROJET__/Diwall/operations.jsonl | python3 -m json.tool
 # From a date
 /opt/diwall/venv/bin/python3 /opt/diwall/journal.py \
   --cible app.example.com --depuis 2026-07-01
+
+# Failed runs only (v1.20.0) — resultat != "succes"
+/opt/diwall/venv/bin/python3 /opt/diwall/journal.py \
+  --cible app.example.com --erreurs
 ```
 
 Fields in each entry:
@@ -1218,6 +1224,10 @@ Propagates all relevant shot.py flags, plus:
   "elements_som": [...],
   "a11y_tree": "...",
   "evaluations": [...],
+  "latences_actions": [
+    {"index": 0, "type": "naviguer", "latence_ms": 842},
+    {"index": 1, "type": "cliquer_som", "latence_ms": 63}
+  ],
   "citoyennete": {
     "pages_visitees": 0,
     "actions_executees": 3,
@@ -1255,6 +1265,9 @@ Propagates all relevant shot.py flags, plus:
 it names the isolation directory under `/tmp/diwall/<operation_id>/` and
 matches the `operation_id` field of this run's entry in the operations log
 (section 9). `etat` (v1.16.0) is present on the success path only.
+`latences_actions` (v1.20.0) is always present (empty list if no actions),
+one entry per action that actually dispatched — see `GUIDE_LLM_MONITORING.md`
+for how it complements `citoyennete.duree_totale_ms`.
 
 Conditional keys (absent when inactive): `capture`, `capture_som`, `elements_som`, `a11y_tree`,
 `evaluations`, `auth_status`, `stealth_actif`, `shadow_dom_actif`, `som_rafraichir_actif`,

@@ -1,7 +1,7 @@
 # Diwall — Monitoring guide (watch.py, long ops, screenshot timeouts, journal)
 
-<!-- notice-version: 1.9 -->
-Version 1.9 — July 2026 (v1.19.0) — `mode_conseille` pre-flight advice, `scripts/monitor-verifier.sh` continuous structural monitoring, reference-safe assertion guidance for `--replay-verifier`, `--prompt`/`--heatmap-tile`/`--sortie-json` documented
+<!-- notice-version: 1.10 -->
+Version 1.10 — July 2026 (v1.20.0) — `latences_actions` per-action timing, `journal.py --erreurs` filter documented
 
 Load this notice when: watch.py, pixel diff, long-running operations, `--screenshot-timeout`,
 interval_capture, journal.py, FN7/FN8/FN9.
@@ -411,6 +411,35 @@ tail -n 10 /var/log/diwall/operations.jsonl | python3 -m json.tool --no-ensure-a
 
 **When to read the journal:** after a failure in cron mode (no terminal output),
 or to audit which models were used in a given session.
+
+**Filtering flags (`journal.py` root CLI):** `--mutatif` (only writing runs),
+`--erreurs` (v1.20.0, only entries where `resultat != "succes"`), `--cible`,
+`--depuis`/`--jusqu`, `--intention` — combine freely, all are AND-ed together.
+
+---
+
+## `latences_actions` — per-action timing (v1.20.0)
+
+Every `shot.py` run includes a `latences_actions` list at the JSON root,
+always present (empty list if no actions were passed). One entry per action
+that actually dispatched — an action skipped because a citizenship cap
+(`max_actions_par_run`/`max_pages_par_run`) was hit before dispatch produces
+no entry, consistent with `citoyennete.actions_executees` not counting it
+either.
+
+```json
+"latences_actions": [
+  {"index": 0, "type": "naviguer", "latence_ms": 842},
+  {"index": 1, "type": "cliquer_som", "latence_ms": 63},
+  {"index": 2, "type": "attendre_selecteur_present", "latence_ms": 1204}
+]
+```
+
+Complements `citoyennete.duree_totale_ms` (global, single measurement at run
+end): `latences_actions` breaks that total down per action, useful to spot
+which specific step of a scenario is slow before reaching for
+`--screenshot-timeout` or a longer `--timeout`. Measurement cost is nil — a
+`time.time()` call already runs at each action dispatch.
 
 ---
 

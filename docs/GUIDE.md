@@ -1,6 +1,6 @@
 # Diwall — Operator guide
 
-Version 1.7 — July 2026 (v1.19.0) — continuous structural monitoring, mandatory model guide-read lock, zero-delay guidance for local targets, title/wording no longer singles out "human" operators
+Version 1.8 — July 2026 (v1.20.0) — demonstration use cases (local CSS/JS troubleshooting, component comparison, SPA documentation synthesis)
 
 ---
 
@@ -78,6 +78,67 @@ For discouraged cases, see `docs/GUIDE_LLM.md` section "When NOT to use Diwall"
 
 It complements `GUIDE_LLM.md` (intended for models) with concrete examples,
 step-by-step procedures, and reminders on common stumbling points.
+
+---
+
+## Demonstration use cases
+
+Three cases below illustrate what an agent-plus-Diwall session can look like
+in practice. They are meant for you to evaluate against your own context,
+not as a recommendation to adopt any specific one.
+
+**Case 1 — local CSS/JS troubleshooting** is committed as a real, runnable
+scenario: `scenarios/exemples/depannage_local.json`. It diagnoses a visual
+shift or a blocked interaction on a locally-served interface — a fast probe
+(`--mode fast`), reading `erreurs_js`/`erreurs_console`, an `--som` capture
+if the shift is purely visual, then validating the fix with
+`watch.py --comparer-pixel` against a reference captured before the
+regression. Run it directly:
+
+```bash
+/opt/diwall/venv/bin/python3 /opt/diwall/rpa.py \
+  --scenario /opt/diwall/scenarios/exemples/depannage_local.json \
+  --guide-version 3.8
+```
+
+The two cases below are narrative only — no scenario file is committed for
+them, on purpose (see the reasoning under each).
+
+### Case 2 — comparing hardware components across shops
+
+An agent asked to compare a component's price and stock across several
+online shops could compose Diwall with a separate URL-discovery tool (a
+local search instance, for example) to find candidate shop pages, then use
+Diwall in sonde mode (`--mode fast`, no PNG) with `evaluer` actions to
+extract price/stock/specifications from each page, and finally compare the
+results itself.
+
+**Not shipped as a committed scenario, deliberately:** naming a specific
+shop in a public, versioned scenario is a decision that belongs to you, not
+a default this project should make on your behalf. It also carries a real
+fragility risk — a public scenario targeting a named commercial site can
+fail months later when that site's anti-bot posture changes (39% of the
+commercial sites sampled in `docs/RETOUR_EXPERIENCE.md` FR-77 returned an
+immediate block), which discredits the example more than it helps. If you
+build this composition yourself, note that any URL-discovery tool you pair
+Diwall with (a local search instance or otherwise) is not a Diwall
+component — it is a separate piece the agent composes on top.
+
+### Case 3 — exploring and summarising technical documentation (single-page apps)
+
+An agent tasked with producing an integration guide for a documentation
+site built as a single-page app could use `rpa.py` with
+`attendre_reseau_calme` to let client-side routing settle, extract the
+accessibility tree in fast mode to map the page structure, then walk code
+blocks recursively with `evaluer` to pull their exact content, and finally
+synthesise the collected material into a guide.
+
+**Not shipped as a committed scenario, for the same reason as Case 2** —
+naming a specific documentation site (or, worse, a specific payment
+provider whose documentation happens to be the working example) is a
+commercial and reputational commitment this project should not make by
+default, and the same WAF-fragility risk applies to a public scenario
+pinned to one real target.
 
 ---
 

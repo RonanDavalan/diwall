@@ -1,9 +1,8 @@
 # Diwall — LLM Guide (index)
 
-<!-- notice-version: 3.7 -->
-Version 3.7 — July 2026 (v1.19.0) — `etat` is declarative not a gate,
-`--ignorer-waf` decision rule, guide-lock's cooperative-nature limit
-documented
+<!-- notice-version: 3.8 -->
+Version 3.8 — July 2026 (v1.20.0) — `GUIDE_LLM_MONITORING.md` routing row
+updated for `latences_actions` and `journal.py --erreurs`
 
 **You are a language model. This is the entry point. Read it fully, then load
 the notice that matches your task.**
@@ -31,7 +30,7 @@ that motivated this).
 comment, same convention already used by the three notices below.
 
 ```bash
-/opt/diwall/venv/bin/python3 /opt/diwall/shot.py --url <url> --guide-version 3.7
+/opt/diwall/venv/bin/python3 /opt/diwall/shot.py --url <url> --guide-version 3.8
 ```
 
 Once accepted, a local marker (`~/.config/diwall/guide_state.json`) is written
@@ -42,7 +41,7 @@ automatically for everyone.
 **Quick version check, no URL needed:**
 ```bash
 /opt/diwall/venv/bin/python3 /opt/diwall/shot.py --version
-# → {"outil": "shot.py", "version": "1.19.0"}
+# → {"outil": "shot.py", "version": "1.20.0"}
 ```
 Exits immediately, no Playwright launch. `--guide-version` is two different
 numbers from `--version` on purpose: `--version` reports the Diwall release
@@ -55,8 +54,8 @@ fail.
 {
   "succes": false,
   "erreur": "guide_non_lu",
-  "version_installee": "1.19.0",
-  "guide_version_attendue": "3.7",
+  "version_installee": "1.20.0",
+  "guide_version_attendue": "3.8",
   "message": "Lire docs/GUIDE_LLM.md, relever <!-- notice-version: X.Y --> en tête de fichier, relancer avec --guide-version X.Y"
 }
 ```
@@ -65,7 +64,7 @@ this file, or to already hold a valid marker from a previous call.
 
 **Known limit (v1.19.0):** this lock is cooperative by nature — a model that
 already holds a token from a prior context (its own memory, a copy-pasted
-value) can pass `--guide-version 3.7` without having reread this file's
+value) can pass `--guide-version 3.8` without having reread this file's
 current content. Diwall accepts this rather than harden it: a challenge tied
 to file content would complicate a mechanism meant to stay lightweight, and a
 model willing to fabricate a token would defeat a stronger check just as
@@ -282,7 +281,7 @@ Already in an error? Route by symptom, not by task type:
 |---|---|---|
 | `GUIDE_LLM_INTERACTIONS.md` | Timeout on `cliquer`, CSS/showModal dialog, SoM IDs, strict mode violation, nth-match error, evaluer assertions, DOM mutations, Shadow DOM (`--shadow-dom`), cross-origin/nested iframes (`iframe_chemin`) | v1.8 |
 | `GUIDE_LLM_SESSIONS.md` | Vault credentials, `--secrets`, session persistence, SPA navigation, multi-page flows, MFA/TOTP, auth_indicator, auth_indicator_negative, --no-capture, --checkpoint | v1.5 |
-| `GUIDE_LLM_MONITORING.md` | watch.py, pixel diff, long-running operations, `--screenshot-timeout`, interval_capture, journal.py, --replay-verifier, `mode_conseille`, `monitor-verifier.sh` | v1.9 |
+| `GUIDE_LLM_MONITORING.md` | watch.py, pixel diff, long-running operations, `--screenshot-timeout`, interval_capture, journal.py, --replay-verifier, `mode_conseille`, `monitor-verifier.sh`, `latences_actions`, `journal.py --erreurs` | v1.10 |
 
 > **Version check:** the version column is canonical. If your local copy of a notice shows
 > a lower version, reload it. Notice versions increment independently of Diwall releases.

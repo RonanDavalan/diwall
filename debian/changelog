@@ -1,3 +1,21 @@
+diwall (1.20.0-1) unstable; urgency=medium
+
+  * journal.py --erreurs: store_true flag filtering resultat != "succes",
+    same pattern as the existing --mutatif filter.
+  * latences_actions: shot.py::executer_actions() now measures per-action
+    wall-clock time (time.time() around each dispatch), exposed as an
+    always-present JSON root key ({"index", "type", "latence_ms"} per
+    entry). Complements the existing global citoyennete.duree_totale_ms.
+  * Guide-read lock re-armed: notice-version 3.7 -> 3.8 (lib/preflight_guide.py
+    resynchronised in the same commit) — GUIDE_LLM_MONITORING.md routing row
+    updated for both new items (notice-version 1.9 -> 1.10).
+  * Documentation: docs/MANUEL.md and docs/GUIDE_LLM_MONITORING.md document
+    latences_actions and journal.py --erreurs.
+  * scenarios/v1.20.0_validation/: 3/3 tests green (journal.py --erreurs
+    filter, latences_actions always-present + structure end-to-end).
+
+ -- Ronan Davalan <ronan@davalan.fr>  Fri, 10 Jul 2026 00:11:33 +0200
+
 diwall (1.19.0-1) unstable; urgency=medium
 
   * mode_conseille now filtered to successful diagnostic_dom.json runs only

@@ -10,10 +10,11 @@ Exemples :
     journal.py --cible target.local
     journal.py --cible my-app.local --mutatif
     journal.py --depuis 2026-05-30 --intention suppression
+    journal.py --erreurs --depuis 2026-07-01
 
 Spécification : _CADRE/SPECIFICATIONS/35_JOURNAL_OPERATIONS.md §étape 6.
 """
-__version__ = "1.15.0"
+__version__ = "1.20.0"
 
 import argparse
 import glob
@@ -63,6 +64,8 @@ def _garde(e, args):
         return False
     if args.mutatif and not e.get("mutatif"):
         return False
+    if args.erreurs and e.get("resultat") == "succes":
+        return False
     if args.intention and args.intention.lower() not in (e.get("intention") or "").lower():
         return False
     ts = e.get("ts", "")
@@ -93,6 +96,8 @@ def main():
     p.add_argument("--depuis", help="Horodatage ISO minimum (ex. 2026-05-30)")
     p.add_argument("--jusqu", help="Horodatage ISO maximum")
     p.add_argument("--mutatif", action="store_true", help="Uniquement les runs mutatifs")
+    p.add_argument("--erreurs", action="store_true",
+                   help="Uniquement les runs dont resultat != \"succes\"")
     p.add_argument("--intention", help="Filtre sous-chaîne sur intention")
     p.add_argument("--format", choices=["texte", "json"], default="texte")
     p.add_argument("--limite", type=int, default=0,

@@ -1,0 +1,9 @@
+{
+  "nom": "depannage_local",
+  "description": "Dépannage autonome d'un décalage visuel ou d'un blocage sur une interface locale en cours de développement — substituer url par la cible réelle (ex. https://mon-app.local/). Lecture de erreurs_js/erreurs_console (v1.16.0) pour un blocage JS, capture --som si le décalage est purement visuel. Après correction : valider avec `watch.py --url <url> --comparer-pixel <reference.png>` (lot 9.1) contre une référence saine capturée avant régression (`watch.py --url <url> --sauver-reference`).",
+  "url": "https://example.com",
+  "actions": [
+    {"type": "attendre_selecteur_present", "selecteur": "body"},
+    {"type": "evaluer", "script": "document.title"}
+  ]
+}

@@ -1,6 +1,6 @@
 # Diwall — FAQ for LLMs
 
-Version 1.5 — July 2026 (v1.19.0) — mandatory `--guide-version` pre-flight lock, `mode_conseille`, `iframe_chemin`, version table through v1.18.0, `etat` is declarative not a gate
+Version 1.6 — July 2026 (v1.20.0) — version table through v1.20.0, `--guide-version` current token 3.8
 
 Answers to technical questions raised by language models during real Diwall sessions.
 No attribution — these are recurring questions, not individual testimonies.
@@ -23,8 +23,8 @@ incident that motivated it.
 
 ```bash
 cat /opt/diwall/docs/GUIDE_LLM.md
-# read it, find "<!-- notice-version: X.Y -->" near the top (currently 3.7), then:
-/opt/diwall/venv/bin/python3 /opt/diwall/shot.py --url <url> --guide-version 3.7
+# read it, find "<!-- notice-version: X.Y -->" near the top (currently 3.8), then:
+/opt/diwall/venv/bin/python3 /opt/diwall/shot.py --url <url> --guide-version 3.8
 ```
 
 You will not be asked again on this machine, as this OS user, until
@@ -34,7 +34,7 @@ You will not be asked again on this machine, as this OS user, until
 
 ```bash
 /opt/diwall/venv/bin/python3 /opt/diwall/shot.py --version
-# → {"outil": "shot.py", "version": "1.19.0"}
+# → {"outil": "shot.py", "version": "1.20.0"}
 ```
 
 No Playwright launch, no `--url` needed, exit 0 immediately (v1.18.0+). Same
@@ -355,14 +355,15 @@ runs a single continuous session. The vault and journal are managed by the paren
 | `--replay-verifier`, `--checkpoint`, `--som-rafraichir`, `cliquer_iframe`/`remplir_iframe` | v1.17.0 |
 | Vault write guard (journal/proof archiving), SoM collision cleanup, refined WAF heuristic + `--ignorer-waf`, checkpoint citizenship-cap fix | v1.17.2 |
 | Mandatory `--guide-version`/`--version` pre-flight lock, `mode_conseille`, nested iframes (`iframe_chemin`), `scripts/monitor-verifier.sh` | v1.18.0 |
-| `mode_conseille` filtered to successful diagnostics only, `chainage` traceability for `declencher_scenario`, `etat` clarified as declarative | **v1.19.0** |
+| `mode_conseille` filtered to successful diagnostics only, `chainage` traceability for `declencher_scenario`, `etat` clarified as declarative | v1.19.0 |
+| `journal.py --erreurs` filter, `latences_actions` per-action timing | **v1.20.0** |
 
-**Current stable version: v1.19.0** (v1.17.1 was a documentation-only
+**Current stable version: v1.20.0** (v1.17.1 was a documentation-only
 correction; v1.17.2 was a fix patch — see the rows above).
 
 The operation log (`/var/log/diwall/operations.jsonl`) and the friction index
 (`docs/RETOUR_EXPERIENCE.md`) cover the full history from v1.0.
-As of 2 July 2026: **71 documented frictions / 47 sessions**.
+As of 10 July 2026: **81 documented frictions / 53 sessions**.
 
 ---
 
