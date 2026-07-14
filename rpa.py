@@ -20,7 +20,7 @@ Format du scénario :
 Le vault est résolu par lib/vault.py (DIWALL_VAULT_DIR > diwall.conf > ~/Vaults/Diwall/).
 Jamais de mot de passe dans les fichiers de scénario.
 """
-__version__ = "1.19.0"
+__version__ = "1.21.0"
 
 import argparse
 import json
@@ -326,6 +326,12 @@ def main():
                    help="Active le mode furtif playwright-stealth (v1.15.0). Propagé à shot.py.")
     p.add_argument("--ignore-tls-errors", dest="ignore_tls_errors", action="store_true",
                    help="Accepte les certificats TLS invalides (LAN dev/Step-CA). Propagé à shot.py. (v1.15.1)")
+    p.add_argument("--http-credentials", dest="http_credentials", action="store_true",
+                   help="Résout http_username/http_password depuis le vault et les injecte "
+                        "au niveau du contexte navigateur pour répondre à un challenge HTTP "
+                        "Basic Auth (v1.21.0). Combinable avec la propriété racine "
+                        "'http_credentials: true' du scénario (OR, précédent shadow_dom). "
+                        "Propagé à shot.py.")
     p.add_argument("--no-evaluer", dest="no_evaluer", action="store_true",
                    help="Désactive l'action evaluer sur ce run. Propagé à shot.py. (v1.15.1)")
     p.add_argument("--sauver-verifier-reference", dest="sauver_verifier_reference", default=None,
@@ -475,6 +481,22 @@ def main():
                 verifier_cles_fichier(args.secrets, cles)
             else:
                 verifier_cles(domaine_depuis_url(url), cles)
+        # v1.21.0 — même fail-fast pour les identifiants HTTP Basic Auth,
+        # avant tout lancement de Playwright. Clés dédiées en priorité, repli
+        # sur username/password (miroir exact de la résolution shot.py).
+        if args.http_credentials or scenario.get("http_credentials"):
+            try:
+                if args.secrets:
+                    verifier_cles_fichier(args.secrets, ["http_username", "http_password"])
+                else:
+                    verifier_cles(domaine_depuis_url(url), ["http_username", "http_password"])
+            except (KeyError, VaultFermeError) as e:
+                if isinstance(e, VaultFermeError):
+                    raise
+                if args.secrets:
+                    verifier_cles_fichier(args.secrets, ["username", "password"])
+                else:
+                    verifier_cles(domaine_depuis_url(url), ["username", "password"])
     except VaultFermeError as e:
         print(json.dumps({
             "succes": False, "erreur": "vault_ferme",
@@ -551,6 +573,8 @@ def main():
         cmd += ["--mode", args.mode]
     if args.stealth:
         cmd.append("--stealth")
+    if args.http_credentials or scenario.get("http_credentials"):
+        cmd.append("--http-credentials")
     if args.ignore_tls_errors:
         cmd.append("--ignore-tls-errors")
     if args.no_evaluer:

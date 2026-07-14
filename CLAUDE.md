@@ -114,3 +114,22 @@ Jamais de valeur en clair, même pour un tenant de test ou un environnement de d
 **Pourquoi :** un mot de passe en clair dans un scénario JSON est commité sur GitHub public
 dès le premier `git add scenarios/`. Le preflight scanne désormais `scenarios/*.json` —
 toute valeur en clair bloquera la publication (exit 1).
+
+---
+
+## Règle n°7 — Non-présomption sur les capacités de Diwall (14/07/2026)
+
+Il est interdit d'affirmer qu'une capacité Diwall n'existe pas, **et** interdit de
+présumer qu'elle existe, sans vérification préalable — grep dans les tables d'actions
+(`docs/GUIDE_LLM_INTERACTIONS.md`, `docs/GUIDE_LLM_SESSIONS.md`, `docs/MANUEL.md`) ou
+exécution de `--help`.
+
+En cas de doute, la formule correcte est : « non confirmé dans la documentation » —
+jamais une affirmation dans un sens ou dans l'autre.
+
+**Pourquoi :** un modèle a un jour affirmé que Diwall ne pouvait pas remplir de formulaire
+d'authentification — faux, c'est la fonctionnalité cœur du vault (`remplir_som` +
+`depuis_vault`), documentée dès les 90 premières lignes de `GUIDE_LLM.md`. La généralisation
+venait de connaissances génériques sur les outils de web automation, pas d'une lecture
+du guide. Symétriquement, présumer qu'une capacité non documentée existe expose à des
+actions mutatives non vérifiées — un risque au moins aussi grave que la négation à tort.

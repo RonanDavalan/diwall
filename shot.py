@@ -11,7 +11,7 @@ import uuid
 from datetime import datetime, timezone
 from urllib.parse import urlparse
 
-__version__ = "1.20.0"
+__version__ = "1.21.0"
 
 # Permet d'importer lib/ depuis le même répertoire que shot.py
 sys.path.insert(0, os.path.dirname(os.path.abspath(__file__)))
@@ -832,6 +832,13 @@ def parse_args():
     p.add_argument("--ignore-tls-errors", dest="ignore_tls_errors", action="store_true",
                    help="Accepte les certificats TLS invalides (LAN dev/Step-CA uniquement). "
                         "Ajoute tls_errors_ignored:true dans la boussole. (v1.15.1)")
+    p.add_argument("--http-credentials", dest="http_credentials", action="store_true",
+                   help="Résout http_username/http_password depuis le vault (clés fixes, "
+                        "précédent ntfy_topic) et les injecte au contexte navigateur pour "
+                        "répondre à un challenge HTTP Basic Auth (v1.21.0). Identifiants "
+                        "scopés à l'origine de la cible (jamais envoyés à un tiers chargé "
+                        "dans la même page). N'active jamais le contournement d'un vrai "
+                        "blocage — seule l'authentification réseau standard.")
     p.add_argument("--no-evaluer", dest="no_evaluer", action="store_true",
                    help="Désactive l'action 'evaluer' — recommandé en production sur cibles "
                         "avec formulaires sensibles. (v1.15.1)")
@@ -1610,18 +1617,71 @@ def main():
             if args.reprendre_session:
                 session = _charger_session(args.reprendre_session)
                 viewport = session.get("viewport", {"width": args.largeur, "height": args.hauteur})
+                url_cible = args.url if args.url else session["url"]
+            else:
+                viewport = {"width": args.largeur, "height": args.hauteur}
+                url_cible = args.url
+
+            # ── Identifiants HTTP Basic Auth (v1.21.0) ─────────────────────────
+            # Résolus avant new_context() — le challenge Basic Auth se joue au
+            # niveau du protocole, avant tout rendu de page. 'origin' est
+            # obligatoire : sans lui, Chromium peut renvoyer ces identifiants à
+            # toute origine tierce chargée dans le même contexte (CDN, tracker,
+            # redirection) — fuite réelle, pas théorique (Playwright 1.61.0
+            # vérifié supporter {username, password, origin, send}).
+            # 'send: "unauthorized"' : envoi uniquement après un vrai 401, jamais
+            # préventif. Repli documenté si un reverse-proxy n'émet pas de 401
+            # propre : 'send: "always"', qui reste scopé par 'origin' — jamais un
+            # header Authorization fait main, qui contournerait ce scoping.
+            new_context_kwargs = {}
+            if args.http_credentials:
+                from urllib.parse import urlparse
+                secrets_chemin = getattr(args, "secrets", None)
+                # Clés dédiées http_username/http_password en priorité — nécessaires
+                # si la même cible a aussi un login applicatif distinct (Basic Auth
+                # réseau devant un formulaire web, ex. Caddy devant Grafana). Repli
+                # sur username/password (v1.21.0, trouvé en test réel contre une
+                # cible Basic Auth réelle) : la plupart des fichiers vault
+                # existants n'ont qu'une paire de clés, pas de raison de forcer un
+                # renommage pour le cas le plus courant.
+                if secrets_chemin:
+                    from lib.vault import lire_credential_fichier
+                    try:
+                        http_username = lire_credential_fichier(secrets_chemin, "http_username")
+                        http_password = lire_credential_fichier(secrets_chemin, "http_password")
+                    except KeyError:
+                        http_username = lire_credential_fichier(secrets_chemin, "username")
+                        http_password = lire_credential_fichier(secrets_chemin, "password")
+                else:
+                    from lib.vault import lire_credential, domaine_depuis_url
+                    _domaine = domaine_depuis_url(url_cible)
+                    try:
+                        http_username = lire_credential(_domaine, "http_username")
+                        http_password = lire_credential(_domaine, "http_password")
+                    except KeyError:
+                        http_username = lire_credential(_domaine, "username")
+                        http_password = lire_credential(_domaine, "password")
+                _parsed = urlparse(url_cible)
+                new_context_kwargs["http_credentials"] = {
+                    "username": http_username,
+                    "password": http_password,
+                    "origin": f"{_parsed.scheme}://{_parsed.netloc}",
+                    "send": "unauthorized",
+                }
+
+            if args.reprendre_session:
                 ctx = browser.new_context(
                     storage_state=session["storage_state"],
                     viewport=viewport,
                     ignore_https_errors=args.ignore_tls_errors,
+                    **new_context_kwargs,
                 )
-                url_cible = args.url if args.url else session["url"]
             else:
                 ctx = browser.new_context(
-                    viewport={"width": args.largeur, "height": args.hauteur},
+                    viewport=viewport,
                     ignore_https_errors=args.ignore_tls_errors,
+                    **new_context_kwargs,
                 )
-                url_cible = args.url
 
             page = ctx.new_page()
             # Correctif compatibilité playwright-stealth 2.x (v1.16.0) : l'API
@@ -1662,6 +1722,12 @@ def main():
                 waf_initial = _detecter_waf(http_status, page.title(), page.content()[:5000])
             except Exception:
                 pass
+
+            # ── Challenge HTTP Basic Auth non résolu (v1.21.0) ────────────────
+            # Signal distinct du WAF — c'est une authentification réseau, pas un
+            # blocage anti-bot. Pointe explicitement vers --http-credentials
+            # plutôt que de laisser l'agent face à un 401 opaque.
+            http_auth_requise = (http_status == 401)
 
             # ── Détection de dérive de session (lot 8.5) ──────────────────────
             # Comparaison sur l'URL effective après navigation (post-normalisation)
@@ -1805,6 +1871,14 @@ def main():
             result["boussole"]["som_rafraichir_actif"] = True
         if stealth_applique:
             result["boussole"]["stealth_actif"] = True
+        # v1.21.0 — jamais conditionné au seul flag CLI (précédent stealth_actif
+        # corrigé en v1.16.0/FR-79) : le flag doit être actif ET la navigation
+        # initiale ne doit pas s'être terminée en 401, preuve que les
+        # identifiants ont réellement résolu le challenge.
+        if args.http_credentials and not http_auth_requise:
+            result["boussole"]["http_credentials_actif"] = True
+        if http_auth_requise:
+            result["boussole"]["http_auth_requise"] = True
         if args.ignore_tls_errors:
             result["boussole"]["tls_errors_ignored"] = True
         if args.ignorer_waf:

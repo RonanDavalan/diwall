@@ -8,6 +8,10 @@
 #      de docs/GUIDE_LLM.md.
 #   2. Flags documentés : chaque `add_argument("--...")` de shot.py, rpa.py,
 #      watch.py doit apparaître au moins une fois quelque part sous docs/.
+#   3. Budget de longueur de docs/GUIDE_LLM.md (v1.21.0) : ≤250 lignes,
+#      promesse écrite dans CLAUDE.md — dérive silencieuse constatée le
+#      14/07/2026 (413 lignes réelles vs 250 promises), jamais détectée
+#      faute de ce contrôle.
 #
 # Best-effort assumé (grep, pas d'AST) — un faux négatif est possible sur une
 # construction Python inhabituelle ; un faux positif quasi impossible (une
@@ -79,8 +83,18 @@ for script in shot.py rpa.py watch.py; do
     done <<< "$flags"
 done
 
+# ── Vérification 3 — budget de longueur de GUIDE_LLM.md (v1.21.0) ──────────
+BUDGET_LIGNES=250
+if [ -f "$GUIDE_LLM" ]; then
+    lignes=$(wc -l < "$GUIDE_LLM")
+    if [ "$lignes" -gt "$BUDGET_LIGNES" ]; then
+        echo "verifier-coherence: $GUIDE_LLM — $lignes lignes, budget $BUDGET_LIGNES dépassé" >&2
+        DERIVE=1
+    fi
+fi
+
 if [ "$DERIVE" -eq 0 ]; then
-    echo "verifier-coherence: OK — notice-versions synchrones, flags documentés."
+    echo "verifier-coherence: OK — notice-versions synchrones, flags documentés, budget de longueur respecté."
     exit 0
 fi
 

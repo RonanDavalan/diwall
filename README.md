@@ -71,6 +71,13 @@ The language model decides what to do next.
 | **Scenario checkpoints** | `--checkpoint` resumes a long scenario after a mid-run failure without replaying completed actions (v1.17.0) |
 | **Stable SoM identity** | `--som-rafraichir` resolves `cliquer_som`/`remplir_som` by a DOM marker instead of live re-indexing, preventing silent retargeting on highly dynamic pages (v1.17.0) |
 | **Cross-origin iframes** | `cliquer_iframe` / `remplir_iframe` target elements inside same- or cross-origin iframes via Playwright's native frame API (v1.17.0) |
+| **Nested iframes** | `iframe_chemin` (array) descends iframe-inside-iframe, mutually exclusive with `iframe_selecteur` (v1.18.0) |
+| **Guide-read lock** | `shot.py`/`rpa.py`/`watch.py` refuse to run without proof `docs/GUIDE_LLM.md` was read — a local marker persists it per machine/user (v1.18.0) |
+| **Configuration advice** | `mode_conseille` recommends `--mode`/`--shadow-dom`/`--som-rafraichir` from real prior diagnostic runs on the same host — never a guess (v1.18.0) |
+| **Chained-scenario traceability** | `chainage` records the ordered call tree of scenarios chained via `declencher_scenario`, surfaced in the operations log (v1.19.0) |
+| **Per-action timing** | `latences_actions` reports dispatch latency for every action executed, always present (v1.20.0) |
+| **Error-only log view** | `journal.py --erreurs` filters the operations log to failed runs only (v1.20.0) |
+| **HTTP Basic Auth** | `--http-credentials` resolves network-level Basic Auth (RFC 7617) from the vault, scoped to the target's origin — distinct from and additional to form-based vault authentication (v1.21.0) |
 
 ---
 

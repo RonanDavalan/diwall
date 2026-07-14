@@ -1,3 +1,56 @@
+diwall (1.21.0-1) unstable; urgency=medium
+
+  * Documentation completeness pass across docs/: docs/GUIDE.md Case 4
+    corrected (falsely described Basic Auth as an open gap after it had
+    shipped), docs/RETOUR_EXPERIENCE.md FR-86 marked resolved,
+    docs/MANUEL.md/FAQ_LLM.md/README.md extended with --http-credentials
+    (previously undocumented in the operational manual, FAQ, and
+    capabilities table). Two real leaks found and fixed along the way: a
+    live service hostname in docs/RETOUR_EXPERIENCE.md and shot.py's own
+    comments (not in the preflight pattern list — a gap to close
+    separately), and a stale --guide-version token (3.8) in three
+    still-live usage examples.
+
+  * --http-credentials (shot.py, rpa.py): resolves HTTP Basic Auth
+    (RFC 7617) credentials from the vault and injects them at
+    browser-context creation, scoped to the target's origin
+    ("send": "unauthorized") — never sent to a third-party origin loaded
+    in the same context. Fallback documented for proxies that never issue
+    a clean 401: "send": "always", still origin-scoped, never a hand-built
+    Authorization header (not yet exercised against a real target).
+  * Vault keys: http_username/http_password tried first, falls back to
+    plain username/password if absent — found and fixed during real-target
+    validation against a live Caddy-protected admin interface, which
+    confirmed send: "unauthorized" resolves a real challenge on the first
+    attempt (the actual gap was key naming, not the send mode).
+  * boussole.http_credentials_actif is conditioned on the flag being
+    active AND the initial navigation not ending in 401 — never just the
+    CLI flag, same discipline as the stealth_actif fix (v1.16.0/FR-79).
+    boussole.http_auth_requise flags an unresolved 401 distinctly from
+    the WAF signal.
+  * scenarios/schema.json: optional root property http_credentials,
+    combinable with the CLI flag (OR), same pattern as shadow_dom.
+  * Non-presumption rule (CLAUDE.md Règle n°7, docs/GUIDE_LLM.md):
+    never affirm a Diwall capability is absent, never presume one exists,
+    without checking the action tables first.
+  * docs/GUIDE_LLM.md compressed to the 250-line budget promised in
+    CLAUDE.md (was 413 lines) — scripts/verifier-coherence.sh now fails
+    on any future regression of this budget.
+  * docs/GUIDE.md: four new anonymized demonstration cases (self-hosted
+    observability/analytics dashboard, ticketing platform administration,
+    local events tracking, e-commerce access under Citizen Navigation) —
+    tools, brands and the operator generalised by functional category,
+    never named — kept reusable as prompt templates regardless of which
+    specific product a reader is running.
+  * scenarios/interoperabilite/: local Basic Auth fixture (real 401
+    challenge, no third-party dependency) added as a permanent regression
+    fixture. scenarios/v1.21.0_validation/: 3/3 tests green.
+  * Resynchronised scenarios/v1.18.0_validation/'s hardcoded guide-version
+    token (3.7 -> 3.9) — pre-existing staleness found while running the
+    regression suite, not a functional regression.
+
+ -- Ronan Davalan <ronan@davalan.fr>  Tue, 14 Jul 2026 11:31:27 +0200
+
 diwall (1.20.0-1) unstable; urgency=medium
 
   * journal.py --erreurs: store_true flag filtering resultat != "succes",

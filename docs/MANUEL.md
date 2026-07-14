@@ -1,6 +1,6 @@
 # Diwall — Operational manual
 
-**Version 1.20.0 — July 2026**
+**Version 1.21.0 — July 2026**
 
 This document answers one question: **how to do X with Diwall**.
 
@@ -43,6 +43,8 @@ mandatory pre-flight), [2e](#2e-mode_conseille--pre-flight-configuration-advice)
 [8g](#8g-continuous-structural-monitoring--monitor-verifiersh) (`monitor-verifier.sh`).
 v1.20.0 additions: [9](#9-operation-log) (`journal.py --erreurs`),
 [11](#11-exit-codes-and-output) (`latences_actions` per-action timing).
+v1.21.0 additions: [4g](#4g-http-basic-auth---http-credentials-v1210)
+(`--http-credentials`, HTTP Basic Auth, confirmed against a real target).
 
 ---
 
@@ -57,7 +59,7 @@ v1.20.0 additions: [9](#9-operation-log) (`journal.py --erreurs`),
 ```bash
 # Full test in one command (~3 s)
 /opt/diwall/venv/bin/python3 /opt/diwall/shot.py \
-  --url https://example.com --mode fast --guide-version 3.8
+  --url https://example.com --mode fast --guide-version 3.9
 ```
 
 Expected result: JSON on stdout with `"succes": true`.
@@ -66,7 +68,7 @@ Expected result: JSON on stdout with `"succes": true`.
 run without it — unless a local marker from a previous accepted call already
 exists (`~/.config/diwall/guide_state.json`). The value is the
 `<!-- notice-version: X.Y -->` on line 3 of `docs/GUIDE_LLM.md` (currently
-`3.8`) — not the Diwall release number. See `docs/GUIDE_LLM.md` section
+`3.9`) — not the Diwall release number. See `docs/GUIDE_LLM.md` section
 "Mandatory pre-flight" for the full mechanism and the error format if you skip it.
 
 **Once the marker exists, `--guide-version` becomes optional again** — every
@@ -501,6 +503,39 @@ bash ~/git/Diwall/Diwall/scripts/mount-vault.sh
 ls ~/Vaults/__PROJET__/Diwall/
 # → must show JSON files
 ```
+
+### 4g. HTTP Basic Auth — `--http-credentials` (v1.21.0)
+
+For targets behind a network-level HTTP Basic Auth challenge (RFC 7617) —
+the wall a reverse proxy like Caddy, nginx, or Traefik raises before any
+page renders, common in front of self-hosted admin interfaces. This is a
+different mechanism from the vault-based **form** authentication above
+(4a-4f), which remains fully supported and unaffected.
+
+```bash
+/opt/diwall/venv/bin/python3 /opt/diwall/shot.py \
+  --url https://internal.example/ \
+  --http-credentials --secrets ~/Vaults/__PROJET__/Diwall/internal_example.json
+```
+
+Vault file — the plain `username`/`password` pair already used for the
+common case (a single set of credentials for the target):
+```json
+{"username": "admin", "password": "my-password"}
+```
+
+Dedicated `http_username`/`http_password` keys are tried first and only
+needed when the same target has *both* a network-level Basic Auth wall
+*and* its own separate application login (two different credential pairs
+in the same file) — Diwall falls back to `username`/`password`
+automatically when the dedicated keys are absent.
+
+Confirmed in production against a real Caddy-protected target: the safe
+default (`send: "unauthorized"` — credentials sent only after a genuine
+401, never preventively) resolved the challenge on the first attempt.
+`boussole.http_credentials_actif: true` confirms a real success, not just
+the flag being passed; `boussole.http_auth_requise: true` flags an
+unresolved 401 distinctly from a WAF block.
 
 ---
 
@@ -1155,6 +1190,7 @@ Fields in each entry:
 | `--interval-capture N` | 0 | Periodic captures every N seconds during `attendre`, `pause` |
 | `--som-rafraichir` | off | Stable SoM resolution by attribute instead of live re-indexing (v1.17.0, section 7j) |
 | `--ignorer-waf` | off | A detected WAF block degrades `niveau_confiance` but no longer forces `pret_a_agir: false` on its own (v1.17.2, section 3e) |
+| `--http-credentials` | off | Resolves HTTP Basic Auth credentials from the vault, scoped to the target's origin (v1.21.0, section 4g) |
 
 ### rpa.py
 
@@ -1170,6 +1206,7 @@ Propagates all relevant shot.py flags, plus:
 | `--mode fast\|full` | Propagated to shot.py |
 | `--som-rafraichir` | Propagated to shot.py (v1.17.0, section 7j) |
 | `--ignorer-waf` | Propagated to shot.py (v1.17.2, section 3e) |
+| `--http-credentials` | Propagated to shot.py. Also settable as scenario root property `"http_credentials": true` (v1.21.0, section 4g) |
 | `--sauver-verifier-reference FILE` | Saves structural reference for `--replay-verifier` (v1.17.0, section 5h) |
 | `--replay-verifier FILE` | Compares run against a structural reference, exit 1 on regression (v1.17.0, section 5h) |
 | `--checkpoint FILE` | Resumes a long scenario after a mid-run failure (v1.17.0, section 5i) |

@@ -1,6 +1,6 @@
 # Diwall — Operator guide
 
-Version 1.8 — July 2026 (v1.20.0) — demonstration use cases (local CSS/JS troubleshooting, component comparison, SPA documentation synthesis)
+Version 1.9 — July 2026 (v1.21.0) — four more demonstration use cases (self-hosted observability, ticketing platform administration, local events tracking, e-commerce access under Citizen Navigation)
 
 ---
 
@@ -98,7 +98,7 @@ regression. Run it directly:
 ```bash
 /opt/diwall/venv/bin/python3 /opt/diwall/rpa.py \
   --scenario /opt/diwall/scenarios/exemples/depannage_local.json \
-  --guide-version 3.8
+  --guide-version 3.9
 ```
 
 The two cases below are narrative only — no scenario file is committed for
@@ -139,6 +139,89 @@ provider whose documentation happens to be the working example) is a
 commercial and reputational commitment this project should not make by
 default, and the same WAF-fragility risk applies to a public scenario
 pinned to one real target.
+
+### Case 4 — configuring a self-hosted observability or analytics dashboard
+
+An operator setting up a self-hosted monitoring or web-analytics dashboard
+behind a reverse proxy can use Diwall to drive the interface itself —
+creating a dashboard, wiring a data source, setting an alert rule — the
+same way any other admin panel gets configured, rather than hand-editing
+files for steps the UI is meant to handle. This includes targets sitting
+behind a network-level HTTP Basic Auth challenge (`--http-credentials`,
+v1.21.0) — confirmed against a real Caddy-protected admin interface, not
+just a synthetic fixture: the vault-resolved credentials answered the
+challenge on the first attempt.
+
+**Not shipped as a committed scenario** — the dashboard layout and data
+source names are specific to one operator's infrastructure, and inventing
+a synthetic equivalent would duplicate what the local fixture in Case 1
+already covers for structural regression, not for this kind of guided,
+multi-step configuration work.
+
+### Case 5 — administering a ticketing platform end-to-end
+
+Diwall used across several sessions to configure and operate a real
+self-hosted ticketing installation — event setup, ticket categories, a
+custom domain, and the day-of scan/check-in tooling — through the same web
+interface a human administrator would use. Real friction was encountered
+and resolved along the way (session handling, dropdown quirks, a
+permission prompt blocking an unattended step) — not a friction-free
+success story, which is part of what makes it a useful example: the
+obstacles were ordinary web-automation obstacles, not something specific
+to Diwall.
+
+**Not shipped as a committed scenario** — a ticketing configuration touches
+billing and venue specifics unique to the operator, same reasoning as
+Case 2.
+
+### Case 6 — tracking a regional events calendar
+
+A simple semantic-probe usage: asking an agent to check a local events
+calendar for upcoming happenings, without knowing in advance which page
+holds the answer. Diwall's fast mode (`--mode fast`, no
+capture) combined with the accessibility tree lets the agent scan and
+report back in a handful of requests — no vision model needed for this
+kind of read-only, text-driven task. One session also produced a clean,
+real example of the WAF signal's documented false-positive behaviour: a
+page loaded normally (rich content, no captcha, no interstitial) while
+`citoyennete.waf_bloquants` still fired, because of an unrelated third-party
+resource on the page matching a detection keyword — resolved in about a
+minute by reading the accessibility tree already present in the same
+response, exactly as the guide's "signal, never a lock" rule anticipates.
+
+**Not shipped as a committed scenario** — a specific regional events site
+is not a stable, reproducible public target, and naming one publicly is
+the operator's call, not a project default.
+
+### Case 7 — testing real-world access to e-commerce sites under Citizen Navigation
+
+A recurring, honest observation from actual sessions: used respectfully
+(rate-limited delays, page/action caps, `--stealth` active, no attempt to
+force access past a real block), Diwall run against a range of e-commerce
+sites finds that a large share of major platforms return an outright
+block — HTTP 403, or a request that never completes — regardless of how
+courteous the traffic is. This is not a Diwall shortcoming to fix:
+anti-bot posture is the site's own choice, and Diwall does not attempt to
+defeat it (see "Citizen Navigation" above). Practically: for
+shopping-comparison tasks against large commercial platforms, expect a
+meaningful share of dead ends, and treat a block signal
+(`citoyennete.waf_bloquants`) as information to route around, not an error
+to retry against.
+
+A distinction worth keeping in mind: an invisible verification screen that
+never resolves and presents nothing to act on (no checkbox, no image
+challenge) is different from an interactive CAPTCHA. The latter is
+legitimate to answer honestly — an agent operating for a named human, from
+that human's own IP, is not the "robot" the question is aimed at. The
+former simply offers no door to open from the agent's side, and forcing
+past it (IP rotation, TLS fingerprint spoofing) falls outside what Diwall
+does.
+
+**Not shipped as a committed scenario, and deliberately not naming the
+platforms involved** — see the WAF-fragility reasoning under Case 2: a
+dated block/no-block table tied to named commercial sites goes stale and
+undermines its own point faster than it illustrates it. `docs/RETOUR_EXPERIENCE.md`
+FR-77 documents the same pattern at panel scale (39% immediate block rate).
 
 ---
 

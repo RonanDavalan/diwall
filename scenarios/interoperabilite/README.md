@@ -45,3 +45,38 @@ venv/bin/python3 rpa.py --scenario scenarios/interoperabilite/scenario_fixture_l
 `exit 0` + silence = stable. `exit 1` + verdict JSON sur stderr = régression
 (diff détaillé). Les fichiers `ref_*.json` ne sont pas versionnés (générés
 localement) — voir `.gitignore`.
+
+## Fixture Basic Auth (`--http-credentials`, v1.21.0)
+
+`scenario_basicauth.json` cible un serveur Python minimal
+(`fixture/serveur_basicauth.py`) qui émet un vrai challenge HTTP Basic Auth
+(RFC 7617, `WWW-Authenticate: Basic`) — aucune dépendance réseau externe,
+comportement déterministe. Identifiants attendus (non sensibles, fixture
+locale uniquement) : `diwall_fixture` / `diwall_fixture_password`.
+
+```bash
+# 1. Lancer le serveur de fixture (tourne pendant toute la durée du test)
+python3 scenarios/interoperabilite/fixture/serveur_basicauth.py &
+
+# 2. Créer le fichier vault de la fixture (clés fixes http_username/http_password)
+#    DANS un point de montage FUSE actif (le coffre gocryptfs de l'opérateur) —
+#    /tmp est un tmpfs mais _coffre_est_monte() restreint T1 aux montages FUSE
+#    uniquement (lib/vault.py), tmpfs est donc refusé malgré la mention dans
+#    le message d'erreur (vérifié en conditions réelles, 15/07/2026).
+cat > ~/Vaults/<COFFRE_MONTE>/diwall_fixture_vault.json <<'EOF'
+{"http_username": "diwall_fixture", "http_password": "diwall_fixture_password"}
+EOF
+
+# 3. Lancer le scénario
+cd /opt/diwall
+venv/bin/python3 rpa.py --scenario scenarios/interoperabilite/scenario_basicauth.json \
+  --secrets ~/Vaults/<COFFRE_MONTE>/diwall_fixture_vault.json --guide-version 3.9
+
+# Vérifications attendues dans la sortie JSON :
+#   succes: true
+#   boussole.http_credentials_actif: true
+#
+# Contre-épreuve (sans --http-credentials, éditer temporairement le scénario
+# pour retirer "http_credentials": true) : le serveur renvoie 401,
+# boussole.http_auth_requise: true, l'assertion 'contient' échoue (succes: false).
+```

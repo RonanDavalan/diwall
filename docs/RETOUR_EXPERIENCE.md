@@ -2644,9 +2644,233 @@ et la disponibilité du layout au moment du clic suivant dans la même action li
 Reproductible avec le dialogue de suppression de domaine Sillage
 (`?vue=reglages&client=...`, section Domaines, bouton « Supprimer » sur une carte domaine).
 
+**Confirmation du même pattern (12/07/2026, Diwall v1.20.0)** : reproduit à l'identique sur
+un élément non lié à un `<dialog>` — un toggle switch CSS (case à cocher masquée visuellement,
+`<label>` custom par-dessus) pour activer la réplication automatique. `cliquer` avec
+`force: true` échouait de la même façon (« element outside of viewport » / not visible).
+Même contournement, même succès : `evaluer` JS direct (`checkbox.checked = true` +
+`dispatchEvent('change')`). Élargit la portée de FR-81 : le problème n'est pas spécifique à
+`showModal()`, mais à toute la famille des éléments interactifs masqués visuellement au
+profit d'un habillage CSS custom (dialog, toggle switch, probablement aussi les selects
+stylés). Renforce la recommandation d'escalade déjà formulée : documenter `evaluer` JS
+comme option par défaut, pas seulement de secours, pour toute cette famille.
+
+---
+
+### FR-82 — `boussole.session_derive` a orienté un diagnostic vers une fausse piste (session expirée) alors que la cause réelle était une erreur HTTP 500 applicative masquée
+
+**Description :** diagnostic d'un bouton d'action délégué (« Sauvegarder maintenant »,
+espace client L2 de Sillage) qui redirigeait systématiquement vers la page de login au lieu
+d'exécuter l'action. Le signal `boussole.session_derive` de Diwall a orienté l'investigation
+vers l'hypothèse « session L2 expirée / cookie perdu entre deux étapes » — plusieurs cycles
+de test (`--reprendre-session`/`--sauver-session`, vérification `document.cookie`, reproduction
+en un seul appel Playwright continu pour éliminer une perte de cookie inter-process) ont été
+dépensés sur cette piste avant qu'elle ne soit écartée.
+
+**Cause réelle** (trouvée hors Diwall, par `curl` brut reproduisant le POST exact) : un bug
+applicatif Sillage à deux étages — un formulaire HTML avec `action="?"` qui effaçait un
+paramètre GET nécessaire à l'authentification côté serveur, puis (une fois ce premier bug
+corrigé) une fonction PHP non chargée provoquant une erreur HTTP 500 masquée en page blanche
+côté client (`display_errors=0`, comportement de production correct mais qui cache le signal).
+Le symptôme observable (redirection vers login) était identique à une vraie expiration de
+session — mais la cause n'avait rien à voir avec la session elle-même.
+
+**Ce qui a permis de sortir de la fausse piste :** abandon de Diwall pour cette étape précise,
+`curl` manuel reproduisant le POST exact — la distinction HTTP 500 vs HTTP 302 (redirection
+d'auth) a immédiatement écarté l'hypothèse session.
+
+**Non investigué ce soir :** si `session_derive` se base sur un pattern générique
+(« retour inattendu vers une page de login ») sans distinguer le code HTTP réellement reçu, ou
+sur un autre signal. Si c'est le cas, le signal pourrait être affiné pour distinguer un vrai
+302 d'authentification d'un flux qui *ressemble* à une perte de session vue depuis le DOM final
+(page de login affichée) mais qui provient d'une erreur serveur en amont. Suggestion : exposer
+le code HTTP de la dernière réponse à côté du signal `session_derive`, pour que l'appelant
+puisse écarter rapidement l'hypothèse session si le code n'est pas 302/401/403.
+
+---
+
+### FR-83 — `--sauver-session`/`--reprendre-session` ne préserve pas l'état DOM transitoire (dialog ouvert, `<select>` positionné) entre deux invocations séparées
+
+**Description :** test d'un formulaire dans un `<dialog>` (sélection source/destination
+pour une action de duplication, Sillage). Séquence en plusieurs invocations séparées de
+`shot.py --reprendre-session` : (1) clic pour ouvrir le dialog, (2)/(3) positionnement de
+deux `<select>` via `evaluer` + `dispatchEvent(change)`, vérifié correct par lecture DOM
+immédiate, (4) clic sur le bouton de soumission dans une **quatrième invocation séparée**.
+Le clic a réussi (`succes: true`) mais a soumis les valeurs **par défaut** du HTML, pas
+celles positionnées à l'étape (2)/(3) — le dispatcher a reçu l'inverse de ce qui était
+attendu (source/dest inversés).
+
+**Cause** : `--sauver-session`/`--reprendre-session` restaure l'état de la session HTTP
+(cookies), mais chaque invocation **recharge la page depuis zéro** — un `<dialog>` ouvert
+par un clic précédent et des valeurs de `<select>` positionnées par `evaluer` sans
+soumission ne survivent pas au rechargement. Le clic de l'étape (4) a donc cliqué un bouton
+de soumission bien réel mais à l'intérieur d'un dialog rouvert avec ses valeurs HTML par
+défaut, sans que rien ne le signale (`succes: true`, aucune erreur).
+
+**Contournement appliqué** : regrouper ouverture + positionnement + vérification +
+soumission dans une **seule invocation** avec `--actions` (liste d'actions), au lieu de
+`--action` unique répété sur plusieurs appels `--reprendre-session`. Fonctionne à 100 % une
+fois regroupé — reproductible et vérifié par lecture DOM juste avant la soumission, dans le
+même appel.
+
+**Conséquence potentiellement grave évitée de justesse** : dans ce cas précis, l'inversion
+source/destination aurait pu écraser un domaine différent de celui visé si les deux
+domaines n'avaient pas eu un contenu déjà proche l'un de l'autre au moment du test — un
+appelant moins prudent (pas de vérification de l'état avant/après) aurait pu attribuer à
+tort le succès rapporté par Diwall (`succes: true`) à l'opération réellement voulue.
+
+**Suggestion d'escalade pour `GUIDE_LLM_INTERACTIONS.md`** : documenter explicitement que
+tout état DOM non soumis (dialog ouvert, champ rempli, select changé) est perdu entre deux
+invocations séparées de `--reprendre-session`, même si la session HTTP reste valide — une
+séquence « ouvrir → remplir → soumettre » doit toujours être un seul appel `--actions`,
+jamais fragmentée en plusieurs `--reprendre-session` successifs quand une soumission de
+formulaire est en jeu.
+
+**Version :** Diwall v1.20.0. Session Sillage — 12/07/2026.
+
 **Escalade utile pour `GUIDE_LLM_INTERACTIONS.md` :** la note actuelle sur `force: true`
 et `showModal()` (ligne ~31, decision tree item 4) mériterait un avertissement — dans un
 `<dialog>` ouvert par script plutôt que par interaction utilisateur, préférer d'emblée
 `evaluer` JS pour toute la séquence plutôt que `cliquer` + `force`.
 
 **Version :** Diwall v1.17.2. Session Sillage — 03/07/2026.
+
+---
+
+# Session __HOST_VPS__ — 13 juillet 2026 — Construction d'un dashboard Grafana (édition SPA, éditeur Monaco)
+
+Première session de ce type sur le projet __HOST_VPS__ : piloter Grafana via son
+interface web (édition de panneau, requêtes PromQL) plutôt qu'une simple
+validation de login. Plusieurs frictions inédites, propres à une SPA
+d'édition complexe.
+
+---
+
+### Confirmation de FR-83 dans un contexte différent (dashboard non sauvegardé)
+
+Même cause, autre manifestation : construire un panneau Grafana étape par
+étape avec un appel `shot.py` par étape et `--sauver-session`/
+`--reprendre-session` entre chaque renvoyait systématiquement à l'écran
+« New dashboard » vierge — le panneau en cours d'édition n'existe que dans le
+DOM/state React de la session navigateur précise, jamais sauvegardé nulle
+part ailleurs. Même remède que FR-83 : tout le parcours (login compris) dans
+une seule invocation tant que l'objet n'est pas persisté côté serveur. Une
+fois le dashboard réellement sauvegardé (UID obtenu), reprendre une session
+pour la suite (ajouter un panneau à un dashboard existant) redevient fiable.
+Un détail nouveau à ajouter à la règle de FR-83 : la frontière n'est pas
+« formulaire vs pas formulaire » mais **persisté vs non persisté** — un
+dashboard non sauvegardé est un cas exactement aussi volatile qu'un dialog
+non soumis.
+
+**Version :** Diwall v1.20.0. Session __HOST_VPS__ — 13/07/2026.
+
+---
+
+### FR-84 — `cliquer_som` avec un ID capturé avant une mutation DOM non-navigationnelle peut viser le mauvais élément
+
+**Description :** dans l'éditeur de requête Grafana, un bouton bascule
+« Builder » / « Code » fait disparaître un toggle « Explain » situé juste
+avant dans le DOM. Un ID de bouton (« Run queries ») capturé *avant* ce
+basculement ne correspondait plus au bon élément une fois en mode Code
+(décalage d'un cran). Une tentative d'enchaîner plusieurs actions à la suite
+sans revérifier le SoM après le basculement a produit une fois un échec
+franc (« élément non trouvé ») et, plus inquiétant, une fois un comportement
+inattendu : retour sur l'écran de login après 13 actions apparemment
+réussies, sans message d'erreur avant l'échec final sur un ID suivant. Cause
+exacte non confirmée (peut-être un clic ayant atteint un élément de
+déconnexion par pur hasard de décalage d'ID) — **non investigué
+davantage**, pas reproduit une seconde fois après correction.
+
+**Contournement appliqué :** ne jamais réutiliser un ID de SoM au-delà d'une
+action qui modifie potentiellement le DOM, même sans navigation complète —
+un simple toggle suffit. Recapturer le SoM immédiatement après toute
+mutation, avant de s'en servir pour cibler l'action suivante.
+
+**Version :** Diwall v1.20.0. Session __HOST_VPS__ — 13/07/2026.
+
+---
+
+### FR-85 — Éditeur Monaco (`role="code"`) : `remplir_som` sur l'ID visible échoue silencieusement, `remplir` par sélecteur générique fait un strict-mode violation
+
+**Description :** le champ de requête PromQL de Grafana (mode "Code") est un
+éditeur Monaco (VS Code), rendu comme `<div role="code" class="monaco-editor...">`
+avec un `<textarea>` caché à l'intérieur pour la saisie clavier réelle. Le
+SoM capturait cet élément comme un `BUTTON` au texte vide et non interactif
+au sens standard — `remplir_som` dessus ne fonctionnait pas. Tentative
+suivante avec `cliquer` sur `.monaco-editor` : échec strict-mode (2 éléments
+correspondent — l'éditeur réel *et* un widget de renommage Monaco caché
+ailleurs sur la page, tous deux avec la classe `monaco-editor`).
+
+**Contournement appliqué :** reconnaissance ciblée via `evaluer`
+(`document.querySelector('[role="code"] textarea')`) pour confirmer le
+sélecteur précis, puis `remplir` (pas `remplir_som`) directement sur
+`[role="code"] textarea` — plus spécifique que `.monaco-editor textarea`,
+lève l'ambiguïté. Fonctionne du premier coup une fois le bon sélecteur
+identifié ; le texte apparaît avec la coloration syntaxique normale,
+confirmant qu'il passe bien par le modèle interne de Monaco et pas par un
+simple `value=` cosmétique.
+
+**Suggestion pour `GUIDE_LLM_INTERACTIONS.md` :** ajouter un cas « éditeurs
+de code embarqués (Monaco, CodeMirror) » — SoM les numérote souvent mal (pas
+un vrai `<input>`/`<textarea>` visible), et `[role="code"] textarea` (ou
+équivalent CodeMirror `.cm-content`) est plus fiable qu'un sélecteur de
+classe générique, sujet à collision avec des instances cachées.
+
+**Version :** Diwall v1.20.0. Session __HOST_VPS__ — 13/07/2026.
+
+---
+
+### FR-86 — Aucune prise en charge native du challenge HTTP Basic Auth (401)
+
+> **RÉSOLU en v1.21.0 (15/07/2026).** `--http-credentials` résout désormais
+> les identifiants HTTP Basic depuis le vault et les injecte au contexte
+> navigateur, scopés à l'origine de la cible. Validé contre une cible Basic
+> Auth réelle (pas seulement une fixture locale) : succès dès le premier
+> essai. Détail complet : `docs/GUIDE_LLM_SESSIONS.md` section
+> `--http-credentials`, `docs/JOURNAL.md` session 55.
+
+**Description (constat d'origine, avant résolution) :** deux interfaces
+d'administration auto-hébergées (un tableau de bord d'observabilité et un
+service de métriques associé) étaient protégées par un `basic_auth` Caddy
+(couche réseau, avant même l'application). `shot.py --help` passé en revue
+intégralement : aucune option pour fournir des identifiants HTTP Basic (pas
+de `--http-credentials`, pas de verbe d'action dédié). Le mécanisme de
+vault (`--secrets`, `remplir_som` + `vault_cle`) est conçu pour des
+formulaires web, pas pour un challenge navigateur natif qui bloque la page
+avant même son rendu.
+
+**Contournement appliqué :** tunnel SSH local (`ssh -L <port>:127.0.0.1:<port>
+__HOST_VPS__`) vers les ports internes des applications, pour les valider
+directement sans jamais faire transiter le mot de passe basicauth par une
+URL en clair. Fonctionne bien pour un service interne joignable en SSH, mais
+n'aide en rien si la cible n'est **que** publique (pas de SSH possible vers
+le backend).
+
+**Évolution livrée (v1.21.0) :** `--http-credentials` résout les
+identifiants depuis le vault (même discipline que `remplir_som` +
+`vault_cle`, jamais en clair dans les arguments CLI) et les injecte à la
+création du contexte navigateur (`browser.new_context(http_credentials=…)`),
+scopés à l'origine de la cible. Revalidé contre les deux interfaces
+d'origine de ce constat — succès dès le premier essai avec le mode par
+défaut le plus sûr (`send: "unauthorized"`).
+
+**Version :** Diwall v1.20.0 (constat). Résolu en v1.21.0. Session
+`__HOST_VPS__` — 13-15/07/2026.
+
+---
+
+### Ce qui a bien fonctionné, à noter aussi
+
+- Une fois la discipline "reconnaissance avant mutation" réellement suivie
+  (capturer le SoM, l'inspecter, agir, plutôt qu'enchaîner à l'aveugle), zéro
+  nouvel échec sur le reste du parcours — y compris la pose du titre du
+  panneau via manipulation directe du setter React natif (`evaluer` +
+  `Object.getOwnPropertyDescriptor(...).set`), nécessaire car ce champ ignore
+  un `input`/`change` event synthétique simple sans passer par le setter
+  natif de `HTMLInputElement`.
+- La preuve visuelle (capture) a été le vrai livrable utile face à
+  l'opérateur : un `curl` à 200 n'aurait rien dit sur si Grafana affichait
+  réellement un dashboard fonctionnel avec de vraies données après la
+  coupure de l'OAuth Plesk mort.
+
+**Version :** Diwall v1.20.0. Session __HOST_VPS__ — 13/07/2026.

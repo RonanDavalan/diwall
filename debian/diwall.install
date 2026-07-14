@@ -14,6 +14,8 @@ lib/preflight_guide.py opt/diwall/lib/
 requirements.txt opt/diwall/
 docs/*.md opt/diwall/docs/
 scenarios/schema.json opt/diwall/scenarios/
+scenarios/diagnostic_dom.json opt/diwall/scenarios/
+scenarios/test_stealth.json opt/diwall/scenarios/
 scenarios/exemples/*.json opt/diwall/scenarios/exemples/
 scenarios/interoperabilite/*.json opt/diwall/scenarios/interoperabilite/
 scenarios/interoperabilite/README.md opt/diwall/scenarios/interoperabilite/

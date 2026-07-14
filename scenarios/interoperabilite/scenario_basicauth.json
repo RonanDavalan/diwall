@@ -1,0 +1,10 @@
+{
+  "$schema": "https://raw.githubusercontent.com/RonanDavalan/diwall/main/scenarios/schema.json",
+  "nom": "interoperabilite_basicauth",
+  "description": "Fixture de non-regression v1.21.0 : challenge HTTP Basic Auth reel (RFC 7617), resolu via --http-credentials. Cible servie localement — voir scenarios/interoperabilite/README.md pour lancer le serveur et creer le fichier vault de la fixture.",
+  "url": "http://127.0.0.1:8643/",
+  "http_credentials": true,
+  "actions": [
+    {"type": "evaluer", "script": "document.body.innerText", "contient": "Basic Auth OK"}
+  ]
+}

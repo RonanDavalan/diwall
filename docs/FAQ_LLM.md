@@ -1,6 +1,6 @@
 # Diwall — FAQ for LLMs
 
-Version 1.6 — July 2026 (v1.20.0) — version table through v1.20.0, `--guide-version` current token 3.8
+Version 1.7 — July 2026 (v1.21.0) — version table through v1.21.0, `--guide-version` current token 3.9
 
 Answers to technical questions raised by language models during real Diwall sessions.
 No attribution — these are recurring questions, not individual testimonies.
@@ -23,8 +23,8 @@ incident that motivated it.
 
 ```bash
 cat /opt/diwall/docs/GUIDE_LLM.md
-# read it, find "<!-- notice-version: X.Y -->" near the top (currently 3.8), then:
-/opt/diwall/venv/bin/python3 /opt/diwall/shot.py --url <url> --guide-version 3.8
+# read it, find "<!-- notice-version: X.Y -->" near the top (currently 3.9), then:
+/opt/diwall/venv/bin/python3 /opt/diwall/shot.py --url <url> --guide-version 3.9
 ```
 
 You will not be asked again on this machine, as this OS user, until
@@ -272,6 +272,21 @@ alongside `"auth_indicator"`. `rpa.py` propagates it to `shot.py` automatically.
 
 ---
 
+### Q: Can Diwall fill a login form? What about a network-level auth wall (HTTP Basic Auth)?
+
+Both, and they are unrelated mechanisms — do not confuse one for a limit on
+the other. **Web form authentication** (a username/password `<input>` on a
+page) has always been supported, and is Diwall's core credential
+mechanism: `remplir_som` + `valeur: "depuis_vault"` (see the Security
+section of `docs/GUIDE_LLM.md`). **HTTP Basic Auth** (RFC 7617, a browser-
+level challenge raised by a reverse proxy before any page renders — Caddy,
+nginx, Traefik) is a separate, network-layer mechanism: `--http-credentials`
+(v1.21.0, `docs/GUIDE_LLM_SESSIONS.md`), confirmed against a real
+Caddy-protected target. Never presume either is unsupported without
+checking — see `CLAUDE.md` Règle n°7.
+
+---
+
 ## Scenarios and validation
 
 ### Q: Is there a dry-run or pre-validation mode?
@@ -356,14 +371,16 @@ runs a single continuous session. The vault and journal are managed by the paren
 | Vault write guard (journal/proof archiving), SoM collision cleanup, refined WAF heuristic + `--ignorer-waf`, checkpoint citizenship-cap fix | v1.17.2 |
 | Mandatory `--guide-version`/`--version` pre-flight lock, `mode_conseille`, nested iframes (`iframe_chemin`), `scripts/monitor-verifier.sh` | v1.18.0 |
 | `mode_conseille` filtered to successful diagnostics only, `chainage` traceability for `declencher_scenario`, `etat` clarified as declarative | v1.19.0 |
-| `journal.py --erreurs` filter, `latences_actions` per-action timing | **v1.20.0** |
+| `journal.py --erreurs` filter, `latences_actions` per-action timing | v1.20.0 |
+| `--http-credentials` (HTTP Basic Auth, vault-resolved, origin-scoped), `docs/GUIDE_LLM.md` compressed to its 250-line budget, non-presumption rule | **v1.21.0** |
 
-**Current stable version: v1.20.0** (v1.17.1 was a documentation-only
+**Current stable version: v1.21.0** (v1.17.1 was a documentation-only
 correction; v1.17.2 was a fix patch — see the rows above).
 
 The operation log (`/var/log/diwall/operations.jsonl`) and the friction index
-(`docs/RETOUR_EXPERIENCE.md`) cover the full history from v1.0.
-As of 10 July 2026: **81 documented frictions / 53 sessions**.
+(`docs/RETOUR_EXPERIENCE.md`) cover the full history from v1.0 — see that
+file directly for the current friction count rather than a number
+duplicated here, which would otherwise need updating every cycle.
 
 ---
 

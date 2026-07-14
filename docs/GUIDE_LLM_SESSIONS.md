@@ -1,7 +1,11 @@
 # Diwall — Sessions guide (vault, credentials, SPA, MFA, multi-page)
 
-<!-- notice-version: 1.5 -->
-Version 1.5 — July 2026 (v1.17.2) — vault write guard, checkpoint citizenship-cap fix
+<!-- notice-version: 1.8 -->
+Version 1.8 — July 2026 (v1.21.0) — `--http-credentials`: username/password
+fallback, confirmed against a real Caddy target. Fixed a false claim that
+`--secrets` accumulates across repeated flags (it does not); clarified that
+its filename is arbitrary, never hostname-derived — both found via a real
+field session (Qwen3.6 Plus, ticketing-platform check-in documentation, 14/07/2026)
 
 Load this notice when: vault credentials, `--secrets`, session persistence, SPA navigation,
 multi-page flows, MFA/TOTP, auth_indicator, --no-capture.
@@ -82,11 +86,15 @@ When a scenario needs credentials from a vault different from the default:
   --secrets /opt/diwall/vaults/other-vault/creds.json
 ```
 
-**Multi-vault scenarios** (v1.10.0): pass `--secrets` multiple times for multiple vaults.
-```bash
---secrets /opt/diwall/vaults/vault-A/creds.json \
---secrets /opt/diwall/vaults/vault-B/creds.json
-```
+**Multi-vault (v1.10.0):** one `--secrets FILE` per run — not repeatable on the
+same command line (`--secrets` is a single value; a second occurrence
+silently overrides the first, it does not accumulate). "Multi-vault" means
+across runs: an operator with several tenants/projects each keeps their own
+vault file, and each run picks the right one explicitly via `--secrets`,
+instead of relying on automatic per-hostname resolution. **The filename is
+whatever the operator chose — never assume it matches the target's
+hostname** (e.g. a file named `client-a.json` can hold credentials for
+`app.client-a.example`); `ls` the vault directory or ask rather than guess.
 
 ---
 
@@ -395,6 +403,59 @@ When active, `boussole.tls_errors_ignored: true` appears in the JSON output.
 **Never use on public internet targets.** An invalid TLS certificate on a public
 target is a strong signal of a TLS interception attack (MITM). Do not pass this
 flag unless you have a specific, documented reason for a controlled LAN or dev environment.
+
+---
+
+## `--http-credentials` — HTTP Basic Auth (v1.21.0)
+
+Diwall's vault handles web **form** authentication (`remplir_som` +
+`depuis_vault`). It does not, on its own, answer a browser-level HTTP Basic
+Auth challenge (RFC 7617) — the kind a reverse proxy (Caddy, nginx, Traefik)
+raises before any page renders. `--http-credentials` closes that specific
+gap. It does **not** mean form-based authentication is unsupported — the
+two are unrelated mechanisms, and conflating them is a documented mistake
+to avoid (see `CLAUDE.md` Règle n°7).
+
+```bash
+/opt/diwall/venv/bin/python3 /opt/diwall/shot.py \
+  --url https://internal.example/ \
+  --http-credentials
+```
+
+Or via `rpa.py` (propagated automatically), or as a scenario root property
+`"http_credentials": true` — combinable with the CLI flag, same pattern as
+`shadow_dom`.
+
+**Vault keys:** `http_username`/`http_password` tried first (needed only if
+the same target also has a separate application-level login behind the
+Basic Auth wall, e.g. a reverse proxy in front of its own login form — two
+different credential pairs in the same file). If absent, Diwall falls back
+to the plain `username`/`password` keys — the common case, confirmed
+against a real Caddy-protected target (v1.21.0): most vault files already
+have exactly this pair for a single-credential target, no renaming needed.
+Resolved from the same file already in scope for the run (`--secrets` if
+passed, otherwise the default vault by hostname). Never passed on the
+command line.
+
+**Security — non-negotiable:** identifiers are scoped to the target's
+origin (`scheme://host:port`) and sent only after a real 401
+(`send: "unauthorized"`). This is not configurable per-run — it protects
+against Diwall sending credentials to a third-party origin (CDN, tracker,
+redirect) loaded inside the same browser context.
+
+**Confirmed against a real target (v1.21.0):** `send: "unauthorized"`
+resolved a real Caddy-protected admin interface on the first attempt — the
+safe default is not just theoretical.
+
+**When it may still fail:** if a target never issues a clean 401 (some
+reverse proxies expect credentials preemptively), `--http-credentials` will
+not resolve the challenge — a known limit of the safe default, not
+exercised against a real target yet, and currently not switchable at
+runtime (`send: "always"` would need a source change, no CLI flag exists
+for it). `boussole.http_auth_requise: true` confirms a 401 was actually
+hit; `boussole.http_credentials_actif: true` confirms the challenge was
+actually resolved (never just that the flag was passed — same discipline
+as `stealth_actif`, v1.16.0).
 
 ---
 

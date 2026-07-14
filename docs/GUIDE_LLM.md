@@ -1,105 +1,78 @@
 # Diwall — LLM Guide (index)
 
-<!-- notice-version: 3.8 -->
-Version 3.8 — July 2026 (v1.20.0) — `GUIDE_LLM_MONITORING.md` routing row
-updated for `latences_actions` and `journal.py --erreurs`
+<!-- notice-version: 3.9 -->
+Version 3.9 — July 2026 (v1.21.0) — compressed under the 250-line budget;
+non-presumption rule added; `--http-credentials` routing.
 
 **You are a language model. This is the entry point. Read it fully, then load
 the notice that matches your task.**
 
-> **Need a command right now?** Load `docs/MANUEL.md` — it answers "how to do X"
-> with exact commands, real paths, real values. This guide handles routing and security rules.
->
-> ```bash
-> cat /opt/diwall/docs/MANUEL.md
-> ```
+> **Need a command right now?** Load `docs/MANUEL.md` — exact commands, real
+> paths, real values. This guide handles routing and security rules only.
+> `cat /opt/diwall/docs/MANUEL.md`
+
+## Non-presumption rule — non-negotiable (v1.21.0)
+
+Never affirm a Diwall capability does not exist, and never presume one does,
+without checking first — grep the action tables below/in the notices, or run
+`--help`. Unsure? Say "not confirmed in the documentation," never a guess
+either way. (A model once claimed Diwall couldn't fill an auth form — false,
+see Security below. Full reasoning: `Diwall/CLAUDE.md` Règle n°7.)
 
 ---
 
-## Mandatory pre-flight — `--guide-version` (read this first, v1.18.0+)
+## Mandatory pre-flight — `--guide-version` (v1.18.0+)
 
-`shot.py`, `rpa.py`, and `watch.py` refuse to run without proof you have read
-this file. This is the **only** exception to Diwall's opt-in design in the
-entire codebase — a deliberate one. A purely documentary convention failed
-repeatedly in practice: models called Diwall without reading anything first,
-hit avoidable errors, and only read the guide after being told to, correctively
-rather than preventively (see `docs/RADAR_MODELES.md` for the field evidence
-that motivated this).
-
-**The token is on line 3 of this file** — the `<!-- notice-version: X.Y -->`
-comment, same convention already used by the three notices below.
+`shot.py`/`rpa.py`/`watch.py` refuse to run without proof you read this file
+— the only exception to Diwall's opt-in design. Token: line 3
+(`<!-- notice-version: X.Y -->`), same convention as the three notices.
 
 ```bash
-/opt/diwall/venv/bin/python3 /opt/diwall/shot.py --url <url> --guide-version 3.8
+/opt/diwall/venv/bin/python3 /opt/diwall/shot.py --url <url> --guide-version 3.9
 ```
 
-Once accepted, a local marker (`~/.config/diwall/guide_state.json`) is written
-and you will not be asked again on this machine, as this OS user — until this
-file's `notice-version` changes, at which point the check re-arms
-automatically for everyone.
+Accepted once → a local marker (`~/.config/diwall/guide_state.json`) is
+written, not asked again on this machine/user until `notice-version`
+changes. Quick check without Playwright: `shot.py --version` (Diwall
+release — a different number from `--guide-version`, don't confuse them).
 
-**Quick version check, no URL needed:**
-```bash
-/opt/diwall/venv/bin/python3 /opt/diwall/shot.py --version
-# → {"outil": "shot.py", "version": "1.20.0"}
-```
-Exits immediately, no Playwright launch. `--guide-version` is two different
-numbers from `--version` on purpose: `--version` reports the Diwall release
-you are running; `--guide-version` proves you read this specific file. Do not
-confuse the two — passing the Diwall release number to `--guide-version` will
-fail.
+No marker + skipped → `exit 1`, `erreur: "guide_non_lu"`, stderr. No bypass.
 
-**If you skip `--guide-version` and have no valid marker yet:**
-```json
-{
-  "succes": false,
-  "erreur": "guide_non_lu",
-  "version_installee": "1.20.0",
-  "guide_version_attendue": "3.8",
-  "message": "Lire docs/GUIDE_LLM.md, relever <!-- notice-version: X.Y --> en tête de fichier, relancer avec --guide-version X.Y"
-}
-```
-`exit 1`, on stderr. There is no bypass flag — the only way past it is to read
-this file, or to already hold a valid marker from a previous call.
-
-**Known limit (v1.19.0):** this lock is cooperative by nature — a model that
-already holds a token from a prior context (its own memory, a copy-pasted
-value) can pass `--guide-version 3.8` without having reread this file's
-current content. Diwall accepts this rather than harden it: a challenge tied
-to file content would complicate a mechanism meant to stay lightweight, and a
-model willing to fabricate a token would defeat a stronger check just as
-easily. The lock's purpose is to make skipping the guide a deliberate act
-instead of an accident — not to make lying about it technically impossible.
+**Known limit:** this lock is cooperative by nature — a model already
+holding a token from a prior context can pass it without rereading current
+content. Diwall accepts this deliberately: a content-tied challenge would
+complicate a mechanism meant to stay lightweight, and a model willing to
+fabricate a token would defeat a stronger check just as easily. The lock
+makes skipping the guide a deliberate act, not an accident — not a
+guarantee against lying about it.
 
 ---
 
-## Security — non-negotiable (read this before anything else)
+## Security — non-negotiable (read before anything else)
 
 **FORBIDDEN — extracts credentials into the shell:**
 ```bash
 PASS=$(jq -r '.password' ~/Vaults/.../file.json)   # NEVER
 ```
 
-**CORRECT — vault resolved inside Playwright:**
+**CORRECT — vault resolved inside Playwright** (this is Diwall's core
+authentication mechanism — form-filling with real credentials, always
+supported):
 ```json
 {"type": "remplir_som", "id": 2, "valeur": "depuis_vault", "vault_cle": "username"}
 {"type": "remplir_som", "id": 3, "valeur": "depuis_vault", "vault_cle": "password"}
 ```
 
-Values never appear in shell, bash history, or any log.
-Also forbidden: using `curl`, `wget`, or any HTTP client for authentication.
+Values never appear in shell, bash history, or any log. Also forbidden:
+`curl`, `wget`, or any HTTP client for authentication.
 
 ---
 
 ## What Diwall does
 
-Diwall gives you **eyes and hands on web interfaces** via a local Playwright process.
-
-```
-shot.py → returns JSON with PNG path → you read the PNG → you analyse → you loop
-```
-
-You do not guess the rendering. You do not use `lynx`. You SEE it.
+Diwall gives you **eyes and hands on web interfaces** via a local Playwright
+process: `shot.py → JSON with PNG path → you read it → you analyse → you
+loop`. You do not guess the rendering, you do not use `lynx`. You SEE it.
 
 ---
 
@@ -107,52 +80,46 @@ You do not guess the rendering. You do not use `lynx`. You SEE it.
 
 ```
 /opt/diwall/          ← production (always invoke from here)
-  shot.py             ← main capture + action executor
-  rpa.py              ← declarative scenario runner
-  watch.py            ← visual drift monitoring
-  journal.py          ← operation log reader
-  lib/vault.py        ← credential resolver (inside Playwright only)
-  venv/               ← isolated Python — ALWAYS use this venv
-  scenarios/          ← RPA scenario files (JSON/YAML)
-  references/         ← watch.py visual references
+  shot.py rpa.py watch.py journal.py   ← main tools
+  lib/vault.py         ← credential resolver (inside Playwright only)
+  venv/                ← isolated Python — ALWAYS use this venv
+  scenarios/ references/
 
 ~/git/Diwall/Diwall/  ← source (modify here, then deploy.sh)
 /var/log/diwall/      ← persistent operation log
 /tmp/diwall/          ← temporary PNG captures (cleared on reboot)
 ```
 
-Canonical invocation:
 ```bash
 /opt/diwall/venv/bin/python3 /opt/diwall/shot.py --url <url>
-```
-
-Deploy after source changes:
-```bash
-bash ~/git/Diwall/Diwall/scripts/deploy.sh
+bash ~/git/Diwall/Diwall/scripts/deploy.sh   # after source changes
 ```
 
 ---
 
-## Modes at a glance
+## Modes and capture — quick reference
 
-**Mode A — interactive, single shot.py call:**
-```bash
-/opt/diwall/venv/bin/python3 /opt/diwall/shot.py \
-  --url https://target.local/ --som --a11y
-```
-Returns JSON with `capture_som`, `elements_som`, `a11y_tree`, `boussole`.
-Pass `--actions /tmp/actions.json` to execute actions in the same browser session.
-Pass `--reprendre-session` to reuse a previous session (cookies only — not DOM state).
+**Mode A (`shot.py`):** `--url ... --som --a11y` → JSON with `capture_som`,
+`elements_som`, `a11y_tree`, `boussole`. `--actions FILE` executes actions in
+the same session. `--reprendre-session` reuses cookies only, never DOM state.
 
-**Mode RPA — declarative, rpa.py:**
-```bash
-/opt/diwall/venv/bin/python3 /opt/diwall/rpa.py \
-  --scenario /opt/diwall/scenarios/my-scenario.json
-```
-stdout: one JSON line (v1.11.0). Use `--secrets` for non-default vault.
+**Mode RPA (`rpa.py`):** `--scenario FILE` → one JSON line on stdout.
+`--secrets FILE` for a non-default vault.
 
-**Shell escaping rule:** for `--action` containing JS quotes, always use
-`--actions /tmp/file.json` — inline JSON is corrupted silently by the shell.
+**Shell escaping:** for `--action` with JS quotes, always use
+`--actions /tmp/file.json` — inline JSON is silently corrupted by the shell.
+
+| Goal | Command |
+|---|---|
+| Check auth state | `--mode fast --auth-indicator <sel>` |
+| Read DOM / extract JS data | `--mode fast` + `evaluer` |
+| Observe visual rendering | default (`--mode full`) |
+| Number and click elements | `--som` |
+| Detect visual regression | `watch.py --comparer-pixel` |
+| Test Web Components | `--som --shadow-dom` |
+
+`--mode fast` = `--no-capture --a11y` (~2s faster, no PNG). `--som` is
+opt-in with either mode.
 
 ---
 
@@ -161,253 +128,123 @@ stdout: one JSON line (v1.11.0). Use `--secrets` for non-default vault.
 | Verb | Key params | Notes |
 |---|---|---|
 | `naviguer` | `url` | Full HTTP reload — avoid in SPAs |
-| `cliquer` | `selecteur`, [`force`] | `force: true` bypasses CSS-hidden / showModal (v1.11.0) |
-| `cliquer_som` | `id` | Coordinate click — bypasses interactability natively, no `force` needed |
+| `cliquer` | `selecteur`, [`force`] | `force: true` bypasses CSS-hidden / showModal |
+| `cliquer_som` | `id` | Coordinate click — no `force` needed |
 | `cliquer_visuel` | `description` | LLM vision fallback (~32s) |
 | `remplir` | `selecteur`, `valeur` | `valeur` can be `"depuis_vault"` |
-| `remplir_som` | `id`, `valeur`, [`vault_cle`] | Clears field before typing (v1.9.6+) |
+| `remplir_som` | `id`, `valeur`, [`vault_cle`] | Clears field before typing |
 | `capturer` | `nom` | Named intermediate PNG |
-| `evaluer` | `script`, [`attendu`\|`contient`\|`motif`] | JS evaluate; assertion keys are rpa.py-only (v1.11.0) |
+| `evaluer` | `script`, [`attendu`\|`contient`\|`motif`] | Assertion keys are rpa.py-only |
 | `defiler` | `px` or `selecteur` | Scroll viewport |
-| `pause` | `ms`, [`interval_capture`] | Fixed delay — prefer `attendre_selecteur_present` for DOM signals |
-| `attendre` | `selecteur` | Wait for CSS selector |
-| `attendre_navigation` | — | Wait for network idle |
-| `attendre_url` | `motif` | URL contains motif (partial match, v1.8.0) |
-| `attendre_selecteur_present` | `selecteur` | Wait for visible element |
-| `attendre_absence` | `selecteur`, [`delai_initial_ms`] | Wait for element removal |
+| `pause` | `ms`, [`interval_capture`] | Prefer `attendre_selecteur_present` for DOM signals |
+| `attendre` / `attendre_navigation` | `selecteur` / — | Wait for selector / network idle |
+| `attendre_url` | `motif` | Partial match — see `GUIDE_LLM_INTERACTIONS.md` pitfall |
+| `attendre_selecteur_present` / `attendre_absence` | `selecteur` | Wait for appear/removal |
 | `attendre_reseau_calme` | [`timeout_ms`] | 500ms network silence |
 | `attendre_mfa_ntfy` | `id_som`, [`timeout`] | Wait for TOTP via ntfy |
 | `nettoyer_overlay` | `selecteur` | Hide fixed overlays before SoM |
 | `declencher_scenario` | `scenario` | Inline a sub-scenario (max depth 5) |
-| `cliquer_iframe` | `iframe_selecteur` \| `iframe_chemin`, `selecteur` | Click inside a same/cross-origin iframe. `iframe_chemin` (array) for nested iframes (v1.18.0), exactly one of the two required |
-| `remplir_iframe` | `iframe_selecteur` \| `iframe_chemin`, `selecteur`, `valeur` | Fill inside an iframe. `valeur` can be `"depuis_vault"` |
+| `cliquer_iframe` / `remplir_iframe` | `iframe_selecteur`\|`iframe_chemin`, `selecteur`, [`valeur`] | Cross-origin iframe; `iframe_chemin` array for nested |
 
 ---
 
 ## Boussole JSON — orientation at a glance
 
-Every shot.py and rpa.py output includes a `boussole` object. Read it first:
+Every output includes a `boussole` object — read it first:
 
 ```json
 "boussole": {
-  "utilisateur": "operator",
-  "ip_locale": "__IP_LAN__",
-  "repertoire": "/opt/diwall",
-  "url_courante": "https://target.local/dashboard",
-  "titre_page": "Dashboard — My App",
-  "auth_status": "active",
-  "som_hors_viewport": 3,
-  "session_derive": { "url_sauvegardee": "...", "url_reprise": "..." }
+  "utilisateur": "operator", "ip_locale": "__IP_LAN__", "repertoire": "/opt/diwall",
+  "url_courante": "https://target.local/dashboard", "titre_page": "Dashboard",
+  "auth_status": "active", "som_hors_viewport": 3
 }
 ```
 
-Conditional keys (absent when inactive):
-- `session_derive` — only with `--reprendre-session` if URL diverged
-- `auth_status` — only with `--auth-indicator`
-- `som_hors_viewport` — only if > 0 and SoM was active
-- `shadow_dom_actif` — only with `--shadow-dom`
+Conditional keys (absent when inactive): `session_derive` (`--reprendre-session`
+URL drift), `auth_status` (`--auth-indicator`), `som_hors_viewport` (>0),
+`shadow_dom_actif`, `stealth_actif`, `http_credentials_actif`/`http_auth_requise`
+(v1.21.0) — each conditioned on real effect, never just the CLI flag being
+passed (precedent: `stealth_actif` bug fixed v1.16.0).
 
-`etat.mode_conseille` (v1.18.0) — absent unless Diwall has real prior data for
-this host (a previous `diagnostic_dom.json` run). Never a guess, never an
-order: `{"mode": "full", "shadow_dom": true, "som_rafraichir": false,
-"raisons": ["react_detecte"]}`. Full detail in `GUIDE_LLM_MONITORING.md`.
+`etat.mode_conseille` — present only with real prior data for this host,
+never a guess. Full detail: `GUIDE_LLM_MONITORING.md`.
 
-If `boussole` does not match your expectation: stop and investigate before any mutating action.
+If `boussole` does not match your expectation: stop and investigate before
+any mutating action.
 
----
-
-## `etat` is declarative — never a gate (v1.19.0)
-
-`etat.pret_a_agir`, `etat.niveau_confiance`, and `etat.raisons` (v1.16.0) are a
-**report Diwall gives you**, not a control it exercises over you. No verb
-dispatcher checks `pret_a_agir` before running — Diwall does not refuse to
-execute an action because this key is `false`. When you see
-`pret_a_agir: false`, it means Diwall perceived a friction (probable WAF
-block, JS/console errors, a citizenship cap reached, a session drift) worth
-your attention before you act — it is the dashboard, not the speed limiter.
-The decision to stop, investigate further, or proceed always belongs to you.
-
-This distinction is worth stating explicitly because `etat`'s shape (three
-confidence states, a boolean readiness flag) reads like a gate at a glance,
-even though it functions as a synthesis. If you find yourself refusing to act
-purely because `pret_a_agir: false`, without having read `raisons` first,
-you are treating a signal as a permission system — re-read `raisons`, decide
-on the actual friction, not on the flag's shape.
-
----
-
-## Choosing a capture mode
-
-| Goal | Recommended command |
-|---|---|
-| Check authentication state | `--mode fast --auth-indicator <sel>` |
-| Read DOM state / extract JS data | `--mode fast` + `evaluer` actions |
-| Observe visual rendering | default (or `--mode full`) |
-| Number and click elements | `--som` (+ `--mode full` implicit) |
-| Detect visual regression | `watch.py --comparer-pixel` |
-| Test Web Components (Angular, Lit…) | `--som --shadow-dom` |
-
-`--mode fast` = `--no-capture --a11y`. Saves ~2 s per run (no PNG written).  
-`--mode full` = default behavior. Produces a PNG and the full JSON context.  
-`--som` remains opt-in with either mode.
+**`etat` is declarative, never a gate:** `pret_a_agir`/`niveau_confiance`/
+`raisons` are a report, not a control — no dispatcher checks them before
+running. `pret_a_agir: false` means a friction was perceived (WAF, JS errors,
+citizenship cap, session drift) worth your attention, not a refusal. Read
+`raisons`, decide on the actual friction — the decision is always yours.
 
 ---
 
 ## Error routing — load by symptom
 
-Already in an error? Route by symptom, not by task type:
-
 | Symptom | Notice |
 |---|---|
-| `TimeoutError` on `cliquer`, `cliquer_som`, `remplir`, `remplir_som` | `GUIDE_LLM_INTERACTIONS.md` |
-| `showModal()` / CSS-hidden element / `force: true` questions | `GUIDE_LLM_INTERACTIONS.md` |
-| Strict mode violation, `:nth-match()`, DOM locator error | `GUIDE_LLM_INTERACTIONS.md` |
-| SoM ID mismatch, element numbered but not clickable | `GUIDE_LLM_INTERACTIONS.md` |
-| Shadow DOM / Web Components — elements not numbered | `GUIDE_LLM_INTERACTIONS.md` |
-| `evaluer` assertion failed (`attendu` / `contient` / `motif`) | `GUIDE_LLM_INTERACTIONS.md` |
-| `exit 42` (VaultFermeError) — vault not mounted | `GUIDE_LLM_SESSIONS.md` |
-| `exit 43` (VaultNonConfigureError) — `diwall.conf` absent | `GUIDE_LLM_SESSIONS.md` |
-| `--secrets` file, multi-vault, credential resolution | `GUIDE_LLM_SESSIONS.md` |
-| `--reprendre-session` issues, SPA navigation, auth expiry | `GUIDE_LLM_SESSIONS.md` |
-| `TimeoutError` on `page.screenshot()`, capture hangs | `GUIDE_LLM_MONITORING.md` |
-| `watch.py` pixel diff, verdicts, `--screenshot-timeout` | `GUIDE_LLM_MONITORING.md` |
-| Long-running operations, `interval_capture`, journal.py | `GUIDE_LLM_MONITORING.md` |
-
----
+| Timeout on click/fill, `showModal()`, strict mode, SoM mismatch, Shadow DOM, `evaluer` assertion | `GUIDE_LLM_INTERACTIONS.md` |
+| `exit 42`/`43` (vault), `--secrets`, `--http-credentials`, `--reprendre-session`, SPA nav, auth expiry | `GUIDE_LLM_SESSIONS.md` |
+| Screenshot timeout, `watch.py` diff, long operations, `journal.py` | `GUIDE_LLM_MONITORING.md` |
 
 ## Notice index — load on demand
 
 | Notice | Load when | Version |
 |---|---|---|
-| `GUIDE_LLM_INTERACTIONS.md` | Timeout on `cliquer`, CSS/showModal dialog, SoM IDs, strict mode violation, nth-match error, evaluer assertions, DOM mutations, Shadow DOM (`--shadow-dom`), cross-origin/nested iframes (`iframe_chemin`) | v1.8 |
-| `GUIDE_LLM_SESSIONS.md` | Vault credentials, `--secrets`, session persistence, SPA navigation, multi-page flows, MFA/TOTP, auth_indicator, auth_indicator_negative, --no-capture, --checkpoint | v1.5 |
-| `GUIDE_LLM_MONITORING.md` | watch.py, pixel diff, long-running operations, `--screenshot-timeout`, interval_capture, journal.py, --replay-verifier, `mode_conseille`, `monitor-verifier.sh`, `latences_actions`, `journal.py --erreurs` | v1.10 |
+| `GUIDE_LLM_INTERACTIONS.md` | Interaction/DOM errors, Shadow DOM, iframes | v1.8 |
+| `GUIDE_LLM_SESSIONS.md` | Vault, `--secrets`, `--http-credentials`, sessions, SPA, MFA, `--checkpoint` | v1.8 |
+| `GUIDE_LLM_MONITORING.md` | `watch.py`, pixel diff, `--replay-verifier`, `mode_conseille`, journal | v1.10 |
 
-> **Version check:** the version column is canonical. If your local copy of a notice shows
-> a lower version, reload it. Notice versions increment independently of Diwall releases.
-
-```bash
-cat /opt/diwall/docs/GUIDE_LLM_INTERACTIONS.md
-cat /opt/diwall/docs/GUIDE_LLM_SESSIONS.md
-cat /opt/diwall/docs/GUIDE_LLM_MONITORING.md
-```
-
-If in doubt about which notice: load INTERACTIONS first (covers the most frequent errors).
+> Version column is canonical — reload a notice if your copy shows lower.
+> If in doubt: load INTERACTIONS first (most frequent errors).
 
 ---
 
 ## Stop-and-Search rule — bloquant
 
-If an action returns `succes: false` or a Playwright error, you must:
-
-1. Query the local RAG: `search-index.py <error keywords>`
-2. Re-read the relevant notice section
-3. Declare: cause identified, rule violated
-4. Propose the correction — then stop until validated
-
-**No `actions_v2.json` / `_v3.json` in `/tmp/` without this step.**
-
----
+On `succes: false` or a Playwright error: (1) query the RAG
+(`search-index.py <keywords>`), (2) re-read the relevant notice, (3) declare
+cause + rule violated, (4) propose the correction, then stop until validated.
+No `actions_v2.json`/`_v3.json` in `/tmp/` without this step.
 
 ## Reconnaissance before mutation — bloquant
 
-Before writing any mutating action on a feature never previously tested with Diwall:
-
-```bash
-# Step 1 — Visual map + DOM inventory
-/opt/diwall/venv/bin/python3 /opt/diwall/shot.py --url <target_url> --som --a11y
-
-# Step 2 — Extract selectors from evaluer results
-# Step 3 — Write the complete scenario in one pass
-# Step 4 — Execute once via rpa.py
-```
-
-Forbidden: launching a mutating action without completing steps 1–2.
+Before any mutating action on a feature never tested with Diwall:
+`shot.py --url <target> --som --a11y` first, extract selectors, write the
+complete scenario in one pass, execute once via `rpa.py`. Forbidden:
+mutating before completing the map.
 
 ---
 
-## `--screenshot-timeout` — v1.11.0 key parameter
+## WAF and Cloudflare blocking — Navigation Citoyenne
 
-Default timeout for `page.screenshot()` is now 120 000 ms (120 s), configurable:
+`--stealth` (v1.15.0) is the first response — removes `navigator.webdriver`,
+normalises plugins/languages/platform. **Not** covered: TLS fingerprinting
+(JA3/JA4), Cloudflare Enterprise behavioural analysis — persistent 403 means
+deep fingerprinting. Field data: `docs/RETOUR_EXPERIENCE.md` FR-77/FR-78,
+doctrine: `LEGITIMITE_ETRE_LLM.md`.
 
-```bash
---screenshot-timeout 180000   # 3 minutes for heavy dashboards
-```
+**Passive detection — `citoyennete.waf_bloquants`:** flagged on every
+navigation (403/429, or a title/HTML keyword match) — a **signal, never an
+exception**, Diwall does not abort or moralize about access. Heuristic
+(keyword match): a false positive is possible on a page that legitimately
+mentions one of these terms — verify before concluding a real block.
+Generic vendor names (`cloudflare`, `akamai`) match only the page title, not
+full HTML (v1.17.2 — avoids false positives on ordinary CDN resources).
 
-Distinct from `--timeout` (Playwright action timeouts). Propagated to all screenshot
-calls. If all else fails: add `--no-capture` and rely on `a11y_tree` + `evaluer`.
+**Overrule — `--ignorer-waf`:** only after an independent, non-mutating
+check (`--mode fast` + `evaluer`, or a prior `diagnostic_dom.json`) confirms
+the page is usable. Degrades `niveau_confiance` but no longer forces
+`pret_a_agir: false`; `boussole.waf_ignore_actif: true` keeps it auditable.
+Never a first response, never wired automatically into a scenario.
 
 ---
 
-## Operator group
+## `--screenshot-timeout` and operator group
 
-Diwall files are owned by group `diwall`. If you run as a service account:
-
-```bash
-sudo usermod -aG diwall <account>
-sg diwall -c "/opt/diwall/venv/bin/python3 /opt/diwall/shot.py --url …"
-```
-
----
-
-## WAF and Cloudflare blocking — Navigation Citoyenne (v1.15.0)
-
-Diwall v1.15.0 introduces `--stealth` (playwright-stealth) — first response to WAF blocking.
-
-```bash
-/opt/diwall/venv/bin/python3 /opt/diwall/shot.py --url https://target.local/ --mode fast --stealth
-```
-
-**What `--stealth` covers:** removes `navigator.webdriver`, normalises plugins/languages/platform.
-**What `--stealth` does NOT cover:** TLS fingerprinting (JA3/JA4), Cloudflare Enterprise behavioural analysis.
-
-If 403 persists with `--stealth`: the site uses deep fingerprinting. `playwright-stealth` is insufficient.
-
-**Observed rates (REX 2026-06-27, 23 commercial sites, without stealth):**
-- 39% returned 403 immediately (Cloudflare / CloudFront)
-- 26% timed out silently (TCP/TLS-level block)
-- 22% returned 404 (URL guessed incorrectly)
-- 8.7% accessible (SSR sites without WAF)
-
-**Practical guidance:**
-- On any blocked site: try `--stealth` first
-- Prefer SSR sites over heavy SPA with WAF
-- Major e-commerce / marketplaces: likely Cloudflare Enterprise — `--stealth` insufficient
-- If 403 immediate on `--mode fast --stealth`: do not retry — document and move on
-- SearXNG (local instance) is the recommended entry point for URL discovery
-- See `docs/RETOUR_EXPERIENCE.md` FR-77/FR-78 and `LEGITIMITE_ETRE_LLM.md` for doctrine
-
-**Passive detection — `citoyennete.waf_bloquants` (v1.16.0, item C):** `shot.py`
-now flags a probable block passively on every navigation (initial and each
-`naviguer` action) — HTTP 403/429, or a title/HTML keyword match (Cloudflare,
-CAPTCHA, "checking your browser", etc.). This is a **signal, never an
-exception** — Diwall perceives the friction, it does not moralize about access
-or abort the run. When detected: `boussole.citoyennete.waf_bloquants` (integer
-count for this run) and `etat.niveau_confiance: "faible"` with
-`etat.pret_a_agir: false`. The detection is heuristic (keyword match) — treat
-it as a fast signal, not a certain verdict; a false positive is possible on a
-page that legitimately mentions one of these terms.
-
-**Refined heuristic (v1.17.2):** generic vendor names (`cloudflare`, `akamai`)
-are now matched only against the page title, not the full raw HTML — matching
-the whole page previously false-positived on any page loading an ordinary CDN
-resource (e.g. `cdnjs.cloudflare.com`), unrelated to an actual block.
-Challenge-page phrases (`captcha`, `checking your browser`, `cf-error-details`,
-etc.) still match against the full HTML.
-
-**Overrule — `--ignorer-waf` (v1.17.2):** if a residual false positive still
-blocks you on a page you have independently confirmed is not blocked, pass
-`--ignorer-waf` (shot.py and rpa.py). `waf_bloquants` still degrades
-`etat.niveau_confiance`, but no longer forces `etat.pret_a_agir: false` on its
-own — `boussole.waf_ignore_actif: true` records the decision. Do not use this
-flag reflexively; confirm the page content yourself first.
-
-**Decision rule for legitimate overrule (v1.19.0):** pass `--ignorer-waf` only
-after an independent, non-mutating check has shown the page is actually
-usable — at minimum, a `--mode fast` + `evaluer` pass (or a prior
-`diagnostic_dom.json` run) confirming the expected content and interactive
-surfaces (forms, buttons) are present and functional. Never as a first
-response to a `waf_bloquants` signal, and never wired automatically into a
-scenario — the override stays visible in `boussole.waf_ignore_actif` precisely
-so the choice remains auditable after the fact, not because the choice itself
-needs justifying to Diwall.
+Default `page.screenshot()` timeout is 120 000 ms, configurable
+(`--screenshot-timeout 180000` for heavy dashboards), distinct from
+`--timeout`. If all else fails: `--no-capture` + `a11y_tree` + `evaluer`.
+Diwall files are owned by group `diwall` — service accounts:
+`sudo usermod -aG diwall <account>`, detail in `docs/MANUEL.md`.

@@ -4,6 +4,104 @@ History of decisions and discoveries by session, in reverse chronological order.
 
 ---
 
+## 2026-07-14/15 — Session 55 (v1.21.0 — HTTP Basic Auth + guide hygiene + demonstration cases)
+
+**Context:** triggered by a field report from a partner project (`__HOST_VPS__`) — Diwall
+had no way to answer an HTTP Basic Auth challenge (RFC 7617), the common
+authentication wall in front of self-hosted admin interfaces (Grafana,
+Prometheus, and similar) behind a reverse proxy. The same investigation
+surfaced a deeper documentation problem: a model had asserted Diwall could
+not fill an authentication form at all — false, but revealing that the
+mandatory `--guide-version` lock only gates tool *execution*, never
+conversational claims about the tool.
+
+**`--http-credentials` (shot.py, rpa.py):**
+
+- Resolves `http_username`/`http_password` from the vault (fixed keys, same
+  precedent as `ntfy_topic`) using the exact resolution idiom already used
+  three times in `shot.py` for `depuis_vault` fields — no new file mechanism.
+- Injected at `browser.new_context()` as `http_credentials={"username",
+  "password", "origin", "send": "unauthorized"}` — `origin` scoping is
+  mandatory (verified against the installed Playwright 1.61.0), preventing
+  credentials from being sent to any third-party origin loaded in the same
+  browser context. Documented fallback for reverse proxies that never issue
+  a clean 401: `"send": "always"`, still origin-scoped — never a hand-built
+  `Authorization` header, which would defeat the scoping.
+- `boussole.http_credentials_actif` reflects a verified success (flag active
+  **and** the initial navigation did not end in 401) — never just the CLI
+  flag, the same discipline already enforced for `stealth_actif` after its
+  v1.16.0/FR-79 fix. `boussole.http_auth_requise` flags an unresolved 401
+  distinctly from the WAF signal.
+- Fail-fast pre-validation in `rpa.py` before any Playwright launch, same
+  pattern as `--secrets`. Optional scenario root property `http_credentials:
+  true`, combinable with the CLI flag (OR) — same pattern as `shadow_dom`.
+
+**Guide hygiene:**
+
+- Non-presumption rule (`CLAUDE.md` Règle n°7, `docs/GUIDE_LLM.md`): never
+  affirm a Diwall capability is absent, never presume one exists, without
+  checking the action tables first.
+- `docs/GUIDE_LLM.md` compressed from 413 to 250 lines — the budget already
+  promised in `CLAUDE.md` but silently exceeded across 8 prior version
+  bumps. `scripts/verifier-coherence.sh` now fails on any future regression
+  of this budget.
+
+**Demonstration cases (`docs/GUIDE.md`):** four new narrative-only cases —
+self-hosted observability/analytics dashboard, ticketing platform
+administration, local events tracking, e-commerce access under Citizen
+Navigation. Tools, brands, and the operator are generalised by functional
+category rather than named — a reusable prompt pattern, not just an
+anonymised anecdote.
+
+**Validation:** `scenarios/interoperabilite/` gained a local Basic Auth
+fixture (a minimal Python server issuing a real 401 challenge — no
+third-party dependency, deterministic), added as a permanent regression
+fixture alongside the existing Shadow DOM/iframe fixtures.
+`scenarios/v1.21.0_validation/` — 3/3 green: unresolved 401 without the
+flag, verified success with correct credentials, and no false-positive
+`http_credentials_actif` even with the flag active but wrong credentials.
+Full regression: `v1.15.2_validation` 4/4, `v1.16.0_validation` 7/7,
+`v1.17.0_validation` 4/4, `v1.17.2_validation` 4/4, `v1.18.0_validation` 5/5
+(hardcoded guide-version token resynchronised 3.7 → 3.9, pre-existing
+staleness found while running the suite, not a functional regression),
+`v1.19.0_validation` 3/3, `v1.20.0_validation` 3/3. Preflight exit 0 (a
+pre-existing unneutralised host name in `docs/RETOUR_EXPERIENCE.md` was
+found and fixed in the same pass, unrelated to this cycle's own changes).
+
+**Real-target validation:** the fixture alone was deliberately not treated
+as sufficient — the operator provided live access to a real
+Caddy-protected admin interface. `send: "unauthorized"` resolved the
+challenge on the first real attempt, confirming the safe default is not
+just theoretical. The real gap the fixture could not have caught: the
+vault file used the plain `username`/`password` keys, not the dedicated
+`http_username`/`http_password` this cycle originally required. Fixed with
+a fallback (dedicated keys tried first — needed when a target has both a
+network-level Basic Auth and its own separate application login — falling
+back to `username`/`password` otherwise, the common single-credential
+case). Package rebuilt and reinstalled a second time in the same cycle so
+that production and source stayed byte-identical, same discipline as prior
+cycles that found a real issue after the first build.
+
+**Debian package:** `diwall_1.21.0-1_all.deb` built, installed as a real
+in-place upgrade over the `1.20.0-1` package active in production
+(`sudo apt install ./diwall_1.21.0-1_all.deb`) — `diwall.conf` checksum and
+`preuves/` permissions confirmed unchanged before/after, `dpkg -l` confirmed
+`1.21.0-1`, three smoke tests green post-upgrade. `lintian` within the same
+accepted tolerances as prior cycles.
+
+**Technical decision:** `watch.py` and `journal.py` untouched this cycle —
+no functional change to either, matching the per-file version bump
+discipline already in place. `--http-credentials` deliberately excludes
+`watch.py` to preserve the stability of existing automated monitoring tasks.
+
+**Not engaged this cycle:** FR-83 detection (DOM-state-loss warning across
+`--reprendre-session` boundaries) — parked, the underlying limitation is
+already a documented, accepted architectural constraint since v1.15.2, and
+the detection mechanism itself (intra- vs inter-invocation) is not yet
+designed. Remains in `docs/RETOUR_EXPERIENCE.md` / private `RADAR_USAGES.md`.
+
+---
+
 ## 2026-07-10 — Session 53 (v1.20.0 — Observability + human-operator compass demonstration cases)
 
 **Context:** first point of entry queued at the close of session 52
