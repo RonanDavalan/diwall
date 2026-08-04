@@ -22,6 +22,12 @@ __pycache__/
 .Python
 venv/
 
+# PDF de référence générés par la chaîne i18n du mainteneur (v1.23.0) — sortie
+# reconstructible depuis les sources markdown, jamais commitée. Les traductions
+# i18n/<langue>/**.md et leurs sidecars .segments.json, eux, sont versionnés :
+# sans les empreintes, un autre mainteneur retraduirait tout depuis zéro.
+i18n/pdf/
+
 # Éditeurs
 .vscode/
 .idea/
@@ -45,3 +51,8 @@ debian/diwall-watch.1
 debian/diwall-mount-vault.1
 debian/diwall-umount-vault.1
 debian/diwall-monitor-verifier.1
+# Idem pour les traductions (v1.23.0) : leur source versionnée est
+# i18n/<langue>/debian/diwall.1.md. Une page roff commise divergerait en
+# silence de son markdown, ce que la génération au build rend impossible.
+debian/diwall.??.1
+debian/diwall-*.??.1

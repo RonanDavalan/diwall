@@ -1,3 +1,0 @@
-#!/bin/sh
-# diwall-mount-vault — wrapper for the .deb distribution channel.
-exec /opt/diwall/scripts/mount-vault.sh --config /etc/diwall/diwall.conf "$@"

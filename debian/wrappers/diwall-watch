@@ -1,5 +1,0 @@
-#!/bin/sh
-# diwall-watch — wrapper for the .deb distribution channel.
-# watch.py has no dependency on diwall.conf; kept for command-naming
-# consistency with diwall-shot / diwall-rpa, not for config resolution.
-exec /opt/diwall/venv/bin/python3 /opt/diwall/watch.py "$@"

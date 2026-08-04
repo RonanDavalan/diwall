@@ -21,6 +21,24 @@ LLM acts → Diwall captures → LLM sees and reports → Human verifies from th
 
 **What the LLM gains:** real perception of the interface. Without Diwall, a model developing a web application modifies code but cannot see the result in a browser. `lynx` does not render modern interfaces.
 
+### What the model actually receives
+
+![Set-of-Mark capture: every interactive element numbered on the rendered page](docs/images/som-example-en.png)
+
+This is a real `--som` capture, not a mock-up. Every interactive element is
+numbered on the rendered page, and the same numbers come back in the JSON —
+so `{"type": "cliquer_som", "id": 7}` clicks *Sign in*, with no selector to
+guess and no ambiguity about which button was meant. Reproduce it yourself —
+the page is a fixture versioned in this repository, so you get the same
+numbers we did:
+
+```bash
+cd scenarios/interoperabilite/fixture && python3 -m http.server 8765 &
+diwall-shot --url http://127.0.0.1:8765/demo_som_en.html --som --guide-version 4.1
+```
+
+`elements_som` comes back with `{"id": 7, "tag": "BUTTON", "texte": "Sign in"}`.
+
 ---
 
 ## Architecture
@@ -100,43 +118,54 @@ The language model decides what to do next.
 
 ## Installation
 
-> **Recommended:** share this README with Claude Code and ask it to install Diwall for you.
+Two channels, **mutually exclusive on a single machine**. Pick the Debian
+package unless you intend to modify Diwall's own code.
 
-If you want to install manually:
+### Debian package — the simple path
+
+Download the `.deb` asset from the
+[latest release](https://github.com/RonanDavalan/diwall/releases) — filename
+`diwall_<version>-1_all.deb` — then:
 
 ```bash
-# 1. Create system user and directory
-sudo useradd --system --no-create-home --shell /bin/false diwall
-sudo mkdir -p /opt/diwall
-sudo chown root:diwall /opt/diwall
-
-# 2. Clone the repository
-git clone https://github.com/ronandavalan/diwall.git ~/git/Diwall/Diwall
-cd ~/git/Diwall/Diwall
-
-# 3. Create Python virtual environment
-sudo /usr/bin/python3 -m venv /opt/diwall/venv
-sudo /opt/diwall/venv/bin/pip install -r requirements.txt
-
-# 4. Install Chromium
-sudo /opt/diwall/venv/bin/playwright install chromium
-
-# 5. Deploy
-bash ~/git/Diwall/Diwall/scripts/deploy.sh
-
-# 6. Create your credential vault
-mkdir -p ~/Vaults/<your-project>/Diwall
-# Create ~/Vaults/<your-project>/Diwall/<hostname>.json with your credentials
+sudo apt install ./diwall_1.23.0-1_all.deb
 ```
 
-**Alternative — Debian package:** download the `.deb` asset from the
-[latest release](https://github.com/RonanDavalan/diwall/releases) — filename
-`diwall_<version>-1_all.deb` — and `sudo apt install ./diwall_<version>-1_all.deb`
-(e.g. `diwall_1.20.0-1_all.deb`). Six `diwall-*` commands become available;
-see `docs/MANUEL.md` section 1a for the full reference. This channel and the
-git-clone channel above are mutually exclusive on a single machine.
+That is all. It creates the `diwall` system user, the virtual environment and
+`/opt/diwall/`, installs the six `diwall-*` commands in your `PATH`, and ships
+the manual page:
+
+```bash
+man diwall              # covers all six commands
+diwall-shot --version
+```
+
+Configuration lives in `/etc/diwall/diwall.conf`; a commented sample is
+installed next to it as `diwall-sample.conf`. Full command reference:
+`docs/MANUEL.md` section 1a.
+
+Upgrading is `sudo apt install ./diwall_<newer>-1_all.deb` — your
+configuration is preserved. Removal is `sudo apt remove diwall`, or
+`sudo apt purge diwall` to drop the configuration too.
+
+### From source — for modifying Diwall itself
+
+If you intend to change Diwall's own code, install from the repository
+instead: it puts the sources where `deploy.sh` can push your changes to
+`/opt/diwall/`. The six-step procedure lives in
+[`docs/MANUEL.md`](docs/MANUEL.md) section 1b, next to the commands you will
+run afterwards.
 
 ## Uninstallation
+
+Installed from the Debian package:
+
+```bash
+sudo apt remove diwall     # keeps /etc/diwall/diwall.conf
+sudo apt purge diwall      # removes the configuration as well
+```
+
+Installed from source:
 
 ```bash
 # Preview what will be removed (no changes made)
@@ -234,6 +263,34 @@ see "Credential vault" above and `~/git/Diwall/Diwall/scripts/setup-vault.sh`.
 
 ---
 
+## Documentation in other languages (v1.23.0)
+
+English is canonical and stays in place. Translations of the human-facing
+documents (this README, `docs/GUIDE.md`, `docs/MANUEL.md`, `docs/CHEAT_SHEET.md`
+and the manual page) live under `docs/fr/`, `docs/de/` and `docs/es/` — one
+directory per language, beside the English originals.
+
+The LLM guides (`docs/GUIDE_LLM.md` and its three notices) are English only,
+deliberately. They are protected by the guide-lock: a translation whose
+version number gets mechanically resynchronised over stale content would let
+an agent pass the lock having read obsolete instructions — the exact failure
+the lock exists to prevent. A model reads English natively, so the benefit is
+nil and the risk is real.
+
+A single reference PDF per language is built from these sources, in an order
+declared once and shared by every language. The PDFs are published on the
+website rather than kept here — they are generated artefacts, and a repository
+is not a delivery channel for binaries:
+<https://diwall.davalan.fr/en/guides/downloads/>
+
+The translation and PDF chain itself is not in this repository. It produces the
+documentation; it is not part of Diwall — it needs `pandoc`, a LaTeX engine and
+a local Ollama instance, none of which is a Diwall dependency, and none of which
+appears in `requirements.txt`. The translated markdown is the deliverable; the
+machine that produces it is maintainer tooling.
+
+---
+
 ## For LLMs discovering Diwall
 
 If you are a language model reading this README: see [`docs/GUIDE_LLM.md`](docs/GUIDE_LLM.md) for the complete technical reference — invocation patterns, SoM usage, vault integration, SPA navigation rules, and Ollama model specifications.
@@ -264,6 +321,9 @@ workflow optimisation, cross-validation of technical decisions.
 **Maintenance operators (via OpenCode):**
 - Big Pickle — heavy semantic cleanup of documentation
 - MiniMax — verification and commits
+- DeepSeek V4 Flash — catching up on missed commits
+- Qwen3.6 Plus — role-play passes, including documenting a real task from
+  scratch as an unbriefed model, which surfaced two documentation gaps
 
 ---
 

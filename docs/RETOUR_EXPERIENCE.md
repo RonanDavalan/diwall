@@ -2471,6 +2471,8 @@ Dans les deux cas, `url_au_moment_capture` = `?vue=login` — la page SSE a prob
 | URL invalide 404 | 5 | 22 % |
 | Accessibles (HTTP 200 + contenu) | 2 | 8,7 % |
 
+**23 sites ciblés, 22 résultats consignés.** Les quatre comptages ci-dessus totalisent 22, et les parts 95,7 % — le résultat du 23e site n'a jamais été noté. La liste des URL n'ayant pas été conservée non plus (voir plus bas), il est irrécupérable. Les parts restent rapportées au panel ciblé plutôt que rebasées sur 22 : rien n'établit que le 23e site n'a pas été testé, seulement que son résultat n'a pas été consigné.
+
 Sites accessibles : 2 sites SSR sans WAF. Sites bloqués : grandes enseignes et marketplaces e-commerce (9 sites).
 
 **Cause racine :** Playwright expose `navigator.webdriver = true` par défaut. Les WAF modernes détectent ce signal et bloquent sans inspecter l'intention derrière la requête. Diwall ne dissimule pas ce signal — c'est un choix de transparence, pas une contrainte.

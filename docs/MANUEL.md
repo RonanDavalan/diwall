@@ -1,6 +1,8 @@
 # Diwall — Operational manual
 
-**Version 1.21.0 — July 2026**
+**Version 1.23.0 — August 2026**
+
+*Also available in French, German and Spanish under `docs/fr/`, `docs/de/` and `docs/es/`.*
 
 This document answers one question: **how to do X with Diwall**.
 
@@ -28,26 +30,6 @@ No architectural descriptions. Commands that work.
 10. [CLI flags — reference](#10-cli-flags--reference)
 11. [Exit codes and output](#11-exit-codes-and-output)
 
-v1.16.0 additions: [2d](#2d-read-etat-for-a-go-no-go-decision) (`etat`), [3e](#3e-waf-detection-signal-v1160-refined-v1172) (WAF signal).
-v1.17.0 additions: [5h](#5h-structural-non-regression-without-pixels---replay-verifier)
-(`--replay-verifier`), [5i](#5i-resume-a-long-scenario-after-failure---checkpoint)
-(`--checkpoint`), [5j](#5j-target-elements-inside-an-iframe) (iframe actions),
-[7j](#7j-som-id-drift-on-highly-dynamic-pages---som-rafraichir) (`--som-rafraichir`).
-v1.17.2 fixes (no new sections): [3e](#3e-waf-detection-signal-v1160-refined-v1172)
-(refined WAF heuristic, `--ignorer-waf`), [5i](#5i-resume-a-long-scenario-after-failure---checkpoint)
-(navigation-cap checkpoint fix), [7j](#7j-som-id-drift-on-highly-dynamic-pages---som-rafraichir)
-(SoM collision cleanup).
-v1.18.0 additions: [1](#1-verify-the-installation) (`--version`/`--guide-version`
-mandatory pre-flight), [2e](#2e-mode_conseille--pre-flight-configuration-advice)
-(`mode_conseille`), [5k](#5k-nested-iframes--iframe_chemin) (`iframe_chemin`),
-[8g](#8g-continuous-structural-monitoring--monitor-verifiersh) (`monitor-verifier.sh`).
-v1.20.0 additions: [9](#9-operation-log) (`journal.py --erreurs`),
-[11](#11-exit-codes-and-output) (`latences_actions` per-action timing).
-v1.21.0 additions: [4g](#4g-http-basic-auth---http-credentials-v1210)
-(`--http-credentials`, HTTP Basic Auth, confirmed against a real target).
-v1.22.0 additions: [7l](#7l-initial-navigation-never-completes---wait-until-v1220)
-(`--wait-until` for never-idle targets). **Breaking change:** the output key
-`citoyennete` is renamed `respect` throughout — sub-keys unchanged.
 
 ---
 
@@ -56,7 +38,7 @@ v1.22.0 additions: [7l](#7l-initial-navigation-never-completes---wait-until-v122
 ```bash
 # Cheapest possible check — no Playwright, no URL, exit 0 immediately (v1.18.0+)
 /opt/diwall/venv/bin/python3 /opt/diwall/shot.py --version
-# → {"outil": "shot.py", "version": "1.20.0"}
+# → {"outil": "shot.py", "version": "1.23.0"}
 ```
 
 ```bash
@@ -70,9 +52,11 @@ Expected result: JSON on stdout with `"succes": true`.
 **`--guide-version` (v1.18.0+):** `shot.py`, `rpa.py`, and `watch.py` refuse to
 run without it — unless a local marker from a previous accepted call already
 exists (`~/.config/diwall/guide_state.json`). The value is the
-`<!-- notice-version: X.Y -->` on line 3 of `docs/GUIDE_LLM.md` (currently
-`3.9`) — not the Diwall release number. See `docs/GUIDE_LLM.md` section
-"Mandatory pre-flight" for the full mechanism and the error format if you skip it.
+`<!-- notice-version: X.Y -->` on line 3 of `docs/GUIDE_LLM.md` — not the
+Diwall release number. Read the current one rather than trusting any value
+quoted here: `grep notice-version /opt/diwall/docs/GUIDE_LLM.md`. See
+`docs/GUIDE_LLM.md` section "Mandatory pre-flight" for the full mechanism and
+the error format if you skip it.
 
 **Once the marker exists, `--guide-version` becomes optional again** — every
 other command example in this manual omits it deliberately, since a marker
@@ -82,7 +66,7 @@ from any earlier successful call already covers them, as long as
 ```bash
 # Verify the installed version
 grep "__version__" /opt/diwall/shot.py
-# → __version__ = "1.20.0"
+# → __version__ = "1.23.0"
 
 # Verify playwright-stealth is available (v1.15.0)
 /opt/diwall/venv/bin/python3 -c "import playwright_stealth; print('stealth OK')"
@@ -95,15 +79,14 @@ ls ~/Vaults/__PROJET__/Diwall/
 If `ls ~/Vaults/...` returns an empty list or an error:
 → mount the vault: `bash ~/git/Diwall/Diwall/scripts/mount-vault.sh`
 
-### 1a. Alternative install channel — the `.deb` package
+### 1a. Installing from the Debian package — the simple path
 
-Everything above assumes the git-clone + `install.sh` channel. A native
-Debian package is also available as a release asset on GitHub — an
-alternative channel, never a replacement; the two are mutually exclusive on
-a single machine (both target `/opt/diwall/`).
+The `.deb` is a release asset on GitHub. It is the recommended channel unless
+you intend to modify Diwall's own code, in which case see 1b. The two channels
+are mutually exclusive on a single machine — both target `/opt/diwall/`.
 
 ```bash
-sudo apt install ./diwall_1.22.0-1_all.deb
+sudo apt install ./diwall_1.23.0-1_all.deb
 diwall-shot --version
 man diwall
 ```
@@ -141,6 +124,42 @@ single page. The five other command names (`man diwall-rpa`, and so on)
 resolve to the same page. It is generated from `debian/diwall.1.md` at build
 time, so it cannot silently go stale — but for the exhaustive option list of
 any command, `--help` remains authoritative over the manual page.
+
+### 1b. Installing from source — for modifying Diwall itself
+
+Use this channel only if you intend to change Diwall's own code: it puts the
+repository where `deploy.sh` can push your changes to `/opt/diwall/`. For
+plain use, the `.deb` above is one command and does the same job.
+
+```bash
+# 1. Create system user and directory
+sudo useradd --system --no-create-home --shell /bin/false diwall
+sudo mkdir -p /opt/diwall
+sudo chown root:diwall /opt/diwall
+
+# 2. Clone the repository
+git clone https://github.com/ronandavalan/diwall.git ~/git/Diwall/Diwall
+cd ~/git/Diwall/Diwall
+
+# 3. Create Python virtual environment
+sudo /usr/bin/python3 -m venv /opt/diwall/venv
+sudo /opt/diwall/venv/bin/pip install -r requirements.txt
+
+# 4. Install Chromium
+sudo /opt/diwall/venv/bin/playwright install chromium
+
+# 5. Deploy
+bash ~/git/Diwall/Diwall/scripts/deploy.sh
+
+# 6. Create your credential vault
+mkdir -p ~/Vaults/<your-project>/Diwall
+# Create ~/Vaults/<your-project>/Diwall/<hostname>.json with your credentials
+```
+
+On this channel the configuration is `/opt/diwall/diwall.conf`, not
+`/etc/diwall/diwall.conf`. Uninstall with
+`bash ~/git/Diwall/Diwall/scripts/uninstall.sh --dry-run` first, then without
+the flag.
 
 **Building the package (maintainer):**
 
@@ -181,6 +200,14 @@ Returns:
 - `capture_som`: PNG with numbers on clickable elements (SoM)
 - `elements_som`: JSON list of elements (id, tag, text)
 - `a11y_tree`: accessibility tree
+
+![Set-of-Mark overlay: each interactive element outlined and numbered](images/som-example-en.png)
+
+*What `--som` produces. The numbers in the image are the `id` values in
+`elements_som`, so clicking becomes `{"type": "cliquer_som", "id": 7}` — no
+selector to guess. Generated from a fixture versioned in this repository
+(`scenarios/interoperabilite/fixture/`); the same figure exists in French,
+German and Spanish alongside this one.*
 
 ### 2c. Read the boussole first
 
@@ -834,7 +861,7 @@ iframe, keep using `iframe_selecteur` (section 5j).
 | Type | Required params | Optional params | Notes |
 |---|---|---|---|
 | `naviguer` | `url` | — | Full HTTP reload. Counted in `respect.pages_visitees` |
-| `cliquer` | `selecteur` | `force` (bool) | `force: true` bypasses CSS-hidden elements or showModal |
+| `cliquer` | `selecteur` | `force` (bool), `repli_js` (bool) | `force: true` bypasses CSS-hidden elements or showModal. `repli_js: true` retries through JS if the native click still fails (v1.22.0) — needs `--no-evaluer` off |
 | `cliquer_som` | `id` | — | Click at element centre coordinates. No `force` needed |
 | `cliquer_visuel` | `description` | — | LLM vision (~32 s). Last resort for canvas or attribute-less elements |
 | `remplir` | `selecteur`, `valeur` | `vault_cle` | `valeur: "depuis_vault"` activates the vault |
@@ -1347,7 +1374,7 @@ Propagates all relevant shot.py flags, plus:
     "respect": { "pages_visitees": 0, "actions_executees": 3, "duree_totale_ms": 2400, "indice_agressivite": 0.33 }
   },
   "diwall_meta": {
-    "version_shot": "1.17.2",
+    "version_shot": "1.23.0",
     "profil": "operator",
     "modeles_appeles": []
   }

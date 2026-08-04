@@ -1,0 +1,68 @@
+<!doctype html>
+<!--
+  Fixture générée par scripts/i18n/capturer-som.py — ne pas éditer à la main.
+  Générique par construction : aucune marque, aucun opérateur, aucune donnée
+  réelle. Sert à produire docs/images/som-example-de.png.
+-->
+<html lang="de">
+<head>
+<meta charset="utf-8">
+<title>Verwaltungsbereich</title>
+<style>
+  body { font: 15px/1.5 system-ui, sans-serif; margin: 0; color: #1a1a1a; }
+  header { background: #23324a; color: #fff; padding: 14px 24px;
+           display: flex; align-items: center; gap: 24px; }
+  header strong { font-size: 17px; }
+  nav a { color: #cfd8e6; text-decoration: none; margin-right: 18px; }
+  main { display: flex; gap: 28px; padding: 24px; }
+  section { border: 1px solid #d8dee8; border-radius: 6px; padding: 18px; }
+  .form { width: 320px; }
+  label { display: block; margin: 12px 0 4px; font-size: 13px; color: #4a5568; }
+  input, select { width: 100%; padding: 7px 8px; border: 1px solid #c3ccd9;
+                  border-radius: 4px; box-sizing: border-box; }
+  button { margin-top: 16px; padding: 8px 16px; border: 0; border-radius: 4px;
+           background: #2f6db5; color: #fff; cursor: pointer; }
+  button.ghost { background: #eef2f7; color: #23324a; }
+  table { border-collapse: collapse; min-width: 330px; }
+  th, td { text-align: left; padding: 8px 12px; border-bottom: 1px solid #e6eaf0;
+           font-size: 14px; }
+  th { color: #4a5568; font-weight: 600; }
+  h2 { margin: 0 0 8px; font-size: 16px; }
+</style>
+</head>
+<body>
+
+<header>
+  <strong>Verwaltungsbereich</strong>
+  <nav>
+    <a href="#a">Übersicht</a>
+    <a href="#b">Websites</a>
+    <a href="#c">Einstellungen</a>
+  </nav>
+</header>
+
+<main>
+  <section class="form">
+    <h2>Anmelden</h2>
+    <label for="user">Benutzername</label>
+    <input id="user" name="username" type="text" placeholder="operator">
+    <label for="pass">Passwort</label>
+    <input id="pass" name="password" type="password" placeholder="••••••••">
+    <label for="env">Umgebung</label>
+    <select id="env"><option>production</option><option>staging</option></select>
+    <button type="submit">Anmelden</button>
+    <button type="button" class="ghost">Abbrechen</button>
+  </section>
+
+  <section>
+    <h2>Letzte Läufe</h2>
+    <table>
+      <tr><th>Ziel</th><th>Status</th><th></th></tr>
+      <tr><td>example-one</td><td>ok</td><td><a href="#r1">Details</a></td></tr>
+      <tr><td>example-two</td><td>failed</td><td><a href="#r2">Details</a></td></tr>
+    </table>
+  </section>
+</main>
+
+</body>
+</html>

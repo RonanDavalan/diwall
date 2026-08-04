@@ -1,6 +1,8 @@
 # Diwall — Operator guide
 
-Version 1.9 — July 2026 (v1.21.0) — four more demonstration use cases (self-hosted observability, ticketing platform administration, local events tracking, e-commerce access under Respectful Navigation)
+Version 1.10 — August 2026 (v1.23.0) — four more demonstration use cases (self-hosted observability, ticketing platform administration, local events tracking, e-commerce access under Respectful Navigation)
+
+*Also available in French, German and Spanish under `docs/fr/`, `docs/de/` and `docs/es/`.*
 
 ---
 
@@ -83,12 +85,16 @@ step-by-step procedures, and reminders on common stumbling points.
 
 ## Demonstration use cases
 
-Three cases below illustrate what an agent-plus-Diwall session can look like
-in practice. They are meant for you to evaluate against your own context,
-not as a recommendation to adopt any specific one.
+The cases below illustrate what an agent-plus-Diwall session can look like in
+practice. They are meant for you to evaluate against your own context, not as
+a recommendation to adopt any specific one. Only Case 1 ships as a runnable
+scenario; the others are narrative on purpose, and each explains why under its
+own heading.
 
-**Case 1 — local CSS/JS troubleshooting** is committed as a real, runnable
-scenario: `scenarios/exemples/depannage_local.json`. It diagnoses a visual
+### Case 1 — local CSS/JS troubleshooting
+
+Committed as a real, runnable scenario:
+`scenarios/exemples/depannage_local.json`. It diagnoses a visual
 shift or a blocked interaction on a locally-served interface — a fast probe
 (`--mode fast`), reading `erreurs_js`/`erreurs_console`, an `--som` capture
 if the shift is purely visual, then validating the fix with
@@ -100,9 +106,6 @@ regression. Run it directly:
   --scenario /opt/diwall/scenarios/exemples/depannage_local.json \
   --guide-version 4.1
 ```
-
-The two cases below are narrative only — no scenario file is committed for
-them, on purpose (see the reasoning under each).
 
 ### Case 2 — comparing hardware components across shops
 

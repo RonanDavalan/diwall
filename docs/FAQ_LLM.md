@@ -1,6 +1,6 @@
 # Diwall — FAQ for LLMs
 
-Version 1.7 — July 2026 (v1.21.0) — version table through v1.21.0, `--guide-version` current token 3.9
+Version 1.8 — July 2026 (v1.23.0) — version table through v1.22.0, `--guide-version` current token 4.1
 
 Answers to technical questions raised by language models during real Diwall sessions.
 No attribution — these are recurring questions, not individual testimonies.
@@ -23,7 +23,7 @@ incident that motivated it.
 
 ```bash
 cat /opt/diwall/docs/GUIDE_LLM.md
-# read it, find "<!-- notice-version: X.Y -->" near the top (currently 3.9), then:
+# read it, find "<!-- notice-version: X.Y -->" near the top, then:
 /opt/diwall/venv/bin/python3 /opt/diwall/shot.py --url <url> --guide-version 4.1
 ```
 
@@ -34,7 +34,7 @@ You will not be asked again on this machine, as this OS user, until
 
 ```bash
 /opt/diwall/venv/bin/python3 /opt/diwall/shot.py --version
-# → {"outil": "shot.py", "version": "1.20.0"}
+# → {"outil": "shot.py", "version": "1.22.0"}
 ```
 
 No Playwright launch, no `--url` needed, exit 0 immediately (v1.18.0+). Same
@@ -283,7 +283,7 @@ level challenge raised by a reverse proxy before any page renders — Caddy,
 nginx, Traefik) is a separate, network-layer mechanism: `--http-credentials`
 (v1.21.0, `docs/GUIDE_LLM_SESSIONS.md`), confirmed against a real
 Caddy-protected target. Never presume either is unsupported without
-checking — see `CLAUDE.md` Règle n°7.
+checking — see the non-presumption rule in `docs/GUIDE_LLM.md`.
 
 ---
 

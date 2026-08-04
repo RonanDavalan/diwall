@@ -146,6 +146,63 @@ for f in "$REPO"/docs/*.md; do
     fi
 done
 
+# ── Déployer docs/images/ et les traductions docs/<langue>/ ──────────────────────────
+# Ajouté en v1.23.0 pour que les deux canaux d'installation livrent le même
+# état : le paquet .deb les embarque (debian/diwall.install), le clone doit
+# faire de même. Sans cela, `deploy.sh` et le paquet produisent deux
+# /opt/diwall/ différents — divergence que la vérification de cohérence de
+# clôture remonterait à chaque session, jusqu'à ce qu'on la fasse taire.
+#
+# Le glob `docs/*.md` ci-dessus ne descend pas dans docs/images/ : une boucle
+# dédiée est nécessaire, elle ne s'ajoute pas à la précédente.
+#
+# Ce qui n'est PAS déployé, et le motif : l'outillage du pipeline de traduction
+# — empreintes, arbitrages, manifeste, glossaire, préambule LaTeX — a quitté le
+# dépôt le 02/08/2026 et vit au tampon. Les PDF aussi : générés, jamais
+# versionnés, absents d'un clone frais. Les déployer rendrait le résultat
+# dépendant de l'état de la machine de construction.
+deployer_fichier() {
+    # $1 chemin source, $2 chemin destination, $3 libellé affiché
+    if diff -q "$1" "$2" > /dev/null 2>&1; then
+        echo "  Inchangé: $3"
+    else
+        sudo cp "$1" "$2"
+        echo "  Déployé : $3"
+        changed=$((changed + 1))
+    fi
+}
+
+if [ -d "$REPO/docs/images" ]; then
+    [ -d "$DEST/docs/images" ] || {
+        sudo install -d -m 755 -o root -g "$GROUPE" "$DEST/docs/images"
+        echo "  Créé    : $DEST/docs/images"
+    }
+    for f in "$REPO"/docs/images/*; do
+        [ -f "$f" ] || continue
+        deployer_fichier "$f" "$DEST/docs/images/$(basename "$f")" "docs/images/$(basename "$f")"
+    done
+fi
+
+# Les traductions vivent sous `docs/<langue>/` depuis le 02/08/2026 : elles sont
+# de la documentation, pas une catégorie à part. Le répertoire `i18n/` qui les
+# portait mélangeait la documentation traduite et l'outillage qui la produit —
+# manifeste, glossaire, préambule LaTeX — et son nom n'avait rien à faire à la
+# racine d'un produit. L'outillage est parti au tampon, le reste est ici.
+for langue in fr de es; do
+    src_dir="$REPO/docs/$langue"
+    dst_dir="$DEST/docs/$langue"
+    [ -d "$src_dir" ] || continue
+    [ -d "$dst_dir" ] || {
+        sudo install -d -m 755 -o root -g "$GROUPE" "$dst_dir"
+        echo "  Créé    : $dst_dir"
+    }
+    for f in "$src_dir"/*.md; do
+        [ -f "$f" ] || continue
+        rel="docs/$langue/$(basename "$f")"
+        deployer_fichier "$f" "$dst_dir/$(basename "$f")" "$rel"
+    done
+done
+
 # ── Modèle de configuration : diwall-sample.conf (toujours écrit) ────────────
 SAMPLE="$DEST/diwall-sample.conf"
 sudo tee "$SAMPLE" > /dev/null << 'CONF_EOF'
@@ -190,6 +247,10 @@ sudo chown root:"$GROUPE" "$DEST"/scenarios/*.json "$DEST"/scenarios/*.yaml \
 sudo chown root:"$GROUPE" "$DEST"/skills/*.json "$DEST"/skills/*.md \
      2>/dev/null || true
 sudo chown root:"$GROUPE" "$DEST"/docs/*.md 2>/dev/null || true
+# Documentation traduite et images : même nature que docs/*.md — publiques,
+# lisibles par tous. Sans ces deux lignes elles resteraient root:root.
+sudo chown root:"$GROUPE" "$DEST"/docs/images/* 2>/dev/null || true
+sudo chown -R root:"$GROUPE" "$DEST"/docs 2>/dev/null || true
 
 # lib/*.py : code public GitHub → 644 lisible par tous
 sudo chmod 644 "$DEST"/*.py "$DEST"/lib/*.py "$DEST"/diwall-sample.conf 2>/dev/null || true
@@ -199,6 +260,9 @@ sudo chmod 640 "$DEST"/diwall.conf 2>/dev/null || true
 sudo chmod 640 "$DEST"/scenarios/*.json "$DEST"/scenarios/*.yaml 2>/dev/null || true
 sudo chmod 640 "$DEST"/skills/*.json "$DEST"/skills/*.md 2>/dev/null || true
 sudo chmod 644 "$DEST"/docs/*.md 2>/dev/null || true
+sudo chmod 644 "$DEST"/docs/images/* 2>/dev/null || true
+sudo find "$DEST"/docs -type d -exec chmod 755 {} + 2>/dev/null || true
+sudo find "$DEST"/i18n -type f -exec chmod 644 {} + 2>/dev/null || true
 sudo chmod 755 "$DEST"/shot.py "$DEST"/watch.py "$DEST"/rpa.py \
      "$DEST"/journal.py 2>/dev/null || true
 echo ""

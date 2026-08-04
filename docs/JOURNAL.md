@@ -4,6 +4,526 @@ History of decisions and discoveries by session, in reverse chronological order.
 
 ---
 
+## 2026-08-04 — A published measurement did not add up, and the benchmark claimed a total it never had
+
+Two figures this project had been publishing for weeks do not survive being
+checked against the record that produced them. Both are corrected here and on
+the website, and the way they were found is worth more than either correction.
+
+**The June campaign counted 22 sites and announced 23.** The accessibility
+figures from 27 June 2026 — 39 % blocked by a WAF, 26 % timing out, 22 %
+wrong-URL 404s, 8.7 % accessible — break down as 9 + 6 + 5 + 2. That is
+twenty-two results for a panel described as twenty-three sites, and the shares
+stop at 95.7 % instead of 100. Exactly one result, `1/23`, was never written
+down.
+
+It cannot be recovered: the list of URLs was not kept either, and rebuilding a
+commercial panel without a genuine purchase intent was declined at the time as
+indistinguishable from a load test on somebody else's infrastructure.
+
+So the gap is now stated rather than smoothed over. The counts stay as they
+are, and the shares stay relative to the panel targeted — **not** rebased on
+22, which would assert that the twenty-third site went untested. Nothing
+establishes that. All that is known is that its result went unrecorded, and
+that is what the documents now say.
+
+**The stealth benchmark never measured "31 of 31".** The site claimed
+`--stealth` passed 31 of 31 fingerprint checks on a public benchmark. The
+source records something else: 12 checks failed and 18 passed without the flag,
+0 failed and 31 passed with it. The two columns describe 30 checks and 31 — the
+totals are not equal, and nothing in the record explains why. The benchmark
+page plausibly renders some checks only when a signal is present, but that was
+never verified.
+
+A denominator that was never measured is not a rounding detail on a page whose
+whole argument is that its numbers can be checked. The claim is now what the
+record supports: 31 checks passed with the flag, against 18 without, and no
+total asserted.
+
+**How both were found, and why it matters.** A first pass compared the website
+against the repository and found them consistent. They were — and both were
+wrong in the same way, because the site had copied the repository faithfully.
+Consistency between a copy and its source proves only that the copy is
+faithful. What the second pass did differently was go back to the record that
+produced each number: the field log, the observation file, the code. Checking
+downstream text against upstream text will confirm a mistake as readily as a
+fact.
+
+---
+
+## 2026-08-02 — The dated corpora stay in the repository, and the site copies them at build time
+
+Yesterday's decision is reversed. `JOURNAL.md`, `RETOUR_EXPERIENCE.md`,
+`RADAR_MODELES.md` and `ACCESS_OBSERVATIONS.md` — 5 104 lines — had been moved
+out of the public repository so the website could carry them without
+duplicating content. They are back, and the site publishes them without owning
+them: `deploy-site.sh` copies them from `docs/` just before the Hugo build, and
+the site repository does not version them.
+
+**Why the reversal.** The first trust argument of this project is that
+everything is inspectable, failures included. A developer who lands on the
+forge — the most demanding reader, and the one who will never visit the site —
+must be able to read the history of decisions next to the code those decisions
+produced. Moving the files made that history invisible where it matters most,
+and detached the writing of the log from the commits it narrates.
+
+The duplicate-content objection that motivated the move was real, and it is the
+copy at build time that answers it — not the removal. There is never a second
+history of the same text.
+
+**What the move actually cost, and it is the useful part of this entry.** The
+files were not simply moved: they were transposed into Hugo pages, with roughly
+a hundred and thirty presentation `<div>` tags injected into the body, and the
+sources were deleted. No content was lost — the 44 entries were all there, word
+for word. What was lost was **the file one writes in**. What remained was a
+template to edit, and, no copy script having been written, no path to publish
+at all. At closing time there was nothing left to write the day's entry into.
+
+Two rules come out of it, and they are now in the site specification. A file an
+operator fills in by hand between two sessions carries no layout markup — the
+styling belongs to the template, in CSS. And a page copied at build time
+reproduces its source in full, in the language it is written in; what deserves
+to be known from a long corpus is lifted into a short editorial page, in four
+languages, which cites its source. Selecting is not rewriting.
+
+**Annual rotation, done at the copy.** 44 entries in four months, roughly 6 000
+lines a year: a single page becomes unreadable in its second year. The
+deployment splits entries by year into one page each; the source stays one
+continuous file. A blocking check compares the number of entries before and
+after the split.
+
+**One section was flattened.** `Le projet` had a heading, one sentence and a
+link to its only sub-page: a reader arriving from the menu got an announcement
+rather than an answer. The history moved up into the section page, the sub-page
+is gone, and the four `.htaccess` redirects that had been hiding the emptiness
+since 31 July went with it — they never applied locally, since `hugo serve`
+does not read that file, so the defect was only visible in production. This
+stays an exception: the other seven sections have several sub-pages with real
+material, and flattening them would destroy translated, indexable URLs.
+
+**Twenty-six cross-references repaired.** Removing the files had turned
+internal references into links to the website, throughout the guides, in all
+four languages, and inside `shot.py` and `lib/preflight_guide.py`. They are
+local paths again. Nine translation cache files carried the same URLs — the
+exact trap already met on 1 August, where published files were fixed and the
+cache that re-injects them was not.
+
+**Four version numbers, none of them the shipped one.** The package shipped
+1.23.0 while `shot.py` and `rpa.py` declared 1.22.0, `watch.py` 1.18.0 and
+`journal.py` 1.20.0. Every JSON output therefore announced `version_shot:
+1.22.0` on a 1.23.0 install — a model reading that key to decide whether a
+feature exists gets it wrong, and an operator reporting a bug quotes the wrong
+number.
+
+The closing checklist had asked for this consistency from the start. Nothing
+verified it, so it drifted across four releases. `verifier-coherence.sh` now
+checks each root script's `__version__` against `debian/changelog`, which is
+already the source of truth for the package build. The check was **proven to
+fail on a deliberate drift** before being trusted: a check nobody has watched
+fail proves nothing.
+
+**A cold-install test that proved nothing, and its correction.** Session 51 had
+found that `postinst` never created `/opt/diwall/references`, so
+`watch --sauver-reference` failed on a fresh install. Re-running that test
+today looked green — wrongly. `dpkg` does not remove `/opt/diwall/scenarios`
+when it is not empty, so the parent directory survives the purge and
+`references/` with it: the test was measuring a leftover. With the directory
+actually deleted first, `postinst` does create it, `770 root:diwall`. The fix
+holds; the test that was supposed to guard it did not.
+
+---
+
+## 2026-08-01 — `man diwall` in four languages, and both channels ship the same thing
+
+The manual page is translated into French, German and Spanish. `dh_installman`
+derives the language from the file name, so `debian/diwall.fr.1` lands in
+`/usr/share/man/fr/man1/` and `man` picks it up from the reader's locale with
+no configuration at all. The six `.so` redirections are generated per language
+too — without them a French reader would get French on `man diwall` and English
+on `man diwall-shot`, which is worse than no translation.
+
+Section names follow the Debian conventions of each language rather than a
+literal translation: `BEZEICHNUNG` and `ÜBERSICHT` in German, `VÉASE TAMBIÉN`
+in Spanish. Those were read off installed pages, not guessed — the Spanish form
+was chosen by counting occurrences on this machine, 67 against 2.
+
+**Both installation channels now ship the translated documentation.** The
+package and `deploy.sh` place `i18n/**/*.md` and `docs/images/` under
+`/opt/diwall/`. A package that shipped them while a git clone did not would
+produce two different installations of the same version, and the divergence
+would surface at every consistency check until someone silenced it. What the
+pipeline uses to *build* the documentation stays out: segment sidecars and
+arbitrations — larger, together, than the documentation they produce — plus
+the manifest, the LaTeX preamble and the generated PDFs, which are git-ignored
+and therefore absent from a fresh clone. What a reader reads ships; what builds
+it does not.
+
+**A real render caught what no automatic check did.** The manual is the first
+document in the pipeline that is not ordinary markdown prose, and three of its
+constructions had no protection: pandoc's metadata header, which carries the
+page name *and section*; the escaped brackets of the SYNOPSIS; and command
+names. `diwall-mount-vault` came back translated into a command that does not
+exist — inside a SYNOPSIS, with every mechanical check passing, because prose
+documents write command names as inline code, already masked, while manual
+pages write them in bold. Four patterns were added, and the first translation
+was re-run from scratch afterwards: a net added after the fact does not catch
+what is already written.
+
+## 2026-07-31 — Repository governance scripts leave the repository
+
+The governance scripts of this repository — publication check, coherence
+check, pre-push hook, package build, translation chain — are no longer
+distributed. They serve to maintain Diwall, not to use it.
+
+This is a cleanup, and it presents itself as one. Nine files are affected;
+the eight scripts a user actually needs stay exactly where they were:
+`install.sh`, `uninstall.sh`, `deploy.sh`, `setup-vault.sh`, `mount-vault.sh`,
+`umount-vault.sh`, `migrate-vault.sh`, `monitor-verifier.sh`. The test that
+matters — "can this be rebuilt from zero with the Git repository alone?" —
+still passes, which is precisely why those eight are not going anywhere.
+
+Two consequences are worth stating rather than discovering:
+
+**Git history is not rewritten.** Versions v1.1 through v1.21.0 still contain
+these files. A history purge is justified by data that must be erased, never
+by a preference about tidiness — and the check run before the move found
+nothing sensitive in the seventeen scripts.
+
+**`scripts/i18n/` is gone, and the translations are not.** What ships is the
+result: the translated markdown under `i18n/`, its segment fingerprints, and
+the manifest declaring the order of the reference PDFs. The machine that
+produces them needs `pandoc`, a LaTeX engine and a local Ollama instance —
+none of which was ever a Diwall dependency, and none of which a packager or a
+fork needs. The `README.md` reproduction command changed accordingly: it now
+demonstrates Diwall itself against a fixture versioned in this repository,
+rather than the maintainer script that generated the illustration.
+
+The v1.23.0 validation suite (`scenarios/v1.23.0_validation/`) tests that
+translation chain, so it now skips cleanly when the tooling is absent instead
+of failing on import — an absent maintainer tool must not read as a broken
+product.
+
+## 2026-07-29 — Session 63 (v1.23.0 — multilingual documentation: `i18n/`, ordered PDF, segmented translation pipeline)
+
+**English stays canonical and stays in place.** Translations of the
+human-facing documents (`README.md`, `docs/GUIDE.md`, `docs/MANUEL.md`) live
+under `i18n/<language>/`, mirroring the source path. Nothing was moved — the
+tree is asymmetric on purpose.
+
+`docs/GUIDE_LLM.md` and its three notices are never translated. Their paths
+are frozen (guide-lock, `debian/diwall.install`, `deploy.sh`, runtime error
+messages, partner documentation), but the deciding reason is subtler: a
+translated locked guide can desynchronise silently. A version number
+mechanically resynchronised over content that is still the previous version
+lets an agent pass the lock having read obsolete instructions — the exact
+failure the lock exists to prevent. A model reads English natively and English
+costs fewer tokens: the benefit is nil, the risk is real.
+`docs/RETOUR_EXPERIENCE.md` stays French and untranslated; the dated logs
+(`JOURNAL.md`, `RADAR_MODELES.md`, `ACCESS_OBSERVATIONS.md`) are observation
+records, not usage documentation.
+
+**The order is declared once, in `i18n/manifeste.json`, and shared by every
+language.** The table of contents is never maintained by hand — pandoc
+generates it from the merged headings (`--toc`). Only the *order* is declared.
+An implicit order (alphabetical, or whatever the filesystem returns) is never
+the pedagogical order: that is how a manual ends up presenting reinstallation
+before installation. If translations each redeclared the order, four PDFs
+would end up with three different ones, and nobody would notice until a
+Spanish reader uninstalled before installing.
+
+Every file in the declared perimeter must appear in either the order or the
+motivated exclusions. A file in neither fails the build, and
+`scripts/verifier-coherence.sh` gained a fifth, static check for the same
+reason: a document added under `docs/` and forgotten in the manifest would
+otherwise drop out of the PDF silently.
+
+**What must not be translated never reaches the model.** Fenced code blocks
+are never sent at all. Inside prose, protected zones — inline code, paths,
+long options, URLs, anchor targets, JSON keys — are replaced by opaque tags
+before the call and restored after it. Asking a model not to translate
+`--wait-until` works most of the time, and "most of the time", on technical
+documentation, produces a broken command somewhere nobody looks. The check is
+mechanical: the tags in the answer must be exactly those in the input, same
+count, intact, no duplicates. Any divergence rejects the segment to human
+arbitration, English source kept. There is no semantic judgement a convincing
+model could talk its way around.
+
+**Segments carry their source fingerprint**, stored next to the translation.
+Fixing a typo retranslates the touched segments only. Without that, correcting
+one word relaunches four complete translations and the pipeline dies of
+exhaustion after three releases — the deciding motive, ahead of the small
+models' context limits.
+
+**Two mechanisms earned their place from measured failures, not from
+foresight.** First run on `README.md` rejected 21 of 51 segments; 19 carried
+the same cause — the model *invented* tags on segments that had none, because
+the prompt explained tags to it regardless. The placeholder instruction is now
+sent only when the segment actually holds placeholders. Second: some segments
+came back untranslated, verbatim English. The similarity gate is structurally
+blind to this — an untranslated segment back-translates to itself and scores a
+perfect 1.0, the best mark available. Only a mechanical string comparison
+catches it, so a segment handed back unchanged is now rejected outright.
+
+A third fix came from the prompt itself: naming the *shape* of the tags
+(`[[[xxx]]]`) rather than listing the ones present. Listing them makes the
+model copy the list into its answer, so every tag comes back duplicated — a
+mechanism visible in the failures, not a correlation.
+
+Final figures, four checks and one retry, across three languages: **100
+segments in arbitration out of 1005 (10.0%)** — French 35, German 33, Spanish
+32. Rejected segments keep their English source and are listed with their
+reason; a handful are trivial (`## Architecture`, `## Installation`,
+`## Licence` are identical in French — the model was right, a human clears
+them in seconds). The rate rose from 3% to 10% when the last two checks went
+in, which is the whole point: those 7% were being delivered corrupted and
+silent.
+
+**Two failures the first three checks could not see, both found by running
+the pipeline on three languages rather than one.**
+
+The model sometimes *answered* the instruction instead of following it: the
+output opened with the instruction itself, faithfully translated, followed by
+the real translation. 89 segments across the delivered French and Spanish
+files. Tags were intact, so tag integrity passed; on a long segment the extra
+300 characters barely move a length ratio, so that would not have caught it
+either. What catches it is a literal: the instruction describes the tag shape
+as `[[[xxx]]]`, and real tags are always numeric — that string can reach an
+answer exactly one way.
+
+And from the single heading `## Uninstalling Diwall`, the German run produced
+a complete invented Windows uninstall procedure, control panel and all. It was
+caught only because the invention happened to mention `/usr/local`, a path the
+second net could compare against the source. Invented prose without a path
+would have shipped. Hence the fourth check, on length ratio: translation
+stretches text by tens of percent, never by a factor of ten. A short segment
+answered with paragraphs is a model answering, not translating.
+
+Both are worth stating plainly: the safety of this pipeline does not come from
+the model behaving, it comes from checks that do not need it to. Every one of
+the four was added after seeing the failure, not before.
+
+**A measurement that reversed itself, kept here because the mistake is the
+useful part.** Tags are numbered sequentially, and the numbering looked like a
+liability: shown `[[[0]]]`, a model has an obvious next term to invent. Opaque
+identifiers (`[[[k9]]]`) were tried and looked like a clear win — 9 of 10
+against 1 of 10 on a sample of ten segments. On the full corpus the
+improvement vanished: 35 rejections against 31. The sample was the problem. It
+had been built from segments that failed *under sequential tags*, which is
+precisely the sample that cannot answer the question — those segments are
+selected for being hard for one arm of the comparison. Re-measured on 40
+randomly drawn segments, same model, same prompt, the ranking inverted:
+sequential 39/40 accepted first try, opaque 34/40. Sequential numbering
+stayed. Ten cherry-picked cases outrank a plausible theory, and both outrank
+nothing — but only a sample drawn without knowing the answer settles it.
+
+**Two independent nets after translation.** Options and paths are compared
+source-to-translation across the whole document, deliberately independent of
+the tag mechanism: two nets that fail for different reasons are worth more
+than one very careful net. Then the similarity gate — back-translation by a
+fresh call, cosine similarity over local `nomic-embed-text` embeddings. It is
+posterior to code masking and never replaces it: similarity judges *meaning*,
+and would validate `--wait-until` rendered as `--attendre-jusqu-a` without
+hesitation, since the meaning is indeed preserved. The gate is entirely
+switchable off (`--sans-porte`), and never applies to positioning text —
+cosine similarity measures drift of meaning, not drift of register, and a
+faithful translation slid into a promotional register would clear the
+threshold unnoticed.
+
+**Model quality, measured rather than assumed.** `translategemma:4b` and
+`translategemma:12b-it-q4_K_M` both hold the tags. The 4b inserts a stray
+space before each tag, which turns `[label](#anchor)` into `[label ](#anchor)`
+— still valid markdown, visibly sloppier. The 12b does not, at roughly twice
+the wall time. The 12b is the default.
+
+Pandoc, the LaTeX chain and Ollama stay maintainer tooling on the build
+machine. Nothing entered `requirements.txt`. Generated PDFs are not versioned;
+translations and their fingerprint sidecars are — without the fingerprints,
+another maintainer retranslates everything from zero.
+
+**An outside reading, and what it cost to take seriously.** The Spanish PDF was
+submitted to two external models before release. The verdict — "engineer's
+documentation, well above the average open-source project of this size", but
+suffering "the classic syndrome of projects that grow fast with a single
+maintainer: it accretes" — was accepted, and produced six changes.
+
+Every criticism was measured before being acted on, and four turned out to be
+wrong: section numbering is sequential (1→11, `7a`→`7l`, `5a`→`5k`, no gaps),
+heading case is consistent across all seven use cases, the doctrinal content
+sits in `GUIDE.md` exactly where the documentation doctrine puts it, and the
+JSON keys (`boussole`, `etat`, `respect`) must **never** be translated — a
+reviewer read them as sloppiness, when they are the output contract partner
+projects consume. Those four are recorded as verified-unfounded, so a later
+reading of the same report does not "fix" them.
+
+What was real: **installation duplicated** between README and manual (12 lines
+against 45), **seven chronological blocks** in the table of contents
+duplicating the changelog, **stale version headers**, `Case 1` formatted unlike
+its six neighbours, and **no synthesis at all** — no cheat sheet, no diagram,
+and, in a tool that gives a model eyes, not a single picture of what it
+produces.
+
+The fix follows one principle: **organise by time-to-access, not by
+exhaustiveness**. Start → cheat sheet → reference. The suggestion to cut the
+whole thing to 25 pages was declined: operational density is the point, and
+what a hurried reader needs is a shorter path in, not less material.
+
+Each document now has an exclusive role — the README leads with `apt install`
+and hands off, the guide carries architecture and use cases, the manual holds
+both installation channels and every command. The PDF keeps its three
+documents and gains a compilation preface, because each of them also has to
+live alone: the README on GitHub, the manual in `/opt/diwall/docs/`.
+
+`docs/CHEAT_SHEET.md` puts the 21 scenario actions, their required and
+optional keys, the reading order of the output and the exit codes on one page.
+And the README now shows **a real `--som` capture**, produced from a local
+fixture committed alongside it — ten numbered elements on a rendered admin
+panel, reproducible in two commands by anyone. A tool that gives a model eyes
+should show what it makes visible.
+
+**The version drift got a machine, not a third written rule.** Rule 5 of the
+documentation doctrine — "the manual is a condition of publication" — was
+written in session 44, restated in session 47 after the manual sat at 1.15.0
+for two releases, and violated again here. `verifier-coherence.sh` now
+compares the version header of the documents that must track releases against
+`debian/changelog`. Only those documents: a file untouched since v1.19.0 that
+announces v1.19.0 is telling the truth, and forcing it to display the current
+release would be the same mechanical lie the guide-lock exists to prevent.
+
+Reading the manual for this also turned up `currently 3.9` where the guide had
+been at 4.1 — invisible to the token check because the value sat on the line
+*after* the word that introduces it. The fix is not a cleverer pattern: the
+hardcoded value is gone, replaced by the command that reads it.
+
+**The cheat sheet was written, and stayed invisible.** An external reviewer
+reported the absence of a condensed cheat sheet and of a quick-start page —
+while `docs/CHEAT_SHEET.md` existed, shipped in the package, opening on
+*Three commands*. It was excluded from the PDF at creation, on the grounds
+that it is almost entirely code and four near-identical translations would
+cost maintenance for nothing. The reasoning was sound; the side effect was
+not. The answer to the criticism existed and could not be seen by the person
+making it.
+
+Measured before deciding: 19 translatable segments, about 76 seconds per
+language. The cost we had judged prohibitive was marginal, precisely because
+the document is mostly code. It now **opens every PDF**, ahead of the
+overview — which is the access-time principle finally applied rather than
+merely written down: commands first, then presentation, architecture, and
+reference.
+
+**Code comments now follow the document's language, and the guarantee that
+allowed it.** 75 comments per language sat in English inside code blocks —
+`# Preview what will be removed` in the middle of a French manual. They were
+untouched because the rule was simple and absolute: nothing inside a fenced
+block ever changes, which is what makes a copied command work.
+
+The rule is now held by a check rather than by abstention. Only lines whose
+first non-blank character is `#` are eligible; shebangs are excluded, and so
+are commented-out commands, recognised by their first word (`sudo`, `bash`,
+`git`, a path). Each comment goes through the same masking as prose, which
+does the rest of the sorting on its own. After rebuilding, **every non-comment
+line is compared character for character** with its source: 84 blocks changed
+across three languages, zero executable line touched.
+
+A first version of that verification cried 259 breaches. It compared segments
+by position, and re-segmenting a translated file desynchronises everything the
+moment a translation adds a line break — the same trap already met on the
+similarity gate, and solved the same way: pair by fingerprint, never by
+position. The check was wrong, not the translations.
+
+**Rejection needed a destination, not just a report.** Keeping the English
+source and listing the reason is right for a pipeline and wrong for a
+deliverable: a reader of the French PDF hit English mid-page. Hand-fixing the
+output was not an option either — it survives until the next `--forcer`, then
+vanishes silently. `i18n/<language>/arbitrages.json` holds human-settled
+translations keyed by source fingerprint, consulted **before** the automatic
+cache, so a stale machine translation can never outrank a human decision.
+Keying on the fingerprint also means editing the English source correctly
+invalidates the arbitration: the settled text belonged to the sentence as it
+was. All 100 pending segments are now settled; the three languages build with
+zero segments awaiting arbitration.
+
+An arbitration may also target a fenced block, and only a human can: some
+blocks are ASCII diagrams whose content is prose, not code
+(`LLM acts → Diwall captures → …`). Those blocks still never reach a model.
+
+**What the checks caught on their author.** Writing arbitrations by hand
+removes the code-masking safety net, and both remaining nets fired on this
+session's own work. The second net rejected a Spanish segment where
+`plugins/languages/platform` had been translated — those are `navigator.*`
+property names, and the model had been protected from touching them precisely
+because masking hid them. The margin check then rejected the freshly
+translated ASCII diagrams: 110pt past the edge in German, because pandoc emits
+plain `verbatim` for a fenced block with no language declared, which never
+breaks a line — `Highlighting` alone was not enough. The English source
+happened to have no long line in an unlabelled block, so the gap had been
+invisible.
+
+**Documentation audit.** `docs/FAQ_LLM.md` announced `--guide-version current
+token 3.9` while the guide had been at 4.1 since v1.22.0 — a model copying
+that token gets `guide_non_lu` with nothing explaining why. Same failure mode
+as the script desynchronisation fixed in v1.22.0, at a place the check did not
+reach: `verifier-coherence.sh` gained a sixth, static check over `docs/`
+(`JOURNAL.md` excluded — a dated history, where old tokens are facts).
+`repli_js` (v1.22.0) was missing from the action table in `docs/MANUEL.md`,
+documented only in the LLM notices, so an operator reading the reference table
+could not find it. And installation now leads with the Debian package rather
+than burying it under a manual six-step procedure as an "alternative": one
+`apt install` line is the simple path, and building from source is for
+modifying Diwall itself.
+
+**The register drifted, and fixing it naively made things far worse.** The
+first Spanish build mixed 20 `tú` with 29 `usted` inside one document. Nothing
+was mistranslated; the text simply stopped addressing the reader the same way
+halfway through — which reads exactly like a document that went through a
+third language, and was reported as such. The cause is structural:
+segment-by-segment translation has no memory, each call sees one paragraph and
+nothing else. `i18n/glossaire.json` declares the form of address and the
+imposed terms per language.
+
+Declaring them in the prompt, however, cost far more than it bought. Measured
+on 30 randomly drawn segments, same model, same text: **no register
+instruction 28/30 accepted first try, a one-line instruction 20/30, the
+instruction plus six imposed terms 13/30**. `translategemma` is built for
+translation, not for following instructions — every added sentence degrades
+it. The instruction is now paid only where needed: a segment that comes back
+in the familiar register is retried *with* it. Imposed terminology left the
+prompt entirely.
+
+**And that mistake exposed the net that was missing.** The over-long prompt
+pushed Spanish to 165 rejections out of 345 — and since a rejected segment
+keeps its English source, **48% of the document was English while every other
+net reported OK**. Paths and options are identical by construction; English
+contains no familiar-register word either. Nothing could see it. The
+completeness check now runs first and fails on any segment still carrying its
+source: a pipeline may leave work for a human, a deliverable may not. That
+check, not the register one, is what would have caught the original complaint.
+
+**Page layout, measured the same way.** The first PDFs pushed 13 lines past
+the margin on the English build, the worst by 150pt — about 5cm off the page,
+on a document whose commands are meant to be copied. Pandoc swallows the TeX
+log, so nothing reported it: the defect was visible only by opening the file.
+`i18n/style.tex` fixes it, derived from the Sillage documentation preamble
+with three deliberate departures. Hyphenation stays *on* (Sillage disables it
+for a clean French look; these documents also ship in German, where forbidding
+hyphenation guarantees overflow). Polyglossia is not hardcoded to French —
+pandoc loads the right language from the `lang` metadata, since one preamble
+serves four languages. And cell padding drops from 14pt to 4pt, because the
+wide reference tables are exactly what generous padding pushes off the page.
+
+Long code lines now wrap (`fvextra`), and `snake_case` identifiers may break
+after an underscore — with no hyphen inserted, so what a reader copies is
+still the exact identifier. That is why hyphenation of monospace was rejected
+rather than enabled: a hyphen in `attendre_selec-teur_present` is a broken
+command waiting to happen. All four languages now build with zero overflowing
+lines, checked by `generer-pdf.py --verifier-marges`, which compiles through
+LaTeX and reads the log pandoc hides.
+
+`scenarios/v1.23.0_validation/`: 12/12, offline and model-free. Five of the
+twelve are counter-tests: a net that never fires is indistinguishable from a
+net that is not there.
+
+---
+
 ## 2026-07-29 — Session 62 (v1.22.0 — `--wait-until`, `citoyennete` → `respect` breaking rename, `man diwall`, packaging)
 
 **Breaking change — the `citoyennete` output key is now `respect`.** At the
@@ -1574,7 +2094,7 @@ Addition during session detected during consistency check.
 
 ---
 
-## Session 30 — 15 June 2026
+## 2026-06-15 — Session 30
 
 **Work done:**
 
@@ -1590,7 +2110,7 @@ no Diwall code modified.
 
 ---
 
-## Session 26 — 12 June 2026
+## 2026-06-12 — Session 26
 
 **Work done:**
 

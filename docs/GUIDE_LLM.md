@@ -17,7 +17,7 @@ Never affirm a Diwall capability does not exist, and never presume one does,
 without checking first — grep the action tables below/in the notices, or run
 `--help`. Unsure? Say "not confirmed in the documentation," never a guess
 either way. (A model once claimed Diwall couldn't fill an auth form — false,
-see Security below. Full reasoning: `Diwall/CLAUDE.md` Règle n°7.)
+see Security below.)
 
 ---
 

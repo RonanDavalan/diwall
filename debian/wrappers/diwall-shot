@@ -1,6 +1,0 @@
-#!/bin/sh
-# diwall-shot — wrapper for the .deb distribution channel.
-# Points shot.py at /etc/diwall/diwall.conf instead of the default
-# /opt/diwall/diwall.conf used by the git-clone + install.sh channel.
-export DIWALL_CONF="${DIWALL_CONF:-/etc/diwall/diwall.conf}"
-exec /opt/diwall/venv/bin/python3 /opt/diwall/shot.py "$@"

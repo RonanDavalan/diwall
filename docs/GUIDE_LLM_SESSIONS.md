@@ -428,7 +428,7 @@ Auth challenge (RFC 7617) — the kind a reverse proxy (Caddy, nginx, Traefik)
 raises before any page renders. `--http-credentials` closes that specific
 gap. It does **not** mean form-based authentication is unsupported — the
 two are unrelated mechanisms, and conflating them is a documented mistake
-to avoid (see `CLAUDE.md` Règle n°7).
+to avoid (see the non-presumption rule in `docs/GUIDE_LLM.md`).
 
 ```bash
 /opt/diwall/venv/bin/python3 /opt/diwall/shot.py \

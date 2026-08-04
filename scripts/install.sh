@@ -158,11 +158,18 @@ if ! id -Gn "$USER" 2>/dev/null | tr ' ' '\n' | grep -qx "$GROUPE"; then
     echo "  (ou utiliser : sg $GROUPE -c \"commande\")"
 fi
 
-# ── Étape 8 — Hook git pre-push ──────────────────────────────────────────────
-# Active le hook preflight via core.hooksPath (versionné dans scripts/hooks/).
+# ── Étape 8 — Hook git pre-push (maintainer uniquement) ──────────────────────
+# Le hook et le contrôle de publication qu'il appelle sont des outils de
+# gouvernance du dépôt : ils ne font pas partie de Diwall et ne sont pas
+# distribués. Sur une machine qui ne les a pas, rien n'est activé — ce n'est
+# pas une dégradation, un contributeur externe n'a pas à exécuter le contrôle
+# de publication du mainteneur.
 # Contournement explicite si nécessaire : git push --no-verify
-if git -C "$REPO" config core.hooksPath scripts/hooks 2>/dev/null; then
-    echo "  Hook     : pre-push activé (core.hooksPath → scripts/hooks/)"
+HOOKS_MAINTAINER="$HOME/git/Diwall/scripts/hooks"
+if [ ! -d "$HOOKS_MAINTAINER" ]; then
+    echo "  Hook     : non activé (outils de mainteneur absents — normal hors machine de développement)"
+elif git -C "$REPO" config core.hooksPath "$HOOKS_MAINTAINER" 2>/dev/null; then
+    echo "  Hook     : pre-push activé (core.hooksPath → $HOOKS_MAINTAINER)"
 else
     echo "  Hook     : non activé (répertoire non-git — ignoré)"
 fi

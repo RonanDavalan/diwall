@@ -35,6 +35,13 @@ a reconstructed panel assembled without a genuine intent to visit each site
 | 404 (guessed URL wrong) | 5 | 22% |
 | Accessible (HTTP 200 + content) | 2 | 8.7% |
 
+**23 sites were targeted; 22 results were recorded.** The four counts above sum
+to 22, and the shares to 95.7 % — the outcome of the twenty-third site was
+never written down. Since the URL list was not kept either (below), it cannot
+be recovered. The shares are shares of the panel targeted; they are left as
+they are rather than rebased on 22, because nothing establishes that the
+twenty-third site went untested — only that its result went unrecorded.
+
 Accessible sites were both SSR without a WAF. Blocked sites were major
 retailers and reconditioning marketplaces. Individual site identities were
 not logged in this run — only the aggregate is available (see
@@ -55,6 +62,13 @@ not logged in this run — only the aggregate is available (see
 | `navigator.languages.length` | 1 | 2 |
 | Fingerprint tests failed | 12 | 0 |
 | Fingerprint tests passed | 18 | 31 |
+
+The two columns do not describe the same number of checks: 12 + 18 = 30
+without `--stealth`, 0 + 31 = 31 with it. The benchmark page renders some
+checks only when a signal is present, which plausibly accounts for the
+difference — but that was not verified at the time, so the figures are
+reported as counts and no total is claimed. In particular this is **not** a
+"31 of 31" result.
 
 **What this confirms:** `--stealth`, once actually applied, clears every
 basic JS/browser fingerprint check on this benchmark. **What it does not
