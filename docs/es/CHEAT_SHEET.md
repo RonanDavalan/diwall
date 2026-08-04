@@ -37,7 +37,7 @@ rutas completas. La primera llamada en una máquina necesita
    │    ├─ Chromium (headless)    │
    │    ├─ SoM: numbers elements  │
    │    ├─ A11y: page structure   │
-   │    └─ vault: fills secrets   │   never in the shell, never in a log
+   │    └─ secrets: fills credentials│   never in the shell, never in a log
    └──────────────┬───────────────┘
                   │  PNG + JSON
                   ▼
@@ -95,7 +95,7 @@ Si `boussole` no coincide con lo esperado, deténgase antes de cualquier acción
 
 ---
 
-## Credenciales: la única forma correcta.
+## Credenciales: la única forma correcta
 
 ```json
 {"type": "remplir_som", "id": 3, "valeur": "depuis_secrets", "secret_cle": "password"}
@@ -117,8 +117,8 @@ código TOTP.
 | Elemento que está fuera de la pantalla visible | `defiler` primero; verifique `boussole.som_hors_viewport` |
 | La página nunca termina de cargar | `--wait-until load` |
 | El botón "Enviar" no hace nada, sin error | validación HTML nativa; envíe el formulario a través de `evaluer` |
-| `exit 42` | bóveda no montada: `diwall-monter-secrets` |
-| `exit 43` | no `diwall.conf` — copie la muestra que está al lado |
+| `exit 42` | directorio cifrado no montado: `diwall-monter-secrets` |
+| `exit 43` | no hay `diwall.conf` — copie la muestra que está al lado |
 | `guide_non_lu` | pase `--guide-version` una vez |
 | 403 / 429 | lea `respect.waf_bloquants` — es una señal, no una excepción |
 
@@ -128,4 +128,4 @@ código TOTP.
 
 `0` éxito · `1` error de Playwright o aserción fallida · `2` viewport no
 coincidente (`watch.py`) · `3` intérprete incorrecto, use el venv · `42`
-cofre cerrado o suma de control inválida · `43` falta `diwall.conf`.
+directorio cifrado cerrado o suma de control incorrecta · `43` falta `diwall.conf`.

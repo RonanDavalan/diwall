@@ -8,7 +8,7 @@ Version 1.10 – August 2026 (v1.23.0) – vier weitere Demonstrationsanwendungs
 
 ## Warum Diwall – was Sie tatsächlich delegieren
 
-### Das Problem, das Diwall löst:
+### Das Problem, das Diwall löst
 
 Wenn Sie mit einem LLM in einer Webanwendung arbeiten, entsteht eine Wahrnehmungsasymmetrie:
 Das Modell liest Code, führt Befehle aus und beobachtet textuelle Ausgaben – aber es sieht nicht
@@ -36,14 +36,14 @@ Ohne Diwall sind diese Überprüfungen Ihre Verantwortung. Mit Diwall führt das
 
 ### Was Sie behalten
 
-Sie behalten die **hochwertige Validierung des Ergebnisses**: Sie entscheiden, ob das Ergebnis,
+Sie behalten die **übergeordnete Validierung des Ergebnisses**: Sie entscheiden, ob das Ergebnis,
 das das Modell präsentiert, akzeptabel ist, mit Ihren Erwartungen übereinstimmt und im Einklang
 mit dem steht, was Ihre Benutzer sehen sollten. Diese Entscheidung bleibt bei Ihnen.
 
 ### Respektvolles Navigieren (Version 1.15.0)
 
 Diwall verschleiert seine Identität nicht, um die Erkennung durch Bots zu umgehen. `--stealth`
-entfernt automatische technische Markierungen (`navigator.webdriver`), die Browser ohne grafische Oberfläche blockieren, unabhängig von der Absicht – es ändert weder die IP-Adresse des Nutzers noch dessen Identität, noch den Fakt, dass die Ausführung deklariert ist. Im Gegenzug meldet jede Ausführung ihren eigenen "Fußabdruck" (`respect`: besuchte Seiten, ausgeführte Aktionen, Dauer) und respektiert konfigurierbare Höflichkeitsverzögerungen und harte Limits (`diwall.conf [navigation]`). Das Recht zur Navigation und die Pflicht zur messbaren Navigation werden als untrennbar betrachtet – siehe `docs/RETOUR_EXPERIENCE.md` FR-77/FR-78/FR-79 für den Kontext, der dies geprägt hat.
+entfernt automatische technische Markierungen (`navigator.webdriver`), die Headless-Browser blockieren, unabhängig von der Absicht – es ändert weder die IP-Adresse des Betreibers noch dessen Identität, noch die Tatsache, dass der Durchlauf deklariert ist. Im Gegenzug meldet jeder Durchlauf seinen eigenen Fingerabdruck (`respect`: besuchte Seiten, ausgeführte Aktionen, Dauer) und respektiert konfigurierbare Höflichkeitsverzögerungen und harte Limits (`diwall.conf [navigation]`). Das Recht zu navigieren und die Pflicht zur messbaren Navigation werden als untrennbar behandelt – siehe `docs/RETOUR_EXPERIENCE.md` FR-77/FR-78/FR-79 für den Kontext, der dies geprägt hat.
 
 Lokale Ziele – die Höflichkeitsverzögerung ist keine Doktrin, sondern eine Standardeinstellung.
 (v1.19.0): Die ausgelieferte Einstellung `min_action_delay_ms: 800` schützt
@@ -93,25 +93,25 @@ Regression erfasst wurde. Führen Sie es direkt aus:
 ```bash
 /opt/diwall/venv/bin/python3 /opt/diwall/rpa.py \
   --scenario /opt/diwall/scenarios/exemples/depannage_local.json \
-  --guide-version 4.1
+  --guide-version 1.0
 ```
 
 ### Fall 2 – Vergleich von Hardwarekomponenten in verschiedenen Geschäften
 
 Ein Agent, der beauftragt wurde, den Preis und die Verfügbarkeit eines Produkts in mehreren Online-Shops zu vergleichen, könnte Diwall mit einem separaten URL-Findungs-Tool (z. B. einer lokalen Suchmaschine) verwenden, um potenzielle Shop-Seiten zu finden, dann Diwall im Sondermodus (`--mode fast`, ohne PNG) mit `evaluer` Aktionen nutzen, um den Preis/stock/specifications von jeder Seite zu extrahieren und schließlich die Ergebnisse selbst zu vergleichen.
 
-**Bewusst nicht als committetes Szenario ausgeliefert:** einen bestimmten Shop
-in einem öffentlichen, versionierten Szenario zu nennen, ist eine Entscheidung,
-die Ihnen gehört, keine Voreinstellung, die dieses Projekt an Ihrer Stelle
-treffen sollte. Sie birgt auch ein reales Fragilitätsrisiko — ein öffentliches
-Szenario, das auf eine namentlich genannte Handelsseite zielt, kann Monate
-später scheitern, wenn sich deren Anti-Bot-Haltung ändert (39 % der in
-`docs/RETOUR_EXPERIENCE.md` FR-77 erfassten
-Handelsseiten lieferten eine sofortige Blockade), was das Beispiel eher
-diskreditiert als hilft. Wenn Sie diese Komposition selbst bauen: jedes
-Werkzeug zur URL-Ermittlung, das Sie mit Diwall kombinieren (eine lokale
-Suchinstanz oder anderes), ist kein Diwall-Bestandteil — es ist ein eigenes
-Stück, das der Agent obendrauf setzt.
+**Bewusst nicht als versioniertes Szenario ausgeliefert:** einen bestimmten
+Shop in einem öffentlichen, versionierten Szenario zu nennen, ist eine
+Entscheidung, die Ihnen gehört — keine Vorgabe, die dieses Projekt an Ihrer
+Stelle treffen sollte. Sie birgt zudem ein reales Fragilitätsrisiko: ein
+öffentliches Szenario, das eine namentlich genannte kommerzielle Website
+anspricht, kann Monate später scheitern, wenn sich deren Anti-Bot-Haltung
+ändert (39 % der in `docs/RETOUR_EXPERIENCE.md` FR-77 untersuchten
+kommerziellen Websites antworteten mit einer sofortigen Sperre) — was das
+Beispiel mehr diskreditiert als es hilft. Wenn Sie diese Komposition selbst
+bauen: jedes Werkzeug zur URL-Ermittlung, das Sie mit Diwall kombinieren (eine
+lokale Suchinstanz oder anderes), ist kein Bestandteil von Diwall — es ist ein
+eigenständiger Baustein, den der Agent darüber komponiert.
 
 ### Fall 3 – Erkundung und Zusammenfassung von technischer Dokumentation (Single-Page-Anwendungen)
 
@@ -120,17 +120,18 @@ Ein Agent, der mit der Erstellung eines Integrationshandbuchs für eine Dokument
 **Nicht als fertiges Szenario versendet, aus dem gleichen Grund wie Fall 2** –
 die Nennung einer bestimmten Dokumentationsseite (oder, schlimmer noch, eines bestimmten Zahlungsanbieters, dessen Dokumentation zufällig ein funktionierendes Beispiel ist) stellt eine kommerzielle und reputationsbezogene Verpflichtung dar, die dieses Projekt grundsätzlich nicht eingehen sollte. Das gleiche Risiko von WAF-Schwachstellen besteht auch bei einem öffentlichen Szenario, das an ein bestimmtes reales Ziel gebunden ist.
 
-### Fall 4 – Konfiguration eines selbst gehosteten Observability- oder Analyse-Dashboards.
+### Fall 4 – Konfiguration eines selbst gehosteten Observability- oder Analyse-Dashboards
 
 Ein Administrator, der ein selbstgehostetes Monitoring- oder Webanalyse-Dashboard hinter einem Reverse-Proxy einrichtet, kann Diwall verwenden, um die Benutzeroberfläche selbst zu steuern –
 um ein Dashboard zu erstellen, eine Datenquelle anzuschließen und eine Alarmregel festzulegen –
-auf die gleiche Weise, wie jede andere Admin-Oberfläche konfiguriert wird, anstatt Dateien manuell zu bearbeiten für Schritte, die die Benutzeroberfläche eigentlich abdecken soll. Dies umfasst auch Ziele, die sich
+auf die gleiche Weise, wie jedes andere Admin-Panel konfiguriert wird, anstatt Dateien manuell zu bearbeiten für Schritte, die die Benutzeroberfläche eigentlich abdecken soll. Dies umfasst auch Ziele, die sich
 hinter einer HTTP Basic Auth-Authentifizierung auf Netzwerkebene befinden (`--http-credentials`,
-Version 1.21.0) – dies wurde anhand einer echten, von Caddy geschützten Admin-Oberfläche bestätigt, nicht nur anhand eines simulierten Systems: die vom Vault gelösten Anmeldedaten haben die Authentifizierung beim ersten Versuch bestanden.
+Version 1.21.0) – dies wurde anhand einer echten, von Caddy geschützten Admin-Oberfläche bestätigt, nicht nur anhand eines simulierten Systems: die gespeicherten Zugangsdaten haben die
+Authentifizierung beim ersten Versuch erfolgreich bestanden.
 
 **Nicht als einheitliches Szenario ausgeliefert** – das Layout des Dashboards und die Namen der Datenquellen sind spezifisch für die Infrastruktur eines bestimmten Operators. Eine synthetische Entsprechung zu erstellen würde bedeuten, dass das, was bereits durch die lokale Testumgebung in Fall 1 abgedeckt wird (nämlich strukturelle Regression), dupliziert würde, und zwar nicht für diese Art von geführter, mehrstufiger Konfigurationsarbeit.
 
-### Fall 5 – Betrieb einer Ticketing-Plattform von Anfang bis Ende.
+### Fall 5 – Betrieb einer Ticketing-Plattform von Anfang bis Ende
 
 Diwall wurde über mehrere Sitzungen verwendet, um eine echte, selbst gehostete Ticketinstallation zu konfigurieren und zu betreiben – einschließlich der Einrichtung von Veranstaltungen, Ticketkategorien, einer benutzerdefinierten Domain sowie der Tools für den Scannen/Check-in am Veranstaltungstag – und zwar über die gleiche Weboberfläche, die auch ein menschlicher Administrator verwenden würde. Es gab echte Probleme, die auf dem Weg gelöst wurden (Session-Management, Eigenheiten bei Dropdown-Menüs, eine Berechtigungsabfrage, die einen unbeaufsichtigten Schritt blockierte) – es war also keine reibungslose Erfolgsgeschichte, was Teil dessen ist, was dieses Beispiel nützlich macht: Die Hindernisse waren typische Probleme der Webautomatisierung und nicht etwas Spezifisches für Diwall.
 
@@ -163,13 +164,12 @@ Fehler, der wiederholt werden soll.
 Eine Unterscheidung, die es wert ist, im Hinterkopf behalten zu werden: Ein unsichtbarer Verifizierungsbildschirm, der
 niemals aufgelöst wird und nichts präsentiert, auf das man reagieren könnte (keine Checkbox, keine Bildaufgabe), unterscheidet sich von einem interaktiven CAPTCHA. Letzteres kann ehrlich beantwortet werden – ein Agent, der im Auftrag einer bestimmten Person handelt, von deren eigener IP-Adresse aus, ist nicht der "Roboter", an den die Frage gerichtet ist. Der erste bietet einfach keine Möglichkeit für den Agenten, etwas zu tun, und das Umgehen (IP-Rotation, TLS-Fingerprint-Spoofing) fällt außerhalb dessen, was Diwall tut.
 
-**Bewusst nicht als committetes Szenario ausgeliefert und bewusst ohne Nennung
-der beteiligten Plattformen** — siehe die Überlegung zur WAF-Fragilität in
-Fall 2: eine datierte Tabelle mit Blockaden und Nicht-Blockaden, die an
-namentlich genannte Handelsseiten gebunden ist, veraltet und untergräbt ihre
-eigene Aussage schneller, als sie sie belegt.
-`docs/RETOUR_EXPERIENCE.md` FR-77 dokumentiert dasselbe
-Muster auf Panel-Ebene (39 % sofortige Blockaderate).
+**Bewusst nicht als versioniertes Szenario ausgeliefert, und bewusst ohne
+Nennung der beteiligten Plattformen** — siehe die Überlegung zur
+WAF-Fragilität unter Fall 2: eine datierte Tabelle mit Sperre/keine Sperre,
+gebunden an namentlich genannte kommerzielle Websites, veraltet und untergräbt
+ihre eigene Aussage schneller, als sie sie belegt. `docs/RETOUR_EXPERIENCE.md`
+FR-77 dokumentiert dasselbe Muster im Panel-Maßstab (39 % sofortige Sperrrate).
 
 ---
 
@@ -179,9 +179,9 @@ Muster auf Panel-Ebene (39 % sofortige Blockaderate).
 # 1. Überprüfen Sie, ob Diwall antwortet.
 /opt/diwall/venv/bin/python3 /opt/diwall/shot.py \
   --url https://example.com --som --a11y
-# → muss {"succes": true, ...} zurückgeben
+# → must return {"succes": true, ...}
 
-# 2. Überprüfen Sie, ob das Vault gemountet ist (falls gocryptfs verwendet wird).
+# 2. Überprüfen Sie, ob das verschlüsselte Verzeichnis gemountet ist (falls gocryptfs verwendet wird).
 ls ~/Vaults/Diwall/
 # → müssen `.json`-Dateien anzeigen, keine verschlüsselten Inhalte.
 
@@ -195,9 +195,9 @@ print('OK' if lire_credential('target.local', 'password') else 'EMPTY')
 
 ---
 
-## Vault-Konfiguration pro Projekt
+## Konfiguration der Anmeldeinformationen pro Projekt
 
-Jedes Projekt kann seinen eigenen Tresor haben. Zwei Methoden:
+Jedes Projekt kann sein eigenes Verzeichnis für Anmeldeinformationen haben. Zwei Methoden:
 
 **Methode 1 – Direkte Umgebungsvariable (einmalige Ausführung):**
 
@@ -210,9 +210,9 @@ Methode 2 – Projektdatei `.diwall.conf` (empfohlen für wiederkehrende Projekt
 
 ```bash
 # Erstelle die Datei im Projektstammverzeichnis.
-echo '{"secrets_dir": "../MyProject-vault"}' > ~/git/MyProject/.diwall.conf
+echo '{"secrets_dir": "../MyProject-secrets"}' > ~/git/MyProject/.diwall.conf
 
-# Danach jedem Aufruf voranstellen (oder zu Sitzungsbeginn exportieren)
+# Then prefix each invocation (or export at the start of the shell session)
 export DIWALL_CONF=~/git/MyProject/.diwall.conf
 /opt/diwall/venv/bin/python3 /opt/diwall/shot.py --url …
 ```
@@ -247,9 +247,9 @@ Der `secrets_dir` in `.diwall.conf` kann ein relativer Pfad sein – er wird rel
 
 ## Automatisierung eines Anmeldeformulars
 
-**Schritt 1** – Bereiten Sie die Anmeldeinformationen im Tresor vor.
+**Schritt 1** – Bereiten Sie die Datei mit den Zugangsdaten vor.
 
-Die Tresor-Datei heißt `<hostname>.json`, wobei `hostname` das Ergebnis von `urlparse(url).hostname` ist. Für `https://app.example.com/` lautet der Dateiname `app.example.com.json`.
+Die Datei mit den Zugangsdaten hat den Namen `<hostname>.json`, wobei `hostname` das Ergebnis von `urlparse(url).hostname` ist. Für `https://app.example.com/` lautet der Dateiname `app.example.com.json`.
 
 ```json
 {"username": "admin@example.com", "password": "my-secret"}
@@ -381,7 +381,7 @@ Stumm, wenn stabil; ein `ntfy` Push, wenn eine Regression erkannt wird. Planen S
 `scripts/*.sh` wird niemals auf `/opt/diwall/` bereitgestellt, sodass der Cron-Eintrag von der Git-Quelle aus ausgeführt wird, als Ihr eigener Benutzer (nicht das Dienstkonto `diwall`, das keinen Zugriff auf `~/git/Diwall/Diwall/` hat):
 
 ```bash
-# crontab -e (deine eigene Crontab)
+# crontab -e (Ihre eigene Crontab)
 */15 * * * * bash ~/git/Diwall/Diwall/scripts/monitor-verifier.sh \
   --scenario /opt/diwall/scenarios/my-scenario.json \
   --reference /opt/diwall/references/my-scenario.ref.json \
@@ -395,20 +395,20 @@ Stumm, wenn stabil; ein `ntfy` Push, wenn eine Regression erkannt wird. Planen S
 
 | Situation | Was zu tun ist |
 |---|---|
-| `FileNotFoundError` im Tresor | Überprüfen Sie, ob die JSON-Datei mit dem vollständigen FQDN (`urlparse(url).hostname`) benannt ist. |
-| `SecretsFermesError` (Exit 42) | Mounten Sie den Tresor: `bash ~/git/Diwall/Diwall/scripts/monter-repertoire-chiffre.sh` |
+| `FileNotFoundError` in der Datei mit den Zugangsdaten | Überprüfen Sie, ob die JSON-Datei mit dem vollständigen FQDN (`urlparse(url).hostname`) benannt ist. |
+| `SecretsFermesError` (Exit 42) | Das verschlüsselte Verzeichnis mounten: `bash ~/git/Diwall/Diwall/scripts/monter-repertoire-chiffre.sh` |
 | Ungültiges JSON in der Ausgabe | Verwenden Sie `2>/dev/null \| tail -1`, um nur die JSON-Zeile zu extrahieren. |
-| SoM-IDs unterscheiden sich zwischen Sitzungen | Erwartet — SoM-IDs werden bei jeder Aufnahme neu berechnet. Verwenden Sie sie nicht wiederholt über mehrere Sitzungen hinweg. |
-| Anmeldung gefolgt von einer Django-Weiterleitung zum Dashboard | Verwenden Sie `naviguer` nicht in einer fortgesetzten Django-Sitzung — übergeben Sie die URL über `--url`. |
+| SoM-IDs unterscheiden sich zwischen Sitzungen | Erwartet – SoM-IDs werden bei jeder Aufnahme neu berechnet. Verwenden Sie sie nicht wiederholt über mehrere Sitzungen hinweg. |
+| Anmeldung, gefolgt von einer Django-Weiterleitung zum Dashboard | Verwenden Sie `naviguer` nicht in einer fortgesetzten Django-Sitzung – übergeben Sie die URL über `--url`. |
 | Das Formularfeld `<select>` ist nicht ausgefüllt | Verwenden Sie `remplir_som` (nicht `remplir`) mit der SoM-ID des `<select>`. |
 | Ein Klick hat keine Auswirkung auf einen Button außerhalb des sichtbaren Bereichs | Fügen Sie `{"type":"defiler","selecteur":"#the-button"}` vor dem Klick ein. |
-| `auth_status: "active"` auch auf der Anmeldeseite | Der positive Selektor ist mehrdeutig (persistenter Header) — fügen Sie `--auth-indicator-negative .btn-login` hinzu. |
+| `auth_status: "active"` auch auf der Anmeldeseite | Der positive Selektor ist mehrdeutig (persistenter Header) – fügen Sie `--auth-indicator-negative .btn-login` hinzu. |
 | Web Components-Elemente werden nicht von SoM nummeriert | Fügen Sie `--shadow-dom` hinzu (Angular, Lit, Stencil). |
-| `respect.waf_bloquants` erscheint auf einer Seite, die tatsächlich nicht blockiert ist | Die Erkennung basiert auf Schlüsselwörtern (v1.16.0, verfeinert v1.17.2) — behandeln Sie dies als ein Signal und nicht als ein Urteil. Wenn es auf einer Seite weiterhin angezeigt wird, von der Sie bestätigt haben, dass sie nicht blockiert ist, fügen Sie `--ignorer-waf` hinzu. |
-| `cliquer_som` klickt auf das falsche Element auf einer Seite, die sich zwischen Aufnahme und Klick geändert hat | Fügen Sie `--som-rafraichir` hinzu (v1.17.0) — behebt dies durch einen stabilen Marker anstelle von Live-Reindexierung. |
-| Ein langes RPA-Szenario schlägt mitten im Ablauf fehl, und Sie möchten die abgeschlossenen Schritte nicht erneut ausführen | Fügen Sie `--checkpoint FILE` hinzu (v1.17.0) — starten Sie den gleichen Befehl neu, um fortzufahren; der DOM-Zustand wird nicht beibehalten, nur Sitzung + Aktionsposition. |
-| Interaktive Elemente innerhalb eines Iframes sind für Diwall unsichtbar | SoM kann Inhalte von Iframes (gleichnamig oder übergeordnet) nicht nummerieren — verwenden Sie `cliquer_iframe`/`remplir_iframe` (v1.17.0) mit einem expliziten CSS-Selektor oder `iframe_chemin` (v1.18.0) für ein in einem anderen verschachteltes Iframe. |
-| Ihr Modell meldet `"erreur": "guide_non_lu"` / Exit 1 bei seinem ersten Diwall-Aufruf | Erwartet beim ersten Mal, dass ein Modell Diwall auf dieser Maschine als dieser Betriebssystembenutzer verwendet (v1.18.0) — es muss `docs/GUIDE_LLM.md` lesen und `--guide-version` einmal übergeben. Dies ist absichtlich und kein Fehler — weisen Sie das Modell an, die Anleitung zu lesen, anstatt den Fehler zu umgehen. |
+| `respect.waf_bloquants` erscheint auf einer Seite, die tatsächlich nicht blockiert ist | Die Erkennung basiert auf Schlüsselwörtern (v1.16.0, verfeinert v1.17.2) – behandeln Sie dies als ein Signal und nicht als ein Urteil. Wenn es auf einer Seite weiterhin angezeigt wird, von der Sie bestätigt haben, dass sie nicht blockiert ist, fügen Sie `--ignorer-waf` hinzu. |
+| `cliquer_som` klickt auf das falsche Element auf einer Seite, die sich zwischen Aufnahme und Klick geändert hat | Fügen Sie `--som-rafraichir` hinzu (v1.17.0) – behebt dies durch einen stabilen Marker anstelle von Live-Reindexierung. |
+| Ein langes RPA-Szenario schlägt mitten im Ablauf fehl, und Sie möchten die abgeschlossenen Schritte nicht erneut ausführen | Fügen Sie `--checkpoint FILE` hinzu (v1.17.0) – starten Sie den gleichen Befehl neu, um fortzufahren; der DOM-Zustand wird nicht beibehalten, nur Sitzung + Aktionsposition. |
+| Interaktive Elemente innerhalb eines Iframes sind für Diwall unsichtbar | SoM kann Inhalte von Iframes (gleichnamig oder übergeordnet) nicht nummerieren – verwenden Sie `cliquer_iframe`/`remplir_iframe` (v1.17.0) mit einem expliziten CSS-Selektor oder `iframe_chemin` (v1.18.0) für einen innerhalb eines anderen verschachtelten Iframe. |
+| Ihr Modell meldet `"erreur": "guide_non_lu"` / Exit 1 bei seinem ersten Diwall-Aufruf | Erwartet beim ersten Mal, dass ein Modell Diwall auf dieser Maschine als dieser Betriebssystembenutzer verwendet (v1.18.0) – es muss `docs/GUIDE_LLM.md` lesen und `--guide-version` einmal übergeben. Dies ist absichtlich und kein Fehler – weisen Sie das Modell an, die Anleitung zu lesen, anstatt den Fehler zu umgehen. |
 
 ---
 
@@ -439,9 +439,9 @@ Was wird entfernt:
 | git pre-push hook | `core.hooksPath` deaktiviert im Quellrepository |
 
 **Was niemals verändert wird:**
-- `~/Vaults/` – Ihre Anmeldedaten-Tresore
+- `~/Vaults/` – Ihre Zugangsdaten
 - `~/git/Diwall/` – Git-Quellen
-- Der Browser-Cache von Playwright (`~/.cache/ms-playwright/`)
+- Der Browser-Cache von Playwright (***`~/.cache/ms-playwright/`***)
 
 Beweise erfassen (`/var/log/diwall/preuves/`): Wenn das Verzeichnis Unterverzeichnisse enthält, werden diese standardmäßig mit einer Warnung beibehalten. Um sie zu entfernen:
 

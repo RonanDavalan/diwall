@@ -4,7 +4,7 @@
 
 # NOM
 
-diwall - outil de perception visuelle et de RPA pour les agents LLM.
+diwall - outil de perception visuelle et de RPA pour les agents LLM
 
 # RÉSUMÉ
 
@@ -45,8 +45,8 @@ répétable, et la seule qui évalue les assertions du scénario.
 : Surveillance visuelle. Enregistre une image de référence d'une page, puis compare les captures ultérieures à celle-ci — comparaison pixel par pixel localement, ou une description fournie par un modèle de vision locale. Utilisé pour détecter les régressions visuelles sans intervention humaine.
 
 **diwall-monter-secrets**, **diwall-demonter-secrets**
-: Monter et démonter le coffre-fort de crédentiels chiffré par gocryptfs. Diwall refuse
-de résoudre toute information d'identification tant que le coffre-fort est fermé, se terminant avec le code 42 au lieu de revenir à une solution moins sécurisée.
+: Montez et démontez le répertoire de crédentielles chiffré par gocryptfs. Diwall refuse
+de résoudre les identifiants tant qu'il est fermé, et se termine avec le code de sortie 42 au lieu de revenir à une méthode moins sécurisée.
 
 **diwall-monitor-verifier**
 : Effectue une passe de vérification structurelle d'un scénario par rapport à une référence enregistrée et se termine avec un code non nul en cas de divergence. Conçu pour être exécuté par cron ou un minuteur systemd ; il ne contient pas de boucle propre.
@@ -65,7 +65,7 @@ guide. C'est le seul endroit où Diwall n'est pas une option facultative.
 : Afficher la version installée au format JSON et quitter, sans lancer de navigateur.
 Différent de **--guide-version** ; les deux numéros ne sont pas liés.
 
-**--mode** *rapide*|*complet*
+**--mode** *fast*|*full*
 : *rapide* est **--no-capture --a11y**: sans PNG, environ deux secondes plus rapide,
 suffisant pour lire l'état. *complet* est le mode par défaut et capture le rendu.
 
@@ -88,7 +88,8 @@ modifier **--timeout** ne peut pas aider, car la page ne se terminera jamais.
 : Supprimez les marqueurs automatiques qui identifient un navigateur sans interface graphique. Cela ne modifie pas l'adresse IP de l'opérateur et ne falsifie pas une identité ; le but est d'assurer un traitement équitable, et non de masquer quoi que ce soit.
 
 **--secrets** *FICHIER*
-: Résoudre les informations d'identification à partir d'un fichier JSON explicite situé dans un coffre-fort monté, au lieu de la recherche par défaut basée sur l'hôte.
+: Résoudre les identifiants à partir d'un fichier JSON explicite situé dans un répertoire monté,
+au lieu de la recherche par défaut basée sur l'hôte.
 
 **--no-evaluer**
 : Refuser l'action **evaluer** pour toute la session — le code JavaScript arbitraire n'est pas exécuté sur la page cible.
@@ -115,7 +116,7 @@ répertoire contient les commandes exactes avec les chemins réels.
 **/tmp/diwall/**
 : Fichiers PNG capturés, effacés au redémarrage.
 
-# CODE DE SORTIE
+# CODE DE RETOUR
 
 **0**
 : L'exécution est terminée. Notez qu'un code HTTP 404 ou 403 sur la cible est signalé dans le JSON, et non comme une erreur de la commande.
@@ -126,26 +127,26 @@ répertoire contient les commandes exactes avec les chemins réels.
 : Arguments incompatibles, rejetés avant même que n'importe quel navigateur ne soit lancé.
 
 **42**
-: Le coffre de mots de passe est fermé. Montez-le avec **diwall-monter-secrets**.
+: Le Répertoire d'identifiants est fermé. Montez-le avec **diwall-monter-secrets**.
 
 **43**
-: La somme de contrôle de l'intégrité du coffre-fort ne correspond pas.
+: La somme de contrôle de l'intégrité des identifiants ne correspond pas.
 
 # EXEMPLES
 
 Capturer une page avec des éléments numérotés et l'arborescence d'accessibilité :
 
-    diwall-shot --url https://example.com --som --a11y --guide-version 4.1
+    diwall-shot --url https://example.com --som --a11y --guide-version 1.0
 
 Consultez uniquement l'état d'une page, sans générer d'image :
 
-    diwall-shot --url https://example.com --mode fast --guide-version 4.1
+diwall-shot --url https://example.com --mode fast --guide-version 1.0
 
 Accédez à un panneau d'administration qui actualise les statistiques en continu :
 
     diwall-shot --url http://target.local/ --wait-until load --som
 
-Exécutez un scénario en utilisant les informations d'identification provenant d'un fichier de coffre-fort explicite :
+Exécutez un scénario en utilisant les identifiants provenant d'un fichier spécifié :
 
     diwall-rpa --scenario ./login.json --secrets ~/Vaults/project/creds.json
 
@@ -153,7 +154,7 @@ Vérifiez qu'une page n'a pas subi de régressions structurelles :
 
     diwall-monitor-verifier --scenario ./page.json --reference ./page.ref.json
 
-# VOIR ÉGALEMENT
+# VOIR AUSSI
 
 La documentation complète est installée avec le paquet :
 **/opt/diwall/docs/MANUEL.md** pour le manuel d'utilisation,

@@ -17,17 +17,17 @@ Keine architektonischen Beschreibungen. Befehle, die funktionieren.
 
 ## Inhaltsverzeichnis
 
-1. [Installation überprüfen](#1-verify-the-installation)
-2. [Eine Seite erfassen](#2-capture-a-page)
-3. [Respektvolle Navigation (v1.15.0)](#3-respectful-navigation-v1150)
-4. [Tresor und Anmeldedaten](#4-vault-and-credentials)
-5. [Ein RPA-Szenario erstellen und ausführen](#5-write-and-run-an-rpa-scenario)
-6. [Aktionen – vollständige Referenz](#6-actions--complete-reference)
-7. [Häufige Probleme beheben](#7-handle-common-obstacles)
-8. [Visuelle Überwachung — watch.py](#8-visual-monitoring--watchpy)
-9. [Betriebsprotokoll](#9-operation-log)
-10. [CLI-Flags – Referenz](#10-cli-flags--reference)
-11. [Exit-Codes und Ausgabe](#11-exit-codes-and-output)
+1. [Installation überprüfen](#1-installation-überprüfen)
+2. [Eine Seite erfassen](#2-eine-seite-erfassen)
+3. [Respektvolle Navigation (v1.15.0)](#3-respektvolles-navigieren-v1150)
+4. [Verschlüsseltes Verzeichnis und Zugangsdaten](#4-verschlüsseltes-verzeichnis-und-zugangsdaten)
+5. [Ein RPA-Szenario erstellen und ausführen](#5-schreiben-und-ausführen-eines-rpa-szenarios)
+6. [Aktionen – vollständige Referenz](#6-aktionen--vollständige-referenz)
+7. [Häufige Probleme beheben](#7-umgang-mit-häufigen-hindernissen)
+8. [Visuelle Überwachung — watch.py](#8-visuelle-überwachung--watchpy)
+9. [Betriebsprotokoll](#9-betriebsprotokoll)
+10. [CLI-Flags – Referenz](#10-befehlszeilenparameter--referenz)
+11. [Exit-Codes und Ausgabe](#11-rückgabecodes-und-ausgabe)
 
 ---
 
@@ -42,7 +42,7 @@ Keine architektonischen Beschreibungen. Befehle, die funktionieren.
 ```bash
 # Vollständiger Test mit einem Befehl (~3 Sekunden).
 /opt/diwall/venv/bin/python3 /opt/diwall/shot.py \
-  --url https://example.com --mode fast --guide-version 4.1
+  --url https://example.com --mode fast --guide-version 1.0
 ```
 
 Erwartetes Ergebnis: JSON auf stdout mit `"succes": true`.
@@ -64,13 +64,13 @@ grep "__version__" /opt/diwall/shot.py
 # Überprüfen Sie, ob `playwright-stealth` verfügbar ist (Version v1.15.0).
 /opt/diwall/venv/bin/python3 -c "import playwright_stealth; print('stealth OK')"
 
-# Überprüfen Sie, ob das Vault gemountet ist.
+# Überprüfen Sie, ob das verschlüsselte Verzeichnis gemountet ist.
 ls ~/Vaults/__PROJET__/Diwall/
 # → müssen `.json`-Dateien anzeigen, keine leere Liste.
 ```
 
 Wenn `ls ~/Vaults/...` eine leere Liste oder einen Fehler zurückgibt:
-→ das Vault mounten: `bash ~/git/Diwall/Diwall/scripts/monter-repertoire-chiffre.sh`
+→ mounten Sie es: `bash ~/git/Diwall/Diwall/scripts/monter-repertoire-chiffre.sh`
 
 ### 1a. Installation aus dem Debian-Paket – der einfache Weg
 
@@ -115,7 +115,7 @@ weiter) verweisen auf dieselbe Seite. Sie wird beim Bauen aus
 vollständige Optionsliste eines Befehls bleibt jedoch `--help` massgeblich
 gegenüber der Handbuchseite.
 
-### 1b. Installation aus dem Quellcode – für die Modifikation von Diwall selbst.
+### 1b. Installation aus dem Quellcode – für die Modifikation von Diwall selbst
 
 Verwenden Sie diesen Kanal nur, wenn Sie den Code von Diwall selbst ändern
 wollen: er legt das Repository dorthin, wo `deploy.sh` Ihre Änderungen nach
@@ -142,9 +142,9 @@ sudo /opt/diwall/venv/bin/playwright install chromium
 # 5. Bereitstellen.
 bash ~/git/Diwall/Diwall/scripts/deploy.sh
 
-# 6. Erstellen Sie Ihren Credential-Tresor.
+# 6. Erstellen Sie Ihr verschlüsseltes Verzeichnis für Zugangsdaten.
 mkdir -p ~/Vaults/<your-project>/Diwall
-# Erstellen Sie die Datei `~/Vaults/<ihr-projekt>/Diwall/<hostname>.json` mit Ihren Anmeldedaten.
+# Erstellen Sie die Datei `~/Vaults/<ihr-projekt>/Diwall/<hostname>.json` mit Ihren Zugangsdaten.
 ```
 
 Auf diesem Kanal ist die Konfiguration `/opt/diwall/diwall.conf`, nicht
@@ -191,7 +191,7 @@ Gibt zurück:
 - `elements_som`: JSON-Liste der Elemente (id, tag, text)
 - `a11y_tree`: Barrierefreiheitsbaum
 
-![Set-of-Mark-Überlagerung: jedes interaktive Element umrandet und nummeriert](images/som-example-de.png)
+![Set-of-Mark-Überlagerung: jedes interaktive Element umrandet und nummeriert](../images/som-example-de.png)
 
 *Was `--som` erzeugt. Die Zahlen im Bild sind die `id` Werte in
 `elements_som`, sodass das Anklicken zu `{"type": "cliquer_som", "id": 7}` wird – es gibt keine
@@ -199,7 +199,7 @@ Auswahlmöglichkeiten, bei denen man raten müsste. Generiert aus einer Version 
 (`scenarios/interoperabilite/fixture/`); dieselbe Grafik existiert auch auf Französisch,
 Deutsch und Spanisch neben dieser.*
 
-### 2c. Lesen Sie zuerst die Gebrauchsanweisung.
+### 2c. Lesen Sie zuerst die Gebrauchsanweisung
 
 Jede Ausgabe enthält ein `boussole`-Objekt — lesen Sie es vor allem anderen:
 
@@ -220,7 +220,7 @@ Jede Ausgabe enthält ein `boussole`-Objekt — lesen Sie es vor allem anderen:
 Wenn `boussole.url_courante` nicht Ihrer Erwartung entspricht: anhalten und
 prüfen, bevor Sie irgendeine verändernde Aktion ausführen.
 
-### 2d. Lesen Sie `etat` für eine Ja/Nein-Entscheidung (Version 1.16.0).
+### 2d. Lesen Sie `etat` für eine Ja/Nein-Entscheidung (Version 1.16.0)
 
 Jede erfolgreiche Ausführung enthält ein `etat` Objekt im JSON-Root – lesen Sie es,
 bevor Sie eine verändernde Aktion durchführen, anstatt manuell `auth_status`,
@@ -347,7 +347,10 @@ Jeder Lauf gibt `respect` zurück (in der JSON-Wurzel und in boussole):
 
 ### 3d. Stealth-Benchmark – quantitativ (Version 1.17.1)
 
-Bevorzugen Sie die Auswertung konkreter Fingerabdrucksignale gegenüber dem visuellen Vergleich von Screenshots – dies ist die Methode, die zur Überprüfung der API-Kompatibilitätskorrektur v1.17.0 `playwright-stealth` (`docs/RETOUR_EXPERIENCE.md` FR-79) verwendet wird:
+Zählen Sie konkrete Fingerabdruck-Signale, statt Bildschirmaufnahmen mit blossem
+Auge zu vergleichen — mit dieser Methode wurde die Korrektur der
+API-Kompatibilität von `playwright-stealth` in v1.17.0 überprüft
+(`docs/RETOUR_EXPERIENCE.md` FR-79):
 
 ```bash
 # Ohne Heimlichkeit.
@@ -404,11 +407,11 @@ Seite, die einen dieser Begriffe legitim erwähnt, wird markiert.
 
 ---
 
-## 4. Tresor und Anmeldedaten
+## 4. Verschlüsseltes Verzeichnis und Zugangsdaten
 
-### 4a. Struktur des Tresors
+### 4a. Struktur
 
-Ein Tresor ist ein verschlüsselter Ordner (gocryptfs), der `.json` Dateien pro Domain enthält.
+Die Zugangsdaten befinden sich in einem verschlüsselten Verzeichnis – einem gocryptfs-Volume –, das eine `.json` Datei pro Domain enthält.
 
 ```
 ~/Vaults/__PROJET__/Diwall/
@@ -437,7 +440,7 @@ PASS=$(jq -r '.password' ~/Vaults/.../file.json)   # NEVER
 curl -d "password=$PASS" https://...                 # NEVER
 ```
 
-**KORREKT – Vault wurde innerhalb von Playwright gelöst:**
+**KORREKT – Zugangsdaten werden innerhalb von Playwright aufgelöst:**
 
 ```json
 {"type": "remplir_som", "id": 2, "valeur": "depuis_secrets", "secret_cle": "username"},
@@ -446,18 +449,18 @@ curl -d "password=$PASS" https://...                 # NEVER
 
 Werte gelangen niemals über die Shell, die Bash-Historie, Prozessprotokolle oder irgendeine Datei.
 
-### 4c. Auswahl des Tresors für einen Durchlauf
+### 4c. Auswahl der Zugangsdatendatei für einen Durchlauf
 
 ```bash
-# Standard-Tresor (definiert in diwall.conf > secrets_dir).
+# Standard-Zugangsdaten-Verzeichnis (definiert in diwall.conf > secrets_dir).
 /opt/diwall/venv/bin/python3 /opt/diwall/shot.py --url https://target.local/ --som
 
-# Expliziter Tresor für eine bestimmte Datei (--secrets)
+# Datei mit expliziten Anmeldeinformationen (--secrets)
 /opt/diwall/venv/bin/python3 /opt/diwall/shot.py \
   --url https://target.local/ --som \
-  --secrets /path/to/mounted/vault/creds.json
+  --secrets /path/to/mounted/directory/creds.json
 
-# Projektbezogene Tresore über .diwall.conf
+# Projektbezogenes Zugangsdaten-Verzeichnis über .diwall.conf
 export DIWALL_CONF=~/git/MyProject/.diwall.conf
 /opt/diwall/venv/bin/python3 /opt/diwall/shot.py --url https://target.local/ --som
 ```
@@ -465,7 +468,7 @@ export DIWALL_CONF=~/git/MyProject/.diwall.conf
 Inhalt von `~/git/MyProject/.diwall.conf` :
 
 ```json
-{"secrets_dir": "../MyProject-vault"}
+{"secrets_dir": "../MyProject-secrets"}
 ```
 
 Der Pfad wird relativ zum Speicherort von `.diwall.conf` aufgelöst.
@@ -476,7 +479,7 @@ Der Pfad wird relativ zum Speicherort von `.diwall.conf` aufgelöst.
 {"type": "remplir_som", "id": 6, "valeur": "depuis_secrets_totp"}
 ```
 
-Liest den Schlüssel `totp_cle` (Base32-Seed) aus dem Tresor und generiert den aktuellen TOTP-Code.
+Liest den Schlüssel `totp_cle` (Base32-Seed) aus der Zugangsdatendatei und generiert den aktuellen TOTP-Code.
 
 Um den Code über ntfy zu erhalten (Workflow ohne menschliches Zutun):
 
@@ -486,19 +489,19 @@ Um den Code über ntfy zu erhalten (Workflow ohne menschliches Zutun):
 
 ### 4e. Integritätsprüfsumme (optional, ab Version 1.15.0)
 
-Um eine Vault-Datei vor stillem FUSE-Korruptionsrisiko zu schützen, fügen Sie ein `checksum` Feld hinzu:
+Um eine Datei mit Anmeldeinformationen vor stillem Datenverlust durch FUSE zu schützen, fügen Sie ein `checksum` Feld hinzu:
 
 ```bash
 # Generiere den Prüfsummenwert.
 /opt/diwall/venv/bin/python3 -c "
 import json, hashlib
-vault = json.load(open('my_vault.json'))
-fields = {k: vault[k] for k in sorted(['username','password']) if k in vault}
+creds = json.load(open('my_credentials.json'))
+fields = {k: creds[k] for k in sorted(['username','password']) if k in creds}
 print('sha256:' + hashlib.sha256(json.dumps(fields, sort_keys=True).encode()).hexdigest())
 "
 ```
 
-Füge den zurückgegebenen Wert der Vault-Datei hinzu:
+Fügen Sie den zurückgegebenen Wert der Datei mit den Anmeldeinformationen hinzu:
 
 ```json
 {
@@ -511,14 +514,14 @@ Füge den zurückgegebenen Wert der Vault-Datei hinzu:
 Stimmt die Prüfsumme nicht, löst `shot.py` `SecretsChecksumError` (Exit 42) mit einer eindeutigen Meldung aus.
 Ohne den Schlüssel `checksum`: unverändertes Verhalten (striktes Opt-in).
 
-### 4f. Tresor geschlossen – was tun?
+### 4f. Verschlüsseltes Verzeichnis geschlossen – was tun?
 
 ```
-SecretsFermesError: Le coffre Diwall est initialisé mais non monté.
+SecretsFermesError: Le répertoire chiffré Diwall est initialisé mais non monté.
 ```
 
 ```bash
-# Befestigen Sie den Tresor.
+# Befestigen Sie das verschlüsselte Verzeichnis.
 bash ~/git/Diwall/Diwall/scripts/monter-repertoire-chiffre.sh
 
 # Überprüfen Sie die Montage.
@@ -529,7 +532,7 @@ ls ~/Vaults/__PROJET__/Diwall/
 ### 4g. HTTP-Basisauthentifizierung — `--http-credentials` (v1.21.0)
 
 Für Ziele hinter einer HTTP Basic Auth-Authentifizierung auf Netzwerkebene (RFC 7617) –
-die ein Reverse-Proxy wie Caddy, nginx oder Traefik vor dem Laden einer Seite anzeigt, was häufig vor selbstgehosteten Admin-Oberflächen verwendet wird. Dies ist ein anderer Mechanismus als die oben beschriebene **Formular**-Authentifizierung (4a-4f), die weiterhin vollständig unterstützt wird und davon nicht betroffen ist.
+ein Reverse Proxy wie Caddy, nginx oder Traefik stellt diese Herausforderung vor dem Laden jeglicher Seite bereit, was häufig vor selbst gehosteten Admin-Oberflächen zu finden ist. Dies ist ein anderer Mechanismus als die oben beschriebene formbasierte Authentifizierung (4a-4f), die weiterhin vollständig unterstützt wird und davon nicht betroffen ist.
 
 ```bash
 /opt/diwall/venv/bin/python3 /opt/diwall/shot.py \
@@ -537,17 +540,17 @@ die ein Reverse-Proxy wie Caddy, nginx oder Traefik vor dem Laden einer Seite an
   --http-credentials --secrets ~/Vaults/__PROJET__/Diwall/internal_example.json
 ```
 
-Tresor-Datei – das einfache `username` / `password` Paar wird bereits für den
-üblichen Fall verwendet (ein einziger Satz von Anmeldedaten für das Ziel):
+Authentifizierungsdatei – das einfache `username` / `password` Paar wird bereits für den
+üblichen Fall verwendet (ein einziger Satz von Authentifizierungsinformationen für das Ziel):
 
 ```json
 {"username": "admin", "password": "my-password"}
 ```
 
-Spezielle `http_username`/`http_password` Schlüssel werden zuerst ausprobiert und sind nur erforderlich, wenn das gleiche Ziel sowohl eine Netzwerk-basierte Basic Auth-Authentifizierung als auch einen separaten Anwendungslogin hat (zwei verschiedene Anmeldedaten im selben File). In diesem Fall greift Diwall automatisch auf `username`/`password` zurück, wenn die speziellen Schlüssel fehlen.
+Spezielle `http_username`/`http_password` Schlüssel werden zuerst ausprobiert und sind nur erforderlich, wenn das gleiche Ziel sowohl eine Netzwerk-basierte Basic Auth-Authentifizierung als auch einen separaten Anwendungslogin hat (zwei verschiedene Zugangsdaten im selben File). In diesem Fall greift Diwall automatisch auf `username`/`password` zurück, wenn die speziellen Schlüssel fehlen.
 
 Bestätigt in der Produktion gegen ein echtes Caddy-geschütztes Ziel: die sichere
-Standardeinstellung (`send: "unauthorized"` – Anmeldedaten werden nur nach einem echten
+Standardeinstellung (`send: "unauthorized"` – Zugangsdaten werden nur nach einem echten
 401 gesendet, niemals präventiv) löste die Herausforderung beim ersten Versuch.
 `boussole.http_credentials_actif: true` bestätigt einen echten Erfolg, nicht nur
 die Übergabe des Flags; `boussole.http_auth_requise: true` unterscheidet ein
@@ -592,7 +595,7 @@ nicht gelöstes 401 deutlich von einer WAF-Blockade.
 {
   "nom": "login_app",
   "url": "https://app.example.com/login/",
-  "intention": "Administrator login via vault",
+  "intention": "Administrator login with stored credentials",
   "actions": [
     {"type": "nettoyer_overlay", "selecteur": ".cookie-banner"},
     {"type": "remplir_som", "id": 1, "valeur": "depuis_secrets", "secret_cle": "username"},
@@ -611,7 +614,7 @@ nicht gelöstes 401 deutlich von einer WAF-Blockade.
   --scenario /opt/diwall/scenarios/login_app.json --som
 ```
 
-### 5b. Vollständiges Szenario: Anmelden und zwischen Seiten navigieren.
+### 5b. Vollständiges Szenario: Anmelden und zwischen Seiten navigieren
 
 ```json
 {
@@ -634,7 +637,7 @@ nicht gelöstes 401 deutlich von einer WAF-Blockade.
 }
 ```
 
-### 5c. Daten aus dem DOM extrahieren.
+### 5c. Daten aus dem DOM extrahieren
 
 ```json
 {
@@ -709,7 +712,7 @@ Rufen Sie dieses Unter-Szenario von einem anderen Szenario aus auf:
 
 Maximale Verschachtelungstiefe: 5 Ebenen.
 
-### 5f. Überprüfen Sie, ob Sie sich auf der richtigen Seite befinden, bevor Sie Änderungen vornehmen.
+### 5f. Überprüfen Sie, ob Sie sich auf der richtigen Seite befinden, bevor Sie Änderungen vornehmen
 
 Fügen Sie immer eine Sicherheitsmaßnahme als erste Aktion in Szenarien hinzu, die Daten löschen oder ändern:
 
@@ -720,7 +723,7 @@ Fügen Sie immer eine Sicherheitsmaßnahme als erste Aktion in Szenarien hinzu, 
 
 Wenn die Sicherheitsprüfung fehlschlägt: rpa.py stoppt, bevor die Löschung ausgeführt wird.
 
-### 5g. Eine Sitzung fortsetzen (mit persistenten Cookies).
+### 5g. Eine Sitzung fortsetzen (mit persistenten Cookies)
 
 ```bash
 # Erster Aufruf – Authentifizierung und Speicherung der Sitzung.
@@ -828,7 +831,7 @@ gegenseitig ausschließend – genau eines ist pro Aktion erforderlich. Für ein
 | `cliquer` | `selecteur` | `force` (bool), `repli_js` (bool) | `force: true` umgeht CSS-versteckte Elemente oder zeigt ein Modal an. `repli_js: true` wiederholt den Klick über JavaScript, falls der native Klick fehlschlägt (v1.22.0) – benötigt `--no-evaluer` deaktiviert |
 | `cliquer_som` | `id` | — | Klickt in die Mitte des Elements. Kein `force` erforderlich |
 | `cliquer_visuel` | `description` | — | LLM-Vision (~32 s). Letzte Möglichkeit für Canvas oder Elemente ohne Attribute |
-| `remplir` | `selecteur`, `valeur` | `secret_cle` | `valeur: "depuis_secrets"` aktiviert den Tresor |
+| `remplir` | `selecteur`, `valeur` | `secret_cle` | `valeur: "depuis_secrets"` löst die gespeicherten Zugangsdaten |
 | `remplir_som` | `id`, `valeur` | `secret_cle` | Löscht das Feld vor dem Tippen. `valeur: "depuis_secrets_totp"` für TOTP |
 | `capturer` | `nom` | `som` (bool) | Benanntes Zwischen-PNG. `som: true` für einen annotierten Screenshot |
 | `evaluer` | `script` | `attendu`, `contient`, `motif` | JavaScript wird im Browser ausgeführt. Assertions nur für rpa.py |
@@ -837,14 +840,14 @@ gegenseitig ausschließend – genau eines ist pro Aktion erforderlich. Für ein
 | `attendre` | `selecteur` | `interval_capture` | Wartet, bis ein CSS-Selektor vorhanden ist |
 | `attendre_navigation` | — | — | Wartet auf `networkidle` (Ende der Netzwerkaktivität) |
 | `attendre_url` | `motif` | `attendre_changement` (bool) | Die URL enthält ein Muster (teilweise Übereinstimmung). `attendre_changement: true`, wenn die aktuelle URL bereits das Muster enthält |
-| `attendre_selecteur_present` | `selecteur` | — | Wartet, bis ein Element sichtbar ist (state=visible) |
-| `attendre_absence` | `selecteur` | `delai_initial_ms` | Wartet, bis ein Element aus dem DOM entfernt wird (state=detached) |
+| `attendre_selecteur_present` | `selecteur` | — | Wartet, bis ein Element sichtbar ist (Zustand=sichtbar) |
+| `attendre_absence` | `selecteur` | `delai_initial_ms` | Wartet, bis ein Element aus dem DOM entfernt wird (Zustand=abgetrennt) |
 | `attendre_reseau_calme` | — | `timeout_ms` | 500 ms Netzwerkaktivität. `timeout_ms`: maximale Dauer, bevor abgebrochen wird |
 | `attendre_mfa_ntfy` | `id_som` | `timeout` | Wartet auf einen TOTP-Code über ntfy und füllt ihn in das SoM-Feld ein |
 | `nettoyer_overlay` | `selecteur` | — | Versteckt blockierende Overlays (Cookie-Banner, Modal). Vor der Verwendung von SoM verwenden |
 | `declencher_scenario` | `scenario` | — | Fügt Aktionen eines Unter-Szenarios inline ein. Maximale Tiefe: 5 |
 | `cliquer_iframe` | `iframe_selecteur` \| `iframe_chemin`, `selecteur` | `force` (bool) | Klickt innerhalb eines Iframes (v1.17.0). `iframe_chemin` für verschachtelte Iframes (v1.18.0, Abschnitt 5k). Kein SoM innerhalb von Frames |
-| `remplir_iframe` | `iframe_selecteur` \| `iframe_chemin`, `selecteur`, `valeur` | `secret_cle` | Füllt Werte innerhalb eines Iframes aus (v1.17.0). `iframe_chemin` für verschachtelte Iframes (v1.18.0). `valeur: "depuis_secrets"` unterstützt |
+| `remplir_iframe` | `iframe_selecteur` \| `iframe_chemin`, `selecteur`, `valeur` | `secret_cle` | Füllt innerhalb eines Iframes aus (v1.17.0). `iframe_chemin` für verschachtelte Iframes (v1.18.0). `valeur: "depuis_secrets"` unterstützt |
 
 ---
 
@@ -892,7 +895,7 @@ Um auf ein Element innerhalb eines Shadow Roots zuzugreifen, ohne `--shadow-dom`
 {"type": "evaluer", "script": "document.querySelector('my-component').shadowRoot.querySelector('button').click()"}
 ```
 
-### 7d. Single-Page Applications (SPA) (React, Vue, Angular) – Navigation ohne Neuladen.
+### 7d. Single-Page Applications (SPA) (React, Vue, Angular) – Navigation ohne Neuladen
 
 Nach einem Klick, der die Ansicht in einer Single-Page-Anwendung (SPA) verändert, weiß Playwright nicht, wann die Navigation abgeschlossen ist.
 
@@ -984,7 +987,7 @@ Mit dieser Option wird jedes nummerierte Element zum Zeitpunkt der Erfassung mar
 
 Seit Version v1.17.2 löscht der Injector auch Marker, die von einer vorherigen `--som` Aufnahme auf derselben Seite hinterlassen wurden, bevor er die Nummerierung neu beginnt – ohne dies könnte ein Element, das zwischen zwei Aufnahmen ausgeblendet oder aus dem sichtbaren Bereich gescrollt wurde, eine veraltete `data-dw-som-id` beibehalten und mit einem frisch nummerierten Element kollidieren, was zu einer falschen Zuordnung führen würde.
 
-### 7k. Website durch WAF blockiert (sofortige 403-Fehlermeldung).
+### 7k. Website durch WAF blockiert (sofortige 403-Fehlermeldung)
 
 ```bash
 # Versuche es heimlich.
@@ -1008,11 +1011,11 @@ Symptom: `TimeoutError` beim ersten Navigieren und das Auslösen von `--timeout`
 ```bash
 # shot.py — direkte Aufklärung
 /opt/diwall/venv/bin/python3 /opt/diwall/shot.py \
-  --url http://target.local/ --wait-until load --som --a11y --guide-version 4.1
+  --url http://target.local/ --wait-until load --som --a11y --guide-version 1.0
 
 # rpa.py — weitergegeben an shot.py, sodass Szenarien die gleichen Ziele erreichen.
 /opt/diwall/venv/bin/python3 /opt/diwall/rpa.py \
-  --scenario ./admin_login.json --wait-until load --guide-version 4.1
+  --scenario ./admin_login.json --wait-until load --guide-version 1.0
 ```
 
 Ein Szenario kann dies stattdessen als eine Stammeigenschaft enthalten und so für sich allein stehen:
@@ -1080,7 +1083,7 @@ Kombinieren Sie Pixel-Differenzanalyse und LLM-Analyse:
 --llm-en-complement   # LLM only if pixel verdict is drift or regression
 ```
 
-### 8d. Eine animierte Zone ignorieren.
+### 8d. Eine animierte Zone ignorieren
 
 ```bash
 /opt/diwall/venv/bin/python3 /opt/diwall/watch.py \
@@ -1135,7 +1138,7 @@ bash ~/git/Diwall/Diwall/scripts/monitor-verifier.sh \
 ```
 
 ```bash
-# crontab -e (deine eigene Crontab)
+# crontab -e (Ihre eigene Crontab)
 */15 * * * * bash ~/git/Diwall/Diwall/scripts/monitor-verifier.sh \
   --scenario /opt/diwall/scenarios/sillage_login.json \
   --reference /opt/diwall/references/sillage_login.ref.json \
@@ -1145,7 +1148,7 @@ bash ~/git/Diwall/Diwall/scripts/monitor-verifier.sh \
 
 Stabilität → Stille. Regression → eine `ntfy` Benachrichtigung mit den Änderungen. Jede
 Aufrufung ist ein isolierter Prozess – kein Hintergrunddienst, keine Gefahr von Speicherlecks, und
-Die Einstellungen für die respektvolle Navigation werden bei jedem Durchlauf sauber zurückgesetzt.
+Die Einstellungen für die Respektvolle Navigation werden bei jedem Durchlauf sauber zurückgesetzt.
 
 ---
 
@@ -1159,7 +1162,7 @@ Das Protokoll ist in `diwall.conf` (Version 1.15.0) konfigurierbar:
 }
 ```
 
-Wenn abwesend oder Tresor nicht montiert, Fallback: `DIWALL_JOURNAL` Umgebungsvariable, dann `/var/log/diwall/operations.jsonl`.
+Wenn das Verzeichnis nicht vorhanden ist oder nicht gemountet wurde, Fallback: Umgebungsvariable `DIWALL_JOURNAL`, dann `/var/log/diwall/operations.jsonl`.
 
 ```bash
 # Lesen Sie die letzten 10 Einträge.
@@ -1230,7 +1233,7 @@ Felder in jedem Eintrag:
 | `--interval-capture N` | 0 | Periodische Aufnahmen alle N Sekunden während `attendre`, `pause` |
 | `--som-rafraichir` | off | Stabile SoM-Auflösung durch Attribut anstelle von Live-Reindexierung (v1.17.0, Abschnitt 7j) |
 | `--ignorer-waf` | off | Ein erkannter WAF-Block beeinträchtigt `niveau_confiance`, erzwingt aber nicht mehr automatisch `pret_a_agir: false` (v1.17.2, Abschnitt 3e) |
-| `--http-credentials` | off | Ruft HTTP Basic Auth-Anmeldeinformationen aus dem Tresor ab, begrenzt auf den Ursprung des Ziels (v1.21.0, Abschnitt 4g) |
+| `--http-credentials` | off | Löst HTTP Basic Auth-Anmeldeinformationen aus der Datei mit Anmeldeinformationen auf, beschränkt auf den Ursprung des Ziels (v1.21.0, Abschnitt 4g) |
 
 ### rpa.py
 
@@ -1282,7 +1285,7 @@ Felder in jedem Eintrag:
 | 1 | `guide_non_lu` — `--guide-version` fehlt oder ist falsch, kein gültiger Marker (v1.18.0) | Greift, bevor Playwright startet. `docs/GUIDE_LLM.md` lesen, mit `--guide-version X.Y` erneut starten (Abschnitt 1) |
 | 2 | `viewport_mismatch` (watch.py) | Referenz im gleichen Viewport neu aufnehmen |
 | 3 | Modul `playwright` nicht gefunden | Über `/opt/diwall/venv/bin/python3` aufrufen |
-| 42 | `SecretsFermesError` — Tresor nicht gemountet oder Prüfsumme ungültig | Tresor mounten oder Zugangsdatendatei prüfen |
+| 42 | `SecretsFermesError` — verschlüsseltes Verzeichnis nicht gemountet oder Prüfsumme ungültig | Es mounten oder die Zugangsdatendatei prüfen |
 | 43 | `SecretsNonConfigureError` — `diwall.conf` fehlt | `sudo cp /opt/diwall/diwall-sample.conf /opt/diwall/diwall.conf && sudo nano /opt/diwall/diwall.conf` |
 
 ### Struktur des Ausgabe-JSON
@@ -1359,7 +1362,7 @@ Bedingte Schlüssel (fehlen, wenn inaktiv): `capture`, `capture_som`, `elements_
 {
   "succes": false,
   "erreur": "secrets_fermes",
-  "message": "Le coffre Diwall est initialisé mais non monté.",
+  "message": "Le répertoire chiffré Diwall est initialisé mais non monté.",
   "code_sortie_recommande": 42,
   "boussole": { "url_courante": "", "titre_page": "" }
 }
@@ -1373,13 +1376,13 @@ Bedingte Schlüssel (fehlen, wenn inaktiv): `capture`, `capture_som`, `elements_
 |---|---|
 | `/opt/diwall/` | Produktionsinstallation |
 | `/opt/diwall/venv/bin/python3` | Python-Version für jeden Aufruf |
-| `/opt/diwall/diwall.conf` | Maschinenkonfiguration (Vault, Navigation, Log) |
+| `/opt/diwall/diwall.conf` | Maschinenkonfiguration (Zugangsdaten, Navigation, Protokollierung) |
 | `/opt/diwall/diwall-sample.conf` | Konfigurationsvorlage |
 | `/opt/diwall/scenarios/` | RPA-Szenarien |
 | `/opt/diwall/docs/` | Dokumentation |
 | `/opt/diwall/references/` | Visuelle Referenzen watch.py |
-| `/tmp/diwall/<operation_id>/` | Temporäre Daten für einen Lauf, isoliert durch `operation_id` (v1.16.0, wird beim Neustart gelöscht) |
-| `~/Vaults/__PROJET__/Diwall/` | Credential-Vault + Log (gocryptfs) |
+| `/tmp/diwall/<operation_id>/` | Temporäre Daten für einen Lauf, isoliert durch `operation_id` (Version 1.16.0, wird beim Neustart gelöscht) |
+| `~/Vaults/__PROJET__/Diwall/` | Zugangsdaten + Protokoll (gocryptfs-Volume) |
 | `~/git/Diwall/Diwall/` | Git-Quellen (hier ändern, dann `deploy.sh`) |
 
 Implementieren Sie die Änderungen nach der Modifikation der Quelldateien:

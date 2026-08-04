@@ -2,7 +2,7 @@
 
 > **Para el operador humano:** Diwall le permite delegar la verificación visual a su modelo de lenguaje. Ambos ven la misma captura — ya no tiene que confiar a ciegas en su palabra.
 >
-> **Para el modelo de lenguaje:** [`docs/GUIDE_LLM.md`](docs/GUIDE_LLM.md) es su referencia operativa. Empiece por ahí.
+> **Para el modelo de lenguaje:** [`docs/GUIDE_LLM.md`](../GUIDE_LLM.md) es su referencia operativa. Empiece por ahí.
 > Si es un agente de IA que está descubriendo Diwall, omita la página de inicio con formato y obtenga sus instrucciones directamente: **[https://diwall.davalan.fr/instructions.md](https://diwall.davalan.fr/instructions.md)**
 
 ---
@@ -23,7 +23,7 @@ El LLM actúa → Diwall captura → el LLM ve e informa → el operador verific
 
 ### Lo que el modelo realmente recibe
 
-![Captura Set-of-Mark: cada elemento interactivo numerado sobre la página renderizada](docs/images/som-example-es.png)
+![Captura Set-of-Mark: cada elemento interactivo numerado sobre la página renderizada](../images/som-example-es.png)
 
 Se trata de una captura `--som` real, no de una maqueta. Cada elemento
 interactivo está numerado en la página renderizada, y los mismos números
@@ -34,7 +34,7 @@ este repositorio, así que obtendrá los mismos números que nosotros:
 
 ```bash
 cd scenarios/interoperabilite/fixture && python3 -m http.server 8765 &
-diwall-shot --url http://127.0.0.1:8765/demo_som_en.html --som --guide-version 4.1
+diwall-shot --url http://127.0.0.1:8765/demo_som_en.html --som --guide-version 1.0
 ```
 
 `elements_som` regresa con `{"id": 7, "tag": "BUTTON", "texte": "Sign in"}`.
@@ -60,44 +60,44 @@ El modelo de lenguaje decide qué hacer a continuación.
 
 ## Capacidades
 
-| Funcionalidad | Descripción |
+| Característica | Descripción |
 |---|---|
-| **Captura** | Captura de pantalla de cualquier página web |
-| **Acciones** | Rellenar formularios, hacer clic, navegar |
-| **Set-of-Mark (SoM)** | Numera todos los elementos interactivos para clics precisos en el DOM |
+| **Captura** | Captura una captura de pantalla de cualquier página web |
+| **Acciones** | Rellena formularios, haz clic, navega |
+| **Conjunto de marcas (SoM)** | Numera todos los elementos interactivos para clics precisos en el DOM |
 | **Instantánea de accesibilidad** | Extrae la estructura semántica de la página (árbol A11y) |
-| **Persistencia de sesión** | Mantiene el estado de autenticación a lo largo de bucles ReAct de varios pasos |
-| **Escenarios RPA** | Ejecuta secuencias de acciones desde archivos JSON |
-| **Supervisión visual** | Detecta si una página ha cambiado desde la última referencia |
-| **Diff de píxeles** | Comparación cuantitativa y determinista contra una referencia guardada (v1.2) |
-| **Cofre de credenciales** | Inyección segura de credenciales: nunca en claro, nunca en la línea de órdenes |
-| **Cofre cifrado** | Cofre respaldado por gocryptfs — `SecretsFermesError` (exit 42) si el cofre no está montado (v1.5) |
-| **Desplazamiento** | Acción `defiler` — desplazamiento relativo en píxeles o `scrollIntoView` por selector CSS (v1.6) |
-| **Aviso fuera de pantalla** | Contador `som_hors_viewport` en el JSON cuando hay elementos interactivos por debajo del pliegue (v1.6) |
-| **Memoria procedimental** | Las ejecuciones exitosas se guardan como habilidades reproducibles mediante `journal.py --exporter-skill` (v1.6) |
-| **2FA TOTP** | Códigos de Google Authenticator / Authy generados en ejecución a partir de la semilla del cofre (v1.6) |
-| **MFA asíncrona vía ntfy** | Códigos 2FA recibidos por SMS o correo, recuperados de forma asíncrona mediante una notificación ntfy (v1.6) |
-| **Perfil de operador** | Perfil YAML para suprimir las confirmaciones administrativas repetitivas (v1.3) |
-| **Trazabilidad de los modelos** | Cada ejecución registra qué modelos se invocaron, incluido el digest de Ollama (v1.3) |
-| **Registro de operaciones** | Registro persistente de solo anexado de todas las ejecuciones: quién hizo qué, dónde y cuándo (v1.4) |
-| **Recorrido del Shadow DOM** | `--shadow-dom` numera los elementos interactivos dentro de los Shadow Roots abiertos — Angular, Lit, Stencil, FAST (v1.13.0) |
-| **Navegación Respetuosa** | `--stealth` (elimina los marcadores automáticos del modo headless), retardos de cortesía y topes firmes (`min_action_delay_ms`, `max_pages_par_run`, `max_actions_par_run`), métricas de impacto (`respect`) informadas en cada ejecución (v1.15.0) |
-| **Veredicto determinista** | El objeto `etat` (`pret_a_agir`, `niveau_confiance`, `raisons`) resume en una sola lectura las señales de autenticación, de deriva de sesión y de fricción (v1.16.0) |
-| **Identidad unificada de ejecución** | `operation_id` aísla los archivos temporales de cada ejecución y los vincula a su entrada en el registro de operaciones (v1.16.0) |
-| **Señal pasiva de WAF** | `respect.waf_bloquants` señala un bloqueo probable (HTTP 403/429 o palabras clave conocidas) como señal no fatal, nunca como excepción (v1.16.0) |
-| **Ausencia de regresión estructural** | `--replay-verifier` compara el código HTTP, las estadísticas del DOM y los resultados de `evaluer` con una referencia guardada, sin píxeles y sin modelo de visión (v1.17.0) |
-| **Puntos de control de escenario** | `--checkpoint` retoma un escenario largo tras un fallo a mitad de camino, sin repetir las acciones ya completadas (v1.17.0) |
-| **Identidad SoM estable** | `--som-rafraichir` resuelve `cliquer_som`/`remplir_som` mediante un marcador del DOM en lugar de reindexar en vivo, lo que evita apuntar en silencio al elemento equivocado en páginas muy dinámicas (v1.17.0) |
-| **Iframes de origen cruzado** | `cliquer_iframe` / `remplir_iframe` apuntan a elementos dentro de iframes del mismo origen o de origen distinto, mediante la API nativa de frames de Playwright (v1.17.0) |
-| **Iframes anidados** | `iframe_chemin` (array) desciende de iframe en iframe, mutuamente excluyente con `iframe_selecteur` (v1.18.0) |
-| **Bloqueo de lectura de la guía** | `shot.py`/`rpa.py`/`watch.py` se niegan a ejecutarse sin prueba de que se ha leído `docs/GUIDE_LLM.md`; un marcador local lo conserva por máquina y por usuario (v1.18.0) |
-| **Consejo de configuración** | `mode_conseille` recomienda `--mode`/`--shadow-dom`/`--som-rafraichir` a partir de ejecuciones de diagnóstico reales y anteriores en el mismo host, nunca por conjetura (v1.18.0) |
-| **Trazabilidad de escenarios encadenados** | `chainage` registra el árbol ordenado de llamadas de los escenarios encadenados mediante `declencher_scenario`, visible en el registro de operaciones (v1.19.0) |
-| **Cronometraje por acción** | `latences_actions` informa de la latencia de despacho de cada acción ejecutada, siempre presente (v1.20.0) |
-| **Vista del registro solo con errores** | `journal.py --erreurs` filtra el registro de operaciones para mostrar solo las ejecuciones fallidas (v1.20.0) |
-| **Autenticación HTTP Basic** | `--http-credentials` resuelve la autenticación Basic a nivel de red (RFC 7617) desde el cofre, limitada al origen del destino: distinta de la autenticación por formulario mediante el cofre, y complementaria (v1.21.0) |
-| **Escalada de clic en JS** | `repli_js` en `cliquer` reintenta mediante JS un clic nativo fallido, informado en la boussole solo cuando realmente se ha producido (v1.22.0) |
-| **Destinos de consulta continua** | `--wait-until load\|domcontentloaded` alcanza páginas que consultan el servidor de forma continua y nunca llegan al silencio de red, allí donde ningún valor de `--timeout` bastaría (v1.22.0) |
+| **Persistencia de sesión** | Mantiene el estado de inicio de sesión a través de bucles ReAct de varios pasos |
+| **Escenarios de RPA** | Ejecuta secuencias de acciones desde archivos JSON |
+| **Monitoreo visual** | Detecta si una página ha cambiado desde la última referencia |
+| **Diferencia de píxeles** | Diferencia cuantitativa y determinista con respecto a una referencia almacenada (v1.2) |
+| **Resolución de credenciales** | Inyección segura de credenciales; nunca en texto plano, nunca en la línea de comandos |
+| **Directorio cifrado** | Volumen gocryptfs — `SecretsFermesError` (salida 42) si no está montado (v1.5) |
+| **Desplazamiento** | Acción `defiler` — desplazamiento relativo de píxeles o por selector CSS `scrollIntoView` (v1.6) |
+| **Advertencia fuera de pantalla** | Cuenta `som_hors_viewport` en JSON cuando existen elementos interactivos debajo del pliegue (v1.6) |
+| **Memoria procedimental** | Las ejecuciones exitosas se almacenan como habilidades reproducibles a través de `journal.py --exporter-skill` (v1.6) |
+| **TOTP 2FA** | Códigos de Google Authenticator / Authy generados en tiempo de ejecución desde una semilla almacenada (v1.6) |
+| **MFA asíncrono a través de ntfy** | Códigos 2FA de SMS/correo electrónico recibidos de forma asíncrona a través de la notificación push de ntfy (v1.6) |
+| **Perfil de operador** | Perfil YAML para eliminar confirmaciones administrativas repetitivas (v1.3) |
+| **Trazabilidad del modelo** | Cada ejecución registra qué modelos se llamaron, incluido el resumen de Ollama (v1.3) |
+| **Registro de operaciones** | Registro persistente y de solo escritura de todas las ejecuciones: quién hizo qué, dónde, cuándo (v1.4) |
+| **Recorrido del DOM sombreado** | Números `--shadow-dom` de elementos interactivos dentro de Shadow Roots abiertos; Angular, Lit, Stencil, FAST (v1.13.0) |
+| **Navegación Respetuosa** | `--stealth` (elimina los marcadores automáticos del modo headless), retrasos de cortesía y límites estrictos (`min_action_delay_ms`, `max_pages_par_run`, `max_actions_par_run`), métricas de impacto (`respect`) informadas en cada ejecución (v1.15.0) |
+| **Veredicto determinista** | El objeto `etat` (`pret_a_agir`, `niveau_confiance`, `raisons`) sintetiza señales de autenticación, deriva de sesión y fricción en una sola lectura (v1.16.0) |
+| **Identidad de ejecución unificada** | `operation_id` aísla los archivos temporales de cada ejecución y los vincula a su entrada del registro de operaciones (v1.16.0) |
+| **Señal pasiva de WAF** | `respect.waf_bloquants` marca un posible bloqueo (HTTP 403/429 o palabras clave conocidas) como una señal no fatal, nunca como una excepción (v1.16.0) |
+| **No regresión estructural** | `--replay-verifier` compara el estado HTTP, las estadísticas del DOM y los resultados de `evaluer` con una referencia guardada; sin píxeles, sin modelo de visión (v1.17.0) |
+| **Puntos de control del escenario** | `--checkpoint` reanuda un escenario largo después de un fallo a la mitad sin reproducir las acciones completadas (v1.17.0) |
+| **Identidad SoM estable** | `--som-rafraichir` resuelve los identificadores `cliquer_som`/`remplir_som` mediante un marcador del DOM en lugar de una reindexación en vivo, evitando el cambio silencioso de destino en páginas altamente dinámicas (v1.17.0) |
+| **Iframes entre orígenes** | Los elementos de destino `cliquer_iframe` / `remplir_iframe` dentro de iframes del mismo origen o de diferentes orígenes a través de la API de marco nativa de Playwright (v1.17.0) |
+| **Iframes anidados** | Descenso `iframe_chemin` (matriz) iframe-dentro-de-iframe, mutuamente excluyente con `iframe_selecteur` (v1.18.0) |
+| **Bloqueo de guía-lectura** | `shot.py`/`rpa.py`/`watch.py` se niega a ejecutarse sin una prueba de que se leyó `docs/GUIDE_LLM.md` — un marcador local lo persiste por máquina/usuario (v1.18.0) |
+| **Consejos de configuración** | `mode_conseille` recomienda `--mode`/`--shadow-dom`/`--som-rafraichir` a partir de ejecuciones de diagnóstico reales anteriores en el mismo host; nunca una conjetura (v1.18.0) |
+| **Trazabilidad de escenarios encadenados** | `chainage` registra el árbol de llamadas ordenado de escenarios encadenados a través de `declencher_scenario`, que se muestra en el registro de operaciones (v1.19.0) |
+| **Temporización por acción** | `latences_actions` informa la latencia de despacho para cada acción ejecutada, siempre presente (v1.20.0) |
+| **Vista de registro solo de errores** | `journal.py --erreurs` filtra el registro de operaciones para mostrar solo las ejecuciones fallidas (v1.20.0) |
+| **Autenticación HTTP básica** | `--http-credentials` resuelve la autenticación Básica a nivel de red (RFC 7617) desde el archivo de credenciales, con ámbito del origen del objetivo; distinto y adicional a la autenticación basada en formularios (v1.21.0) |
+| **Escalado de clics de JavaScript** | `repli_js` en `cliquer` reintenta un clic nativo fallido mediante JS, informado solo en la boussole cuando realmente se ejecutó (v1.22.0) |
+| **Objetivos que nunca están inactivos** | `--wait-until load\|domcontentloaded` alcanza páginas que realizan sondeos continuos y nunca permanecen sin actividad de red, donde ningún valor de `--timeout` sería suficiente (v1.22.0) |
 
 ---
 
@@ -120,7 +120,7 @@ El modelo de lenguaje decide qué hacer a continuación.
 
 Dos canales, **exclusivos entre sí en una misma máquina**. Elija el paquete de Debian a menos que tenga la intención de modificar el código propio de Diwall.
 
-### Paquete de Debian: el camino más sencillo.
+### Paquete de Debian: el camino más sencillo
 
 Descargue el recurso `.deb` de la
 [última versión](https://github.com/RonanDavalan/diwall/releases) — nombre del archivo
@@ -143,12 +143,12 @@ La configuración se encuentra en `/etc/diwall/diwall.conf`; una muestra comenta
 
 La actualización es `sudo apt install ./diwall_<newer>-1_all.deb` y su configuración se conserva. La eliminación es `sudo apt remove diwall`, o `sudo apt purge diwall` para eliminar también la configuración.
 
-### Desde la fuente: para modificar Diwall en sí mismo.
+### Desde la fuente: para modificar Diwall en sí mismo
 
 Si pretende modificar el código de Diwall, instale desde el repositorio: así
 las fuentes quedan donde `deploy.sh` puede enviar sus cambios a
 `/opt/diwall/`. El procedimiento de seis pasos está en
-[`docs/MANUEL.md`](docs/MANUEL.md) sección 1b, junto a las órdenes que
+[`docs/MANUEL.md`](MANUEL.md) sección 1b, junto a las órdenes que
 ejecutará después.
 
 ## Desinstalación
@@ -175,7 +175,7 @@ bash ~/git/Diwall/Diwall/scripts/uninstall.sh --confirme
 
 Elimina: `/opt/diwall/`, `/var/log/diwall/`, usuario del sistema `diwall`, grupo del sistema `diwall`, pertenencia al grupo de operadores, "git pre-push" hook.
 
-**Nunca modificados:** `~/Vaults/` (bóvedas de credenciales), el repositorio en sí mismo, la caché del navegador Playwright.
+No se ha modificado: `~/Vaults/` (sus credenciales), el repositorio en sí mismo, la caché del navegador de Playwright.
 
 Si `/var/log/diwall/preuves/` contiene capturas, se conservan por omisión. Añada `--purge-preuves` para eliminarlas.
 
@@ -212,11 +212,11 @@ Si `/var/log/diwall/preuves/` contiene capturas, se conservan por omisión. Aña
   --scenario /opt/diwall/scenarios/my_scenario.json --som
 ```
 
-Referencia completa para los modelos: [`docs/GUIDE_LLM.md`](docs/GUIDE_LLM.md)
+Referencia completa para los modelos: [`docs/GUIDE_LLM.md`](../GUIDE_LLM.md)
 
 ---
 
-## Bóveda de credenciales
+## Credenciales
 
 Las credenciales se almacenan en archivos JSON, uno por dominio, **nunca en el código ni en los archivos de escenarios**:
 
@@ -226,35 +226,35 @@ Las credenciales se almacenan en archivos JSON, uno por dominio, **nunca en el c
 └── other-service.com.json   → {"password": "...", "api_key": "..."}
 ```
 
-En un escenario o acción: `"valeur": "depuis_secrets", "secret_cle": "password"` — Diwall lee la credencial en tiempo de ejecución desde el directorio del almacén.
+En un escenario o acción: `"valeur": "depuis_secrets", "secret_cle": "password"` — Diwall lee la credencial en tiempo de ejecución desde el directorio de credenciales.
 
-La ruta del almacén de datos es configurable a través de la variable de entorno `/opt/diwall/diwall.conf` o `DIWALL_SECRETS_DIR`.
+La ruta es configurable a través de `/opt/diwall/diwall.conf` o la variable de entorno `DIWALL_SECRETS_DIR`.
 
-**Recomendación:** proteja `~/Vaults/Diwall/` con `chmod 700` y encripte con `gocryptfs` (consulte `~/git/Diwall/Diwall/scripts/configurer-repertoire-chiffre.sh --gocryptfs`). El almacén encriptado está totalmente soportado desde la versión v1.5.0; si el almacén se inicializa pero no se monta, Diwall devuelve una estructura `SecretsFermesError` (código de salida 42) en lugar de fallar silenciosamente.
+**Recomendación:** proteja `~/Vaults/Diwall/` con `chmod 700` y encripte con `gocryptfs` (consulte `~/git/Diwall/Diwall/scripts/configurer-repertoire-chiffre.sh --gocryptfs`). El directorio cifrado está completamente soportado desde la versión v1.5.0; si se inicializa pero no se monta, Diwall devuelve una estructura `SecretsFermesError` (código de salida 42) en lugar de fallar silenciosamente.
 
 ---
 
 ## Seguridad
 
-### Captura de almacenamiento
+### Almacenamiento de capturas
 
 Por defecto, las capturas se almacenan en `/tmp/diwall/` con permisos `700` (solo el propietario).
 No cambie `--output-dir` a una ubicación compartida (`/tmp/`, `~/Desktop/`, etc.)—las capturas pueden contener datos de interfaz confidenciales.
 
-### Modelos locales versus modelos en la nube.
+### Modelos locales versus modelos en la nube
 
 Cuando Diwall se utiliza con un LLM basado en la nube (API de Claude, OpenAI, etc.), las capturas PNG se transmiten a servidores externos. Esto es responsabilidad del usuario. Para interfaces que contienen datos privados (credenciales, información del cliente, claves privadas), utilice únicamente modelos Ollama locales.
 
-### Directorio del almacén
+### Directorio de credenciales
 
-El directorio del almacén (por defecto, `~/Vaults/Diwall/`) contiene credenciales en texto plano JSON cuando está desmontado. Protéjalo:
+El directorio de credenciales, donde sea que hayas apuntado, por ejemplo, `secrets_dir` —como en `~/Vaults/Diwall/`— contiene credenciales en texto plano JSON cuando está desmontado. Protéjelo:
 
 ```bash
 chmod 700 ~/Vaults/Diwall/
 ```
 
-El soporte para sistemas de archivos encriptados (`gocryptfs`) ha sido compatible por completo desde la versión 1.5.0;
-consulte "Bóveda de credenciales" arriba y `~/git/Diwall/Diwall/scripts/configurer-repertoire-chiffre.sh`.
+El soporte para sistemas de archivos cifrados (`gocryptfs`) ha sido compatible por completo desde la versión 1.5.0;
+consulte "Credenciales" arriba y `~/git/Diwall/Diwall/scripts/configurer-repertoire-chiffre.sh`.
 
 ---
 
@@ -290,7 +290,7 @@ mantenedor.
 
 ## Para los modelos de lenguaje (LLM) que descubren Diwall
 
-Si es un modelo de lenguaje y está leyendo este README: consulte [`docs/GUIDE_LLM.md`](docs/GUIDE_LLM.md) para la referencia técnica completa — patrones de invocación, uso de SoM, integración con el cofre, reglas de navegación en SPA y especificaciones de los modelos Ollama.
+Si usted es un modelo de lenguaje que está leyendo este archivo README: consulte [`docs/GUIDE_LLM.md`](../GUIDE_LLM.md) para la referencia técnica completa: patrones de invocación, uso de SoM, integración de credenciales, reglas de navegación de SPA y especificaciones del modelo Ollama.
 
 ---
 

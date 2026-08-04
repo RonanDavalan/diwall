@@ -36,7 +36,7 @@ chemins complets. Le premier appel sur une machine nécessite [`--guide-version 
    │    ├─ Chromium (headless)    │
    │    ├─ SoM: numbers elements  │
    │    ├─ A11y: page structure   │
-   │    └─ vault: fills secrets   │   never in the shell, never in a log
+   │    └─ secrets: fills credentials│   never in the shell, never in a log
    └──────────────┬───────────────┘
                   │  PNG + JSON
                   ▼
@@ -94,7 +94,7 @@ Si `boussole` ne correspond pas à vos attentes, arrêtez-vous avant toute actio
 
 ---
 
-## Identifiants — la seule forme correcte.
+## Identifiants — la seule forme correcte
 
 ```json
 {"type": "remplir_som", "id": 3, "valeur": "depuis_secrets", "secret_cle": "password"}
@@ -116,7 +116,7 @@ même pour un code TOTP.
 | Élément situé en dessous du "fold" | `defiler` d'abord — vérifiez `boussole.som_hors_viewport` |
 | La page ne se charge jamais complètement | `--wait-until load` |
 | Le bouton de soumission ne fait rien, aucune erreur | validation HTML native — soumettez le formulaire via `evaluer` |
-| `exit 42` | coffre non monté : `diwall-monter-secrets` |
+| `exit 42` | répertoire chiffré non monté : `diwall-monter-secrets` |
 | `exit 43` | pas de `diwall.conf` — copiez l'exemple à côté |
 | `guide_non_lu` | passer `--guide-version` une fois |
 | 403 / 429 | lire `respect.waf_bloquants` — un signal, et non une exception |
@@ -126,4 +126,4 @@ même pour un code TOTP.
 ## Codes de sortie
 
 `0` succès · `1` Erreur du playwright ou assertion échouée · `2` Incompatibilité de la zone d'affichage
-(`watch.py`) · `3` Mauvais interpréteur, utilisez l'environnement virtuel (venv) · `42` Coffre-fort fermé ou checksum incorrect · `43` `diwall.conf` manquant.
+(`watch.py`) · `3` Mauvais interpréteur, utilisez l'environnement virtuel (venv) · `42` Répertoire chiffré fermé ou somme de contrôle incorrecte · `43` `diwall.conf` manquant.

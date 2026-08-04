@@ -1,7 +1,7 @@
 # Diwall — Référence visuelle partagée entre l'opérateur et le LLM
 
 **Pour l'opérateur humain :** Diwall vous permet de déléguer la vérification visuelle à votre LLM. Vous voyez tous les deux la même image — vous n'avez plus besoin de simplement croire ce qu'il dit.
-**Pour le LLM :** [`docs/GUIDE_LLM.md`](docs/GUIDE_LLM.md) est votre référence opérationnelle. Commencez par là.
+**Pour le LLM :** [`docs/GUIDE_LLM.md`](../GUIDE_LLM.md) est votre référence opérationnelle. Commencez par là.
 Si vous êtes un agent IA découvrant Diwall, ignorez la page d'accueil formatée et récupérez directement vos instructions : **[https://diwall.davalan.fr/instructions.md](https://diwall.davalan.fr/instructions.md)**
 
 ---
@@ -20,9 +20,9 @@ Le LLM agit → Diwall capture → le LLM voit et rapporte → l'opérateur vér
 
 **Ce que le modèle y gagne :** une perception réelle de l'interface. Sans Diwall, un modèle qui développe une application web modifie du code mais ne peut pas voir le résultat dans un navigateur. `lynx` ne rend pas les interfaces modernes.
 
-### Ce que le modèle reçoit réellement.
+### Ce que le modèle reçoit réellement
 
-![Capture Set-of-Mark : chaque élément interactif est numéroté sur la page rendue](docs/images/som-example-fr.png)
+![Capture Set-of-Mark : chaque élément interactif est numéroté sur la page rendue](../images/som-example-fr.png)
 
 Il s'agit d'une vraie capture `--som`, pas d'une maquette. Chaque élément
 interactif est numéroté sur la page rendue, et les mêmes numéros reviennent
@@ -33,7 +33,7 @@ obtiendrez donc les mêmes numéros que nous :
 
 ```bash
 cd scenarios/interoperabilite/fixture && python3 -m http.server 8765 &
-diwall-shot --url http://127.0.0.1:8765/demo_som_en.html --som --guide-version 4.1
+diwall-shot --url http://127.0.0.1:8765/demo_som_en.html --som --guide-version 1.0
 ```
 
 `elements_som` revient avec `{"id": 7, "tag": "BUTTON", "texte": "Sign in"}`.
@@ -69,12 +69,12 @@ Le modèle de langage décide quoi faire ensuite.
 | **Scénarios RPA** | Exécute des séquences d'actions depuis des fichiers JSON |
 | **Surveillance visuelle** | Détecte si une page a changé depuis la dernière référence |
 | **Diff pixel** | Comparaison quantitative et déterministe contre une référence enregistrée (v1.2) |
-| **Coffre de credentials** | Injection sécurisée des identifiants — jamais en clair, jamais sur la ligne de commande |
-| **Coffre chiffré** | Coffre adossé à gocryptfs — `SecretsFermesError` (exit 42) si le coffre n'est pas monté (v1.5) |
+| **Résolution des identifiants** | Injection sécurisée des identifiants — jamais en clair, jamais sur la ligne de commande |
+| **Répertoire chiffré** | Volume gocryptfs — `SecretsFermesError` (exit 42) s'il n'est pas monté (v1.5) |
 | **Défilement** | Action `defiler` — défilement relatif en pixels ou `scrollIntoView` par sélecteur CSS (v1.6) |
 | **Alerte hors écran** | Compteur `som_hors_viewport` dans le JSON quand des éléments interactifs existent sous la ligne de flottaison (v1.6) |
 | **Mémoire procédurale** | Les exécutions réussies sont enregistrées comme compétences rejouables via `journal.py --exporter-skill` (v1.6) |
-| **2FA TOTP** | Codes Google Authenticator / Authy générés à l'exécution depuis la graine du coffre (v1.6) |
+| **2FA TOTP** | Codes Google Authenticator / Authy générés à l'exécution depuis une graine enregistrée (v1.6) |
 | **MFA asynchrone via ntfy** | Codes 2FA reçus par SMS ou courriel, récupérés de façon asynchrone par notification ntfy (v1.6) |
 | **Profil opérateur** | Profil YAML permettant de lever les confirmations administratives répétitives (v1.3) |
 | **Traçabilité des modèles** | Chaque exécution enregistre les modèles appelés, empreinte Ollama comprise (v1.3) |
@@ -94,7 +94,7 @@ Le modèle de langage décide quoi faire ensuite.
 | **Traçabilité des scénarios chaînés** | `chainage` enregistre l'arbre d'appels ordonné des scénarios chaînés par `declencher_scenario`, exposé dans le journal d'opérations (v1.19.0) |
 | **Chronométrage par action** | `latences_actions` rapporte la latence de dispatch de chaque action exécutée, toujours présent (v1.20.0) |
 | **Vue du journal limitée aux erreurs** | `journal.py --erreurs` filtre le journal d'opérations pour ne montrer que les exécutions en échec (v1.20.0) |
-| **Authentification HTTP Basique** | `--http-credentials` résout l'authentification Basic au niveau réseau (RFC 7617) depuis le coffre, cantonnée à l'origine de la cible — distincte de l'authentification par formulaire via le coffre, et complémentaire (v1.21.0) |
+| **Authentification HTTP Basique** | `--http-credentials` résout l'authentification Basic au niveau réseau (RFC 7617) depuis le fichier d'identifiants, cantonnée à l'origine de la cible — distincte de l'authentification par formulaire, et complémentaire (v1.21.0) |
 | **Escalade de clic en JS** | `repli_js` sur `cliquer` retente un clic natif en échec via JS, rapporté dans la boussole uniquement lorsqu'il a réellement eu lieu (v1.22.0) |
 | **Cibles jamais au repos** | `--wait-until load\|domcontentloaded` atteint les pages qui interrogent le serveur en continu et n'atteignent jamais le silence réseau, là où aucune valeur de `--timeout` ne suffirait (v1.22.0) |
 
@@ -119,7 +119,7 @@ Le modèle de langage décide quoi faire ensuite.
 
 Deux canaux, **mutuellement exclusifs sur une même machine**. Choisissez le paquet Debian sauf si vous avez l'intention de modifier le code source de Diwall.
 
-### Paquet Debian : la solution la plus simple.
+### Paquet Debian : la solution la plus simple
 
 Téléchargez le fichier `.deb` depuis la
 [dernière version](https://github.com/RonanDavalan/diwall/releases) — nom de fichier
@@ -144,12 +144,12 @@ La mise à niveau est `sudo apt install ./diwall_<newer>-1_all.deb` – votre
 configuration est conservée. La désinstallation est `sudo apt remove diwall`, ou
 `sudo apt purge diwall` pour supprimer également la configuration.
 
-### À partir de la source — pour modifier directement Diwall.
+### À partir de la source — pour modifier directement Diwall
 
 Si vous comptez modifier le code de Diwall lui-même, installez plutôt depuis
 le dépôt : les sources se retrouvent là où `deploy.sh` peut pousser vos
 changements vers `/opt/diwall/`. La procédure en six étapes vit dans
-[`docs/MANUEL.md`](docs/MANUEL.md) section 1b, à côté des commandes que vous
+[`docs/MANUEL.md`](MANUEL.md) section 1b, à côté des commandes que vous
 lancerez ensuite.
 
 ## Désinstallation
@@ -176,7 +176,7 @@ bash ~/git/Diwall/Diwall/scripts/uninstall.sh --confirme
 
 Supprime : `/opt/diwall/`, `/var/log/diwall/`, utilisateur système `diwall`, groupe système `diwall`, appartenance au groupe d'opérateurs, hook de pré-envoi Git.
 
-**Non modifiés :** `~/Vaults/` (coffres-forts de crédentielles), le référentiel lui-même, le cache du navigateur Playwright.
+**Jamais modifié :** `~/Vaults/` (vos identifiants), le dépôt lui-même, le cache du navigateur Playwright.
 
 Si `/var/log/diwall/preuves/` contient des captures, elles sont conservées par défaut. Ajoutez `--purge-preuves` pour les supprimer.
 
@@ -213,13 +213,13 @@ Si `/var/log/diwall/preuves/` contient des captures, elles sont conservées par 
   --scenario /opt/diwall/scenarios/my_scenario.json --som
 ```
 
-Référence complète pour les modèles : [`docs/GUIDE_LLM.md`](docs/GUIDE_LLM.md)
+Référence complète pour les modèles : [`docs/GUIDE_LLM.md`](../GUIDE_LLM.md)
 
 ---
 
-## Coffre-fort des identifiants
+## Identifiants
 
-Les informations d'identification sont stockées dans des fichiers JSON, un fichier par domaine, **jamais dans le code ou les fichiers de scénarios** :
+Les identifiants sont stockés dans des fichiers JSON, un fichier par domaine, **jamais dans le code ou les fichiers de scénarios** :
 
 ```
 ~/Vaults/Diwall/
@@ -227,35 +227,35 @@ Les informations d'identification sont stockées dans des fichiers JSON, un fich
 └── other-service.com.json   → {"password": "...", "api_key": "..."}
 ```
 
-Dans un scénario ou une action : `"valeur": "depuis_secrets", "secret_cle": "password"` — Diwall lit les informations d'identification au moment de l'exécution à partir du répertoire du coffre-fort.
+Dans un scénario ou une action : `"valeur": "depuis_secrets", "secret_cle": "password"` — Diwall lit les identifiants au moment de l'exécution à partir du Répertoire d'identifiants.
 
-Le chemin d'accès au coffre-fort est configurable via la variable d'environnement `/opt/diwall/diwall.conf` ou `DIWALL_SECRETS_DIR`.
+Le chemin est configurable via `/opt/diwall/diwall.conf` ou la variable d'environnement `DIWALL_SECRETS_DIR`.
 
-**Recommandation :** protégez `~/Vaults/Diwall/` avec `chmod 700` et cryptez-le avec `gocryptfs` (voir `~/git/Diwall/Diwall/scripts/configurer-repertoire-chiffre.sh --gocryptfs`). Le coffre-fort crypté est entièrement pris en charge depuis la version v1.5.0 — si le coffre-fort est initialisé mais non monté, Diwall renvoie une structure `SecretsFermesError` (code de sortie 42) au lieu d'échouer silencieusement.
+**Recommandation :** protégez `~/Vaults/Diwall/` par un `chmod 700` et chiffrez-le avec `gocryptfs` (voir `~/git/Diwall/Diwall/scripts/configurer-repertoire-chiffre.sh --gocryptfs`). Le répertoire chiffré est pleinement pris en charge depuis la v1.5.0 — s'il est initialisé mais non monté, Diwall renvoie une erreur structurée `SecretsFermesError` (code de sortie 42) au lieu d'échouer silencieusement.
 
 ---
 
 ## Sécurité
 
-### Capture de stockage
+### Stockage des captures
 
 Par défaut, les captures sont stockées dans `/tmp/diwall/` avec les permissions `700` (propriétaire uniquement).
-Ne modifiez pas `--output-dir` pour la rendre accessible à un emplacement partagé (`/tmp/`, `~/Desktop/`, etc.) — les captures peuvent contenir des données sensibles de l'interface.
+Ne changez pas `--output-dir` pour un emplacement partagé (`/tmp/`, `~/Desktop/`, etc.) — les captures peuvent contenir des données sensibles de l'interface.
 
-### Modèles locaux par rapport aux modèles basés dans le cloud.
+### Modèles locaux par rapport aux modèles basés dans le cloud
 
 Lorsque Diwall est utilisé avec un LLM basé sur le cloud (API Claude, OpenAI, etc.), les captures d'écran PNG sont transmises à des serveurs externes. Cela relève de la responsabilité de l'utilisateur. Pour les interfaces contenant des données privées (identifiants, informations client, clés privées), utilisez uniquement les modèles Ollama locaux.
 
-### Répertoire du coffre-fort
+### Répertoire d'identifiants
 
-Le répertoire du coffre-fort (par défaut, [`~/Vaults/Diwall/`] ) contient des informations d'identification en texte clair au format JSON lorsqu'il n'est pas monté. Protégez-le :
+Le répertoire d'identifiants — là où vous avez pointé `secrets_dir`, par exemple `~/Vaults/Diwall/` — contient des identifiants en JSON clair lorsqu'il n'est pas monté. Protégez-le :
 
 ```bash
 chmod 700 ~/Vaults/Diwall/
 ```
 
 Le support des systèmes de fichiers chiffrés (`gocryptfs`) est entièrement pris en charge depuis la version 1.5.0 ;
-voir "Coffre-fort d'informations d'identification" ci-dessus et `~/git/Diwall/Diwall/scripts/configurer-repertoire-chiffre.sh`.
+voir "Identifiants" ci-dessus et `~/git/Diwall/Diwall/scripts/configurer-repertoire-chiffre.sh`.
 
 ---
 
@@ -288,7 +288,7 @@ est le livrable ; la machine qui le produit est de l'outillage de mainteneur.
 
 ## Pour les LLM qui découvrent Diwall
 
-Si vous êtes un modèle de langage et que vous lisez ce fichier README : consultez `docs/GUIDE_LLM.md`(docs/GUIDE_LLM.md) pour la documentation technique complète — les modèles d'invocation, l'utilisation de SoM, l'intégration avec le coffre-fort, les règles de navigation SPA et les spécifications des modèles Ollama.
+Si vous êtes un modèle de langage et que vous lisez ce fichier README : consultez [`docs/GUIDE_LLM.md`](../GUIDE_LLM.md) pour la référence technique complète — les modèles d'invocation, l'utilisation de SoM, l'intégration des identifiants, les règles de navigation SPA et les spécifications des modèles Ollama.
 
 ---
 

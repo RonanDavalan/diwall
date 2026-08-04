@@ -1,7 +1,7 @@
 # Diwall – Gemeinsame visuelle Referenz zwischen Mensch und LLM
 
 **Für den menschlichen Bediener:** Diwall ermöglicht es Ihnen, die visuelle Überprüfung an Ihr LLM zu delegieren. Beide sehen denselben Bildausschnitt – Sie müssen nicht mehr darauf vertrauen, was das LLM sagt.
-**Für das LLM:** [`docs/GUIDE_LLM.md`](docs/GUIDE_LLM.md) ist Ihre Betriebsanleitung. Beginnen Sie dort.
+**Für das LLM:** [`docs/GUIDE_LLM.md`](../GUIDE_LLM.md) ist Ihre Betriebsanleitung. Beginnen Sie dort.
 Wenn Sie ein KI-Agent sind, der Diwall entdeckt, überspringen Sie die formatierte Startseite und laden Sie Ihre Anweisungen direkt: **[https://diwall.davalan.fr/instructions.md](https://diwall.davalan.fr/instructions.md)**
 
 ---
@@ -22,7 +22,7 @@ Das LLM handelt → Diwall nimmt auf → das LLM sieht und berichtet → der Bet
 
 ### Was das Modell tatsächlich empfängt
 
-![Set-of-Mark-Aufnahme: jedes interaktive Element ist auf der gerenderten Seite nummeriert](docs/images/som-example-de.png)
+![Set-of-Mark-Aufnahme: jedes interaktive Element ist auf der gerenderten Seite nummeriert](../images/som-example-de.png)
 
 Dies ist ein echtes `--som` Abbild, kein Mock-up. Jedes interaktive Element ist
 auf der gerenderten Seite mit einer Nummer versehen, und dieselben Nummern kommen im JSON zurück —
@@ -32,7 +32,7 @@ Nummern erhalten wie wir:
 
 ```bash
 cd scenarios/interoperabilite/fixture && python3 -m http.server 8765 &
-diwall-shot --url http://127.0.0.1:8765/demo_som_en.html --som --guide-version 4.1
+diwall-shot --url http://127.0.0.1:8765/demo_som_en.html --som --guide-version 1.0
 ```
 
 `elements_som` kommt mit `{"id": 7, "tag": "BUTTON", "texte": "Sign in"}`.
@@ -68,12 +68,12 @@ Das Sprachmodell entscheidet, was als nächstes zu tun ist.
 | **RPA-Szenarien** | Führt Aktionsfolgen aus JSON-Dateien aus |
 | **Visuelle Überwachung** | Erkennt, ob sich eine Seite seit der letzten Referenz geändert hat |
 | **Pixel-Diff** | Quantitativer, deterministischer Vergleich gegen eine gespeicherte Referenz (v1.2) |
-| **Zugangsdaten-Tresor** | Sichere Einspeisung von Zugangsdaten — nie im Klartext, nie auf der Kommandozeile |
-| **Verschlüsselter Tresor** | Tresor auf gocryptfs-Basis — `SecretsFermesError` (Exit 42), wenn der Tresor nicht gemountet ist (v1.5) |
+| **Auflösung der Zugangsdaten** | Sichere Einspeisung von Zugangsdaten — nie im Klartext, nie auf der Kommandozeile |
+| **Verschlüsseltes Verzeichnis** | gocryptfs-Volume — `SecretsFermesError` (Exit 42), wenn es nicht gemountet ist (v1.5) |
 | **Scrollen** | Aktion `defiler` — relatives Scrollen in Pixeln oder `scrollIntoView` per CSS-Selektor (v1.6) |
 | **Warnung ausserhalb des Sichtfelds** | Zähler `som_hors_viewport` im JSON, wenn interaktive Elemente unterhalb der Faltlinie liegen (v1.6) |
 | **Prozedurales Gedächtnis** | Erfolgreiche Läufe werden als wiederholbare Fertigkeiten gespeichert, via `journal.py --exporter-skill` (v1.6) |
-| **TOTP-2FA** | Google-Authenticator-/Authy-Codes werden zur Laufzeit aus dem Tresor-Seed erzeugt (v1.6) |
+| **TOTP-2FA** | Google-Authenticator-/Authy-Codes werden zur Laufzeit aus einem gespeicherten Seed erzeugt (v1.6) |
 | **Asynchrone MFA über ntfy** | Per SMS oder E-Mail empfangene 2FA-Codes werden asynchron über eine ntfy-Push-Benachrichtigung abgeholt (v1.6) |
 | **Betreiberprofil** | YAML-Profil, um wiederkehrende administrative Bestätigungen aufzuheben (v1.3) |
 | **Nachvollziehbarkeit der Modelle** | Jeder Lauf hält fest, welche Modelle aufgerufen wurden, einschliesslich Ollama-Digest (v1.3) |
@@ -93,7 +93,7 @@ Das Sprachmodell entscheidet, was als nächstes zu tun ist.
 | **Nachvollziehbarkeit verketteter Szenarien** | `chainage` hält den geordneten Aufrufbaum der über `declencher_scenario` verketteten Szenarien fest und zeigt ihn im Betriebsjournal (v1.19.0) |
 | **Zeitmessung pro Aktion** | `latences_actions` berichtet die Dispatch-Latenz jeder ausgeführten Aktion, immer vorhanden (v1.20.0) |
 | **Journalansicht nur mit Fehlern** | `journal.py --erreurs` filtert das Betriebsjournal auf fehlgeschlagene Läufe (v1.20.0) |
-| **HTTP-Basisauthentifizierung** | `--http-credentials` löst die Basic-Authentifizierung auf Netzwerkebene (RFC 7617) aus dem Tresor auf, begrenzt auf die Herkunft des Ziels — verschieden von der formularbasierten Tresor-Anmeldung und ergänzend dazu (v1.21.0) |
+| **HTTP-Basisauthentifizierung** | `--http-credentials` löst die Basic-Authentifizierung auf Netzwerkebene (RFC 7617) aus der Zugangsdatendatei auf, begrenzt auf die Herkunft des Ziels — verschieden von der formularbasierten Anmeldung und ergänzend dazu (v1.21.0) |
 | **JS-Klick-Eskalation** | `repli_js` bei `cliquer` wiederholt einen fehlgeschlagenen nativen Klick über JS, in der boussole nur dann berichtet, wenn er wirklich stattgefunden hat (v1.22.0) |
 | **Nie ruhende Ziele** | `--wait-until load\|domcontentloaded` erreicht Seiten, die den Server dauerhaft abfragen und nie Netzstille erreichen — dort, wo kein Wert von `--timeout` je genügen würde (v1.22.0) |
 
@@ -141,12 +141,12 @@ Die Konfiguration befindet sich in `/etc/diwall/diwall.conf`; eine kommentierte 
 
 Das Upgrade ist `sudo apt install ./diwall_<newer>-1_all.deb` – Ihre Konfiguration bleibt erhalten. Die Deinstallation ist `sudo apt remove diwall`, oder `sudo apt purge diwall`, um auch die Konfiguration zu löschen.
 
-### Von der Quelle – zur Modifikation von Diwall selbst.
+### Von der Quelle – zur Modifikation von Diwall selbst
 
 Wenn Sie den Code von Diwall selbst ändern wollen, installieren Sie besser aus
 dem Repository: die Quellen liegen dann dort, wo `deploy.sh` Ihre Änderungen
 nach `/opt/diwall/` übertragen kann. Das sechsstufige Verfahren steht in
-[`docs/MANUEL.md`](docs/MANUEL.md) Abschnitt 1b, neben den Befehlen, die Sie
+[`docs/MANUEL.md`](MANUEL.md) Abschnitt 1b, neben den Befehlen, die Sie
 danach ausführen.
 
 ## Deinstallation
@@ -173,7 +173,7 @@ bash ~/git/Diwall/Diwall/scripts/uninstall.sh --confirme
 
 Entfernt: `/opt/diwall/`, `/var/log/diwall/`, Systembenutzer `diwall`, Systemgruppe `diwall`, Gruppenmitgliedschaft des Operators, Git-Pre-Push-Hook.
 
-**Nicht verändert:** `~/Vaults/` (Anmeldedaten-Tresore), das Repository selbst, der Playwright-Browser-Cache.
+**Noch nie verändert:** `~/Vaults/` (Ihre Zugangsdaten), das Repository selbst, der Playwright-Browser-Cache.
 
 Wenn `/var/log/diwall/preuves/` Aufnahmen enthält, bleiben sie standardmässig erhalten. Fügen Sie `--purge-preuves` hinzu, um sie zu löschen.
 
@@ -210,11 +210,11 @@ Wenn `/var/log/diwall/preuves/` Aufnahmen enthält, bleiben sie standardmässig 
   --scenario /opt/diwall/scenarios/my_scenario.json --som
 ```
 
-Vollständige Referenz für Modelle: [`docs/GUIDE_LLM.md`](docs/GUIDE_LLM.md)
+Vollständige Referenz für Modelle: [`docs/GUIDE_LLM.md`](../GUIDE_LLM.md)
 
 ---
 
-## Credential-Tresor
+## Zugangsdaten
 
 Zugangsdaten werden in JSON-Dateien gespeichert, eine Datei pro Domain, **niemals im Code oder in Szenariodateien**:
 
@@ -224,35 +224,35 @@ Zugangsdaten werden in JSON-Dateien gespeichert, eine Datei pro Domain, **niemal
 └── other-service.com.json   → {"password": "...", "api_key": "..."}
 ```
 
-In einem Szenario oder einer Aktion: `"valeur": "depuis_secrets", "secret_cle": "password"` — Diwall liest die Anmeldedaten zur Laufzeit aus dem Vault-Verzeichnis.
+In einem Szenario oder einer Aktion: `"valeur": "depuis_secrets", "secret_cle": "password"` — Diwall liest die Anmeldeinformationen zur Laufzeit aus dem Anmeldeinformationsverzeichnis.
 
-Der Pfad zum Vault ist über die Umgebungsvariable `/opt/diwall/diwall.conf` oder `DIWALL_SECRETS_DIR` konfigurierbar.
+Der Pfad ist über `/opt/diwall/diwall.conf` oder die Umgebungsvariable `DIWALL_SECRETS_DIR` konfigurierbar.
 
-Empfehlung: Schützen Sie `~/Vaults/Diwall/` mit `chmod 700` und verschlüsseln Sie es mit `gocryptfs` (siehe `~/git/Diwall/Diwall/scripts/configurer-repertoire-chiffre.sh --gocryptfs`). Verschlüsselte Vaults werden vollständig ab Version v1.5.0 unterstützt – wenn die Vault initialisiert, aber nicht gemountet ist, gibt Diwall einen strukturierten Fehler `SecretsFermesError` (Exit-Code 42) zurück, anstatt stillschweigend zu fehlschlagen.
+Empfehlung: Schützen Sie `~/Vaults/Diwall/` mit `chmod 700` und verschlüsseln Sie es mit `gocryptfs` (siehe `~/git/Diwall/Diwall/scripts/configurer-repertoire-chiffre.sh --gocryptfs`). Das verschlüsselte Verzeichnis wird vollständig ab Version v1.5.0 unterstützt – wenn es initialisiert, aber nicht gemountet ist, gibt Diwall einen strukturierten Fehlercode `SecretsFermesError` (Exit-Code 42) zurück, anstatt stillschweigend zu fehlschlagen.
 
 ---
 
 ## Sicherheit
 
-### Datensicherung
+### Speicherung der Aufnahmen
 
 Standardmäßig werden Aufnahmen in `/tmp/diwall/` mit den Berechtigungen `700` (nur Eigentümer) gespeichert.
 Ändern Sie `--output-dir` nicht zu einem freigegebenen Speicherort (`/tmp/`, `~/Desktop/`, usw.) – Aufnahmen können sensible Schnittstellendaten enthalten.
 
 ### Lokale Modelle vs. Cloud-Modelle
 
-Wenn Diwall mit einem Cloud-basierten LLM (Claude API, OpenAI usw.) verwendet wird, werden PNG-Screenshots an externe Server übertragen. Dies liegt in der Verantwortung des Benutzers. Für Schnittstellen, die private Daten enthalten (Anmeldedaten, Kundeninformationen, private Schlüssel), verwenden Sie ausschließlich lokale Ollama-Modelle.
+Wenn Diwall mit einem Cloud-basierten LLM (Claude API, OpenAI usw.) verwendet wird, werden PNG-Screenshots an externe Server übertragen. Dies liegt in der Verantwortung des Benutzers. Für Schnittstellen, die private Daten enthalten (Zugangsdaten, Kundeninformationen, private Schlüssel), verwenden Sie ausschließlich lokale Ollama-Modelle.
 
-### Verzeichnis für den Tresor
+### Verzeichnis für Anmeldeinformationen
 
-Das Tresorverzeichnis (standardmässig `~/Vaults/Diwall/`) enthält im ungemounteten Zustand Zugangsdaten als Klartext-JSON. Schützen Sie es:
+Das Verzeichnis für Anmeldeinformationen – egal wohin Sie es verlinkt haben, beispielsweise `secrets_dir` wie in `~/Vaults/Diwall/` – enthält Anmeldeinformationen im Klartext-JSON-Format, wenn es nicht gemountet ist. Schützen Sie es:
 
 ```bash
 chmod 700 ~/Vaults/Diwall/
 ```
 
 Die Unterstützung für verschlüsselte Dateisysteme (`gocryptfs`) wird seit Version 1.5.0 vollständig unterstützt –
-siehe oben den Abschnitt "Credential vault" und `~/git/Diwall/Diwall/scripts/configurer-repertoire-chiffre.sh`.
+siehe oben den Abschnitt "Zugangsdaten" und `~/git/Diwall/Diwall/scripts/configurer-repertoire-chiffre.sh`.
 
 ---
 
@@ -288,7 +288,7 @@ Werkzeug des Betreuers.
 
 ## Für LLMs, die Diwall entdecken
 
-Wenn Sie ein Sprachmodell sind, das diese README-Datei liest: siehe [`docs/GUIDE_LLM.md`](docs/GUIDE_LLM.md) für die vollständige technische Referenz – Aufrufpattern, Verwendung von SoM, Vault-Integration, Navigationregeln für Single-Page-Anwendungen und Ollama-Modellspezifikationen.
+Wenn Sie ein Sprachmodell sind, das diese README-Datei liest: siehe [`docs/GUIDE_LLM.md`](../GUIDE_LLM.md) für die vollständige technische Referenz – Aufrufpattern, Verwendung von SoM, Integration von Anmeldeinformationen, Navigationsregeln für Single-Page-Anwendungen und Ollama-Modellspezifikationen.
 
 ---
 

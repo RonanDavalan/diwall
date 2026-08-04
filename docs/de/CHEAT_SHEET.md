@@ -37,7 +37,7 @@ statt der vollständigen Pfade. Der erste Aufruf auf einer Maschine benötigt
    │    ├─ Chromium (headless)    │
    │    ├─ SoM: numbers elements  │
    │    ├─ A11y: page structure   │
-   │    └─ vault: fills secrets   │   never in the shell, never in a log
+   │    └─ secrets: fills credentials│   never in the shell, never in a log
    └──────────────┬───────────────┘
                   │  PNG + JSON
                   ▼
@@ -95,7 +95,7 @@ Wenn `boussole` nicht Ihren Erwartungen entspricht, stoppen Sie vor jeglicher ve
 
 ---
 
-## Anmeldedaten – die einzige korrekte Formularausgabe
+## Zugangsdaten – die einzige korrekte Formularausgabe
 
 ```json
 {"type": "remplir_som", "id": 3, "valeur": "depuis_secrets", "secret_cle": "password"}
@@ -114,10 +114,10 @@ Befehlszeile noch Ihren Verlauf noch irgendein Protokoll.
 |---|---|
 | Klick führt zu einem Timeout, Element ist visuell ausgeblendet | `"force": true`, dann `"repli_js": true` |
 | Element wird nicht von SoM nummeriert | `--shadow-dom` (Shadow Roots öffnen) |
-| Element befindet sich unterhalb des sichtbaren Bereichs | `defiler` zuerst — prüfen Sie `boussole.som_hors_viewport` |
+| Element befindet sich außerhalb des sichtbaren Bereichs | `defiler` zuerst — prüfen Sie `boussole.som_hors_viewport` |
 | Seite lädt nie vollständig | `--wait-until load` |
-| Absenden-Button tut nichts, keine Fehlermeldung | native HTML-Validierung — Formular über `evaluer` absenden |
-| `exit 42` | Vault nicht gemountet: `diwall-monter-secrets` |
+| Absenden-Button hat keine Funktion, kein Fehler | native HTML-Validierung — Formular über `evaluer` absenden |
+| `exit 42` | verschlüsseltes Verzeichnis nicht gemountet: `diwall-monter-secrets` |
 | `exit 43` | kein `diwall.conf` — Beispiel daneben kopieren |
 | `guide_non_lu` | einmal `--guide-version` ausführen |
 | 403 / 429 | lesen Sie `respect.waf_bloquants` — ein Signal, keine Ausnahme |
@@ -127,4 +127,5 @@ Befehlszeile noch Ihren Verlauf noch irgendein Protokoll.
 ## Rückgabecodes
 
 `0` Erfolg · `1` Fehler im Playwright oder fehlende Assertion · `2` Abweichung der Bildschirmauflösung
-(`watch.py`) · `3` Falscher Interpreter, verwenden Sie die virtuelle Umgebung · `42` Tresor geschlossen oder fehlerhafte Prüfsumme · `43` `diwall.conf` fehlt.
+(`watch.py`) · `3` Falscher Interpreter, verwenden Sie die virtuelle Umgebung · `42` Verschlüsseltes Verzeichnis geschlossen oder fehlerhafte
+Prüfsumme · `43` `diwall.conf` fehlt.

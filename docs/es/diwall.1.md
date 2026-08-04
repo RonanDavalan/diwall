@@ -4,7 +4,7 @@
 
 # NOMBRE
 
-diwall: conjunto de herramientas para la percepción visual y la automatización robótica de procesos (RPA) para agentes de modelos de lenguaje grandes (LLM).
+diwall - conjunto de herramientas para la percepción visual y la automatización robótica de procesos (RPA) para agentes de modelos de lenguaje grandes (LLM)
 
 # SINOPSIS
 
@@ -18,7 +18,7 @@ diwall: conjunto de herramientas para la percepción visual y la automatización
 
 **diwall-demonter-secrets** \[*opciones*\]
 
-**diwall-monitor-verifier** **--scenario** *FILE* **--reference** *FILE*
+**diwall-monitor-verifier** **--scenario** *ARCHIVO* **--reference** *ARCHIVO*
 
 # DESCRIPCIÓN
 
@@ -42,9 +42,7 @@ operación repetible, y es el único que evalúa las aserciones del escenario.
 : Monitoreo visual. Guarda una imagen de referencia de una página y luego compara capturas posteriores con ella: diferencia de píxeles localmente o una descripción proporcionada por un modelo de visión local. Se utiliza para detectar regresiones visuales sin la intervención humana.
 
 **diwall-monter-secrets**, **diwall-demonter-secrets**
-: Montea y desmonta el almacén de credenciales encriptado con gocryptfs. Diwall se niega
-a resolver cualquier credencial mientras el almacén está cerrado, saliendo con el código de estado 42
-en lugar de recurrir a una alternativa menos segura.
+: Monta y desmonta el directorio de credenciales cifrado con gocryptfs. Diwall se niega a resolver cualquier credencial mientras está cerrado, saliendo con el código de estado 42 en lugar de recurrir a una alternativa menos segura.
 
 **diwall-monitor-verifier**
 : Ejecuta una única pasada de verificación estructural para un escenario, comparándola con una referencia guardada, y sale con un código distinto de cero si hay divergencias. Está diseñado para ser ejecutado por cron o un temporizador systemd; no contiene ningún bucle propio.
@@ -63,7 +61,7 @@ guía. Este es el único lugar donde Diwall no es opcional.
 : Imprime la versión instalada en formato JSON y sal de la aplicación, sin iniciar un navegador.
 Es diferente de **--guide-version**; los dos números no están relacionados.
 
-**--mode** *rápido*|*completo*
+**--mode** *fast*|*full*
 : *rápido* es **--no-capture --a11y**: sin PNG, aproximadamente dos segundos más rápido,
 suficiente para leer el estado. *completo* es el valor predeterminado y captura la renderización.
 
@@ -87,8 +85,8 @@ establecer **--timeout** no ayudará, ya que la página nunca finalizará.
 cambia la dirección IP del operador ni falsifica una identidad; el objetivo
 es el trato equitativo, no el disfraz.
 
-**--secrets** *FILE*
-: Resuelve las credenciales desde un archivo JSON explícito dentro de un volumen montado, en lugar de la búsqueda predeterminada basada en el host.
+**--secrets** *ARCHIVO*
+: Resuelve las credenciales desde un archivo JSON explícito dentro de un directorio montado, en lugar de la búsqueda predeterminada basada en el host.
 
 **--no-evaluer**
 : Rechazar la acción de **evaluar** para toda la ejecución; el código JavaScript arbitrario no se ejecuta en la página de destino.
@@ -127,26 +125,26 @@ en el formato JSON, no como una falla del comando.
 : Argumentos incompatibles, rechazados antes de que se iniciara cualquier navegador.
 
 **42**
-: El almacén de credenciales está cerrado. Móntele con **diwall-monter-secrets**.
+: El directorio de credenciales está cerrado. Móntele con **diwall-monter-secrets**.
 
 **43**
-: No se pudo verificar la integridad del almacén; el valor de verificación (checksum) no coincide.
+: No se pudo verificar la integridad de las credenciales.
 
 # EJEMPLOS
 
 Captura una página con elementos numerados y el árbol de accesibilidad:
 
-    diwall-shot --url https://example.com --som --a11y --guide-version 4.1
+    diwall-shot --url https://example.com --som --a11y --guide-version 1.0
 
 Lee solo el estado de una página, sin generar una imagen:
 
-    diwall-shot --url https://example.com --mode fast --guide-version 4.1
+    diwall-shot --url https://example.com --mode fast --guide-version 1.0
 
 Acceda a un panel de administración que actualice las estadísticas continuamente:
 
     diwall-shot --url http://target.local/ --wait-until load --som
 
-Ejecuta un escenario con las credenciales de un archivo de bóveda específico:
+Ejecuta un escenario con las credenciales de un archivo específico:
 
     diwall-rpa --scenario ./login.json --secrets ~/Vaults/project/creds.json
 

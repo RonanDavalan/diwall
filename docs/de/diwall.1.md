@@ -4,7 +4,7 @@
 
 # BEZEICHNUNG
 
-diwall - Toolkit für visuelle Wahrnehmung und Robotic Process Automation (RPA) für Large Language Model (LLM)-Agenten.
+diwall - Toolkit für visuelle Wahrnehmung und Robotic Process Automation (RPA) für Large Language Model (LLM)-Agenten
 
 # ÜBERSICHT
 
@@ -45,8 +45,9 @@ was wiederholbar ist, und der einzige, der Szenario-Assertions bewertet.
 : Visuelle Überwachung. Speichert ein Referenzbild einer Seite und vergleicht später erstellte Bilder damit – entweder durch einen lokalen Pixelvergleich oder durch eine Beschreibung eines lokalen Bilderkennungsmodells. Wird verwendet, um visuelle Fehler zu erkennen, ohne dass ein Mensch dies überprüfen muss.
 
 **diwall-monter-secrets**, **diwall-demonter-secrets**
-: Das verschlüsselte Credential-Vault von gocryptfs mounten und aushängen. Diwall weigert sich,
-irgendeine Anmeldeinformation zu lösen, während das Vault geschlossen ist, und beendet den Vorgang mit dem Status 42, anstatt auf eine schwächere Methode zurückzugreifen.
+: Das verschlüsselte Credential-Verzeichnis von gocryptfs mounten und unmounten. Diwall weigert sich,
+irgendeine Credential zu verarbeiten, während es geschlossen ist, und beendet den Vorgang mit dem Status 42,
+anstatt auf eine schwächere Methode zurückzugreifen.
 
 **diwall-monitor-verifier**
 : Führt einen strukturellen Nicht-Regressions-Test für ein Szenario gegen eine gespeicherte Referenz durch und beendet den Vorgang mit einem Fehlercode, wenn Abweichungen festgestellt werden.  Soll von cron oder einem systemd-Timer gesteuert werden; es enthält keine eigene Schleife.
@@ -66,7 +67,7 @@ Anleitung. Dies ist der einzige Ort, an dem Diwall nicht optional ist.
 : Die installierte Version als JSON ausgeben und beenden, ohne einen Browser zu starten.
 Unterscheidet sich von **--guide-version**; die beiden Zahlen stehen in keinem Zusammenhang miteinander.
 
-**--mode** *schnell*|*vollständig*
+**--mode** *fast*|*full*
 : *schnell* ist **--no-capture --a11y**: ohne PNG-Unterstützung, etwa zwei Sekunden schneller,
 ausreichend, um den Status anzuzeigen. *vollständig* ist die Standardeinstellung und erfasst das Rendering.
 
@@ -85,7 +86,8 @@ ausreichend, um den Status anzuzeigen. *vollständig* ist die Standardeinstellun
 : Entfernen Sie die automatischen Markierungen, die einen Browser ohne grafische Oberfläche identifizieren. Es ändert nicht die IP-Adresse des Benutzers und fälscht keine Identität – der Punkt ist eine gleichberechtigte Behandlung, nicht eine Verschleierung.
 
 **--secrets** *DATEI*
-: Ermöglicht die Verwendung einer expliziten JSON-Datei innerhalb eines gemounteten Vaults zur Authentifizierung, anstatt der standardmäßigen Host-basierten Suche.
+: Löst Anmeldeinformationen aus einer expliziten JSON-Datei innerhalb eines gemounteten Verzeichnisses ab,
+anstatt der standardmäßigen Host-basierten Suche.
 
 **--no-evaluer**
 : Verweigern Sie die Aktion "**evaluer**" für den gesamten Durchlauf – willkürlicher JavaScript-Code wird nicht auf der Zielseite ausgeführt.
@@ -108,7 +110,7 @@ Verzeichnis enthält die genauen Befehle mit vollständigen Pfaden.
 **/tmp/diwall/**
 : Gespeicherte PNG-Dateien, werden beim Neustart gelöscht.
 
-# EXIT-STATUS
+# RÜCKGABEWERT
 
 **0**
 : Der Testlauf wurde abgeschlossen. Beachten Sie, dass ein HTTP-Fehler 404 oder 403 auf dem Ziel im JSON-Format gemeldet wird, aber nicht als Fehler des Befehls selbst.
@@ -120,26 +122,26 @@ Verzeichnis enthält die genauen Befehle mit vollständigen Pfaden.
 : Inkompatible Argumente, abgelehnt bevor ein Browser gestartet wurde.
 
 **42**
-: Der Credential-Tresor ist geschlossen. Montieren Sie ihn mit **diwall-monter-secrets**.
+: Das Verzeichnis für Anmeldeinformationen ist geschlossen. Montieren Sie es mit **diwall-monter-secrets**.
 
 **43**
-: Eine Prüfsumme zur Integrität des Tresors stimmte nicht überein.
+: Eine Prüfsumme zur Integrität der Anmeldeinformationen stimmte nicht überein.
 
 # BEISPIELE
 
 Erfassen Sie eine Seite mit nummerierten Elementen und dem Accessibility-Baum:
 
-    diwall-shot --url https://example.com --som --a11y --guide-version 4.1
+    diwall-shot --url https://example.com --som --a11y --guide-version 1.0
 
 Zeigen Sie nur den Zustand einer Seite an, ohne ein Bild zu erzeugen:
 
-diwall-shot --url https://example.com --mode schnell --guide-version 4.1
+diwall-shot --url https://example.com --mode fast --guide-version 1.0
 
 Erreichen Sie ein Administrationspanel, das Statistiken kontinuierlich aktualisiert:
 
     diwall-shot --url http://target.local/ --wait-until load --som
 
-Führen Sie ein Szenario mit Anmeldeinformationen aus einer expliziten Vault-Datei durch:
+Führen Sie ein Szenario mit Anmeldeinformationen aus einer expliziten Datei durch:
 
     diwall-rpa --scenario ./login.json --secrets ~/Vaults/project/creds.json
 

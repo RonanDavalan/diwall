@@ -6,7 +6,7 @@ Version 1.10 — Août 2026 (v1.23.0) — quatre nouveaux exemples d'utilisation
 
 ---
 
-## Pourquoi Diwall — ce que vous déléguez réellement.
+## Pourquoi Diwall — ce que vous déléguez réellement
 
 ### Le problème que Diwall résout
 
@@ -40,7 +40,7 @@ Vous conservez une **validation globale du résultat** : vous décidez si le ré
 présenté par le modèle est acceptable, cohérent avec vos attentes, et conforme
 à ce que vos utilisateurs devraient voir. Cette décision reste la vôtre.
 
-### Navigation respectueuse (v1.15.0)
+### Navigation Respectueuse (v1.15.0)
 
 Diwall ne masque pas son identité pour contourner la détection des robots. `--stealth`
 supprime les marqueurs techniques automatiques (`navigator.webdriver`) qui bloquent
@@ -58,7 +58,7 @@ une première exécution non configurée contre l'accès public à Internet ; el
 contre votre propre machine de développement/de production. Définissez-la sur `0` dans votre fichier local
 `diwall.conf` pour le débogage local ; voir la section 3b de `docs/MANUEL.md`.
 
-### Quand Diwall est le bon outil.
+### Quand Diwall est le bon outil
 
 | Cas d'utilisation | Diwall adapté ? |
 |---|---|
@@ -87,7 +87,7 @@ des procédures étape par étape et des rappels sur les points problématiques 
 Les exemples ci-dessous illustrent ce à quoi peut ressembler une session "agent+Diwall"
 dans la pratique. Ils sont destinés à être évalués par rapport à votre propre contexte, et non comme une recommandation d'adopter un modèle spécifique. Seul le cas 1 est fourni sous forme de scénario exécutable ; les autres sont délibérément narratifs, et chacun explique pourquoi, sous son propre titre.
 
-### Cas 1 : Dépannage des fichiers CSS/JavaScript locaux.
+### Cas 1 : Dépannage des fichiers CSS/JavaScript locaux
 
 Considéré comme un scénario réel et exécutable :
 `scenarios/exemples/depannage_local.json`. Il diagnostique un décalage visuel
@@ -100,24 +100,24 @@ régression. Exécutez-le directement :
 ```bash
 /opt/diwall/venv/bin/python3 /opt/diwall/rpa.py \
   --scenario /opt/diwall/scenarios/exemples/depannage_local.json \
-  --guide-version 4.1
+  --guide-version 1.0
 ```
 
-### Cas 2 : comparaison des composants matériels entre différents magasins.
+### Cas 2 : comparaison des composants matériels entre différents magasins
 
 Un agent chargé de comparer le prix et la disponibilité d'un composant dans plusieurs boutiques en ligne pourrait utiliser Diwall avec un outil distinct de découverte d'URL (par exemple, une instance de recherche locale) pour trouver les pages de boutiques potentielles, puis utiliser Diwall en mode sonde (`--mode fast`, sans PNG) avec les actions `evaluer` pour extraire le prix /stock/specifications de chaque page, et enfin comparer les résultats lui-même.
 
-**Volontairement non livré comme scénario committé :** nommer une boutique
+**Volontairement non livré comme scénario versionné :** nommer une boutique
 précise dans un scénario public et versionné est une décision qui vous
-appartient, pas un défaut que ce projet devrait poser à votre place. Cela
-comporte aussi un vrai risque de fragilité — un scénario public visant un site
-commercial nommé peut échouer des mois plus tard, quand la posture anti-robot
+appartient, pas un choix par défaut que ce projet devrait faire à votre place.
+Cela comporte aussi un vrai risque de fragilité — un scénario public visant un
+site commercial nommé peut échouer des mois plus tard quand la posture anti-bot
 de ce site change (39 % des sites commerciaux de l'échantillon de
-`docs/RETOUR_EXPERIENCE.md` FR-77 renvoyaient un blocage
-immédiat), ce qui discrédite l'exemple plus qu'il n'aide. Si vous construisez
-cette composition vous-même, notez que tout outil de découverte d'URL que vous
-associez à Diwall (une instance de recherche locale ou autre) n'est pas un
-composant de Diwall — c'est une pièce distincte que l'agent compose par-dessus.
+`docs/RETOUR_EXPERIENCE.md` FR-77 ont renvoyé un blocage immédiat), ce qui
+discrédite l'exemple plus qu'il n'aide. Si vous construisez cette composition
+vous-même, notez que tout outil de découverte d'URL que vous associez à Diwall
+(une instance de recherche locale ou autre) n'est pas un composant de Diwall —
+c'est une brique distincte que l'agent compose par-dessus.
 
 ### Cas 3 : exploration et résumé de la documentation technique (applications monopages)
 
@@ -132,21 +132,21 @@ synthétiser le matériel collecté dans un guide.
 
 Mentionner un site de documentation spécifique (ou, pire, un fournisseur de paiement spécifique dont la documentation est l'exemple fonctionnel) engage une responsabilité commerciale et de réputation que ce projet ne devrait pas assumer par défaut. De plus, le même risque de vulnérabilité lié à un pare-feu applicatif (WAF) s'applique à un scénario public associé à une cible réelle spécifique.
 
-### Cas 4 : configuration d'un tableau de bord d'observabilité ou d'analyse auto-hébergé.
+### Cas 4 : configuration d'un tableau de bord d'observabilité ou d'analyse auto-hébergé
 
 Un opérateur configurant un tableau de bord de surveillance ou d'analyse web auto-hébergé
 derrière un proxy inverse peut utiliser Diwall pour gérer l'interface elle-même —
-créer un tableau de bord, connecter une source de données, définir une règle d'alerte —
+créer un tableau de bord, connecter une source de données, définir une règle d'alerte —,
 de la même manière que n'importe quel autre panneau d'administration est configuré, plutôt que de modifier manuellement
 des fichiers pour des étapes que l'interface utilisateur est censée gérer. Cela inclut les cibles situées
 derrière un défi HTTP Basic Auth au niveau du réseau (`--http-credentials`,
 v1.21.0) — confirmé contre une véritable interface d'administration protégée par Caddy, et non pas
-juste un environnement de test artificiel : les informations d'identification résolues depuis le coffre-fort ont répondu
+juste un environnement de test artificiel : les identifiants stockés ont répondu
 au défi dès la première tentative.
 
 **Ne pas livrer en tant que scénario prédéfini** — la disposition du tableau de bord et les noms des sources de données sont spécifiques à l'infrastructure d'un opérateur donné, et inventer un équivalent synthétique dupliquerait ce que le test local du cas 1 couvre déjà pour la régression structurelle, et non pour ce type de travail de configuration guidée et en plusieurs étapes.
 
-### Cas 5 : administration complète d'une plateforme de gestion des tickets.
+### Cas 5 : administration complète d'une plateforme de gestion des tickets
 
 Diwall a été utilisé sur plusieurs sessions pour configurer et exploiter une véritable installation de billetterie auto-hébergée : configuration des événements, catégories de billets, un domaine personnalisé et les outils de scan/enregistrement le jour J, tout cela via la même interface web qu'utiliserait un administrateur humain. Des difficultés réelles ont été rencontrées et résolues en cours de route (gestion des sessions, particularités des menus déroulants, une invite de permission bloquant une étape automatisée), ce qui n'est pas une réussite sans problèmes, et c'est précisément ce qui fait de cet exemple un outil utile : les obstacles étaient des obstacles ordinaires à l'automatisation web, et non quelque chose de spécifique à Diwall.
 
@@ -154,7 +154,7 @@ Diwall a été utilisé sur plusieurs sessions pour configurer et exploiter une 
 les aspects liés à la facturation et aux spécificités du lieu, qui sont propres à l'opérateur, comme pour
 le cas 2.
 
-### Cas 6 : suivi d'un calendrier régional des événements.
+### Cas 6 : suivi d'un calendrier régional des événements
 
 Un exemple simple d'utilisation de la recherche sémantique : demander à un agent de vérifier le calendrier des événements locaux pour connaître les prochaines manifestations, sans savoir à l'avance quelle page contient la réponse. Le mode rapide de Diwall (`--mode fast`, sans capture), combiné à l'arborescence d'accessibilité, permet à l'agent de scanner et de renvoyer des informations en quelques requêtes seulement — aucun modèle de vision n'est nécessaire pour ce type de tâche axée sur le texte et en lecture seule. Une session a également produit un exemple clair et réel du comportement documenté de faux positifs du signal WAF : une page s'est chargée normalement (contenu riche, sans captcha, sans fenêtre contextuelle) alors que [`respect.waf_bloquants`] était toujours déclenché, en raison d'une ressource tierce non liée sur la page qui correspondait à un mot-clé de détection — ce problème a été résolu en environ une minute en lisant l'arborescence d'accessibilité déjà présente dans la même réponse, exactement comme le prévoit la règle du guide : "signal, et non blocage".
 
@@ -168,16 +168,12 @@ Une observation honnête et récurrente provenant de sessions réelles : utilis�
 (retards limités, plafonds de pages/actions, `--stealth` actif, aucune tentative de
 forcer l'accès au-delà d'un bloc réel), Diwall, lorsqu'il est utilisé contre une gamme de sites de commerce électronique, constate qu'une part importante des principales plateformes renvoie un bloc total — HTTP 403, ou une requête qui ne se termine jamais —, quel que soit le comportement du trafic. Ce n'est pas un défaut de Diwall à corriger :
 la posture anti-bot est le choix propre du site, et Diwall ne tente pas de
-la contourner (voir "Navigation respectueuse" ci-dessus). En pratique : pour les tâches de comparaison de prix auprès de grandes plateformes commerciales, attendez-vous à un nombre important d'impasses, et considérez un signal de bloc (`respect.waf_bloquants`) comme une information permettant de trouver un itinéraire alternatif, et non comme une erreur à réessayer.
+la contourner (voir "Navigation Respectueuse" ci-dessus). En pratique : pour les tâches de comparaison de prix auprès de grandes plateformes commerciales, attendez-vous à un nombre important d'impasses, et considérez un signal de bloc (`respect.waf_bloquants`) comme une information permettant de trouver un itinéraire alternatif, et non comme une erreur à réessayer.
 
 Il est important de garder à l'esprit la distinction suivante : un écran de vérification invisible qui ne se résout jamais et ne présente rien sur lequel agir (pas de case à cocher, pas de défi visuel) est différent d'un CAPTCHA interactif. Ce dernier peut être répondu honnêtement : un agent agissant pour une personne identifiable, depuis l'adresse IP de cette personne, n'est pas le "robot" auquel la question s'adresse. Le premier ne propose tout simplement aucune option à exploiter du côté de l'agent, et contourner cet obstacle (rotation d'IP, usurpation de l'empreinte TLS) sort du champ d'action de Diwall.
 
-**Volontairement non livré comme scénario committé, et volontairement sans
-nommer les plateformes concernées** — voir le raisonnement sur la fragilité
-face aux WAF au cas 2 : un tableau daté de blocages et de non-blocages attaché
-à des sites commerciaux nommés se périme et dessert son propos plus vite qu'il
-ne l'illustre. `docs/RETOUR_EXPERIENCE.md` FR-77
-documente le même schéma à l'échelle d'un panel (39 % de blocage immédiat).
+Ne pas considérer ceci comme un scénario validé, et intentionnellement ne pas mentionner les plateformes impliquées — voir le raisonnement sur la fragilité du WAF dans le cas 2 : un tableau de blocage/non-blocage daté, lié à des sites commerciaux spécifiques, devient obsolète et compromet son propre objectif plus rapidement qu'il ne l'illustre. `docs/RETOUR_EXPERIENCE.md`
+FR-77 documente le même schéma à l'échelle d'un panneau (taux de blocage immédiat de 39 %).
 
 ---
 
@@ -187,13 +183,13 @@ documente le même schéma à l'échelle d'un panel (39 % de blocage immédiat).
 # 1. Vérifier si Diwall répond.
 /opt/diwall/venv/bin/python3 /opt/diwall/shot.py \
   --url https://example.com --som --a11y
-# → doit renvoyer {"succes": true, ...}
+# → must return {"succes": true, ...}
 
-# 2. Vérifiez que le coffre est monté (si vous utilisez gocryptfs).
+# 2. Vérifiez que le répertoire chiffré est monté (si vous utilisez gocryptfs).
 ls ~/Vaults/Diwall/
 # → doit afficher les fichiers .json, et non le contenu chiffré.
 
-# 3. Vérifier les informations d'identification pour un domaine.
+# 3. Vérifier les identifiants pour un domaine.
 /opt/diwall/venv/bin/python3 -c "
 import sys; sys.path.insert(0, '/opt/diwall')
 from lib.repertoire_chiffre import lire_credential
@@ -203,9 +199,9 @@ print('OK' if lire_credential('target.local', 'password') else 'EMPTY')
 
 ---
 
-## Configuration de Vault par projet
+## Configuration des identifiants par projet
 
-Chaque projet peut avoir son propre coffre-fort. Deux méthodes :
+Chaque projet peut avoir son propre répertoire de certificats. Deux méthodes :
 
 **Méthode 1 : Variable d'environnement directe (exécution unique) :**
 
@@ -218,9 +214,9 @@ DIWALL_SECRETS_DIR=~/Vaults/MyProject \
 
 ```bash
 # Créez le fichier à la racine du projet.
-echo '{"secrets_dir": "../MyProject-vault"}' > ~/git/MyProject/.diwall.conf
+echo '{"secrets_dir": "../MyProject-secrets"}' > ~/git/MyProject/.diwall.conf
 
-# Puis préfixez chaque invocation (ou exportez en début de session shell)
+# Then prefix each invocation (or export at the start of the shell session)
 export DIWALL_CONF=~/git/MyProject/.diwall.conf
 /opt/diwall/venv/bin/python3 /opt/diwall/shot.py --url …
 ```
@@ -255,9 +251,9 @@ Le `secrets_dir` dans le fichier `.diwall.conf` peut être un chemin relatif ; i
 
 ## Automatisation d'un formulaire de connexion
 
-**Étape 1** — Préparer les informations d'identification dans le coffre-fort.
+**Étape 1** — Préparer le fichier d'identifiants.
 
-Le fichier de coffre-fort s'appelle `<hostname>.json` où `hostname` = résultat de
+Le fichier d'identifiants s'appelle `<hostname>.json`, où `hostname` est le résultat de
 `urlparse(url).hostname`. Pour `https://app.example.com/`, le fichier est
 `app.example.com.json`.
 
@@ -407,12 +403,12 @@ qui ne peut pas accéder à `~/git/Diwall/Diwall/` :
 
 | Situation | Ce qu'il faut faire |
 |---|---|
-| `FileNotFoundError` sur le coffre-fort | Vérifiez que le fichier JSON est nommé avec le FQDN complet (`urlparse(url).hostname`) |
-| `SecretsFermesError` (sortie 42) | Montez le coffre-fort : `bash ~/git/Diwall/Diwall/scripts/monter-repertoire-chiffre.sh` |
+| `FileNotFoundError` dans le fichier d'identifiants | Vérifiez que le fichier JSON est nommé avec le FQDN complet (`urlparse(url).hostname`) |
+| `SecretsFermesError` (sortie 42) | Montez le répertoire chiffré : `bash ~/git/Diwall/Diwall/scripts/monter-repertoire-chiffre.sh` |
 | JSON invalide dans la sortie | Utilisez `2>/dev/null \| tail -1` pour extraire uniquement la ligne JSON |
 | Les ID SoM diffèrent entre les sessions | Comportement attendu — les ID SoM sont recalculés à chaque capture. Ne les réutilisez jamais entre les sessions |
 | Connexion suivie d'une redirection Django vers le tableau de bord | N'utilisez pas `naviguer` dans une session Django reprise — transmettez l'URL via `--url` |
-| Le champ du formulaire `<select>` n'est pas rempli | Utilisez `remplir_som` (et non `remplir`) avec l'ID SoM de la `<select>` |
+| Le champ du formulaire `<select>` n'est pas rempli | Utilisez `remplir_som` (et non `remplir`) avec l'ID SoM de la section `<select>` |
 | Un clic n'a aucun effet sur un bouton hors de la zone visible | Ajoutez `{"type":"defiler","selecteur":"#the-button"}` avant le clic |
 | `auth_status: "active"` même sur la page de connexion | Le sélecteur positif est ambigu (en-tête persistant) — ajoutez `--auth-indicator-negative .btn-login` |
 | Les éléments des composants Web ne sont pas numérotés par SoM | Ajoutez `--shadow-dom` (Angular, Lit, Stencil) |
@@ -450,8 +446,8 @@ Qu'est-ce qui est supprimé :
 | Appartenance au groupe | Votre compte est retiré du groupe `diwall` |
 | Hook de pré-envoi Git | `core.hooksPath` désactivé dans le dépôt source |
 
-Ce qui n'est jamais modifié :
-- `~/Vaults/` — vos coffres-forts de données d'identification
+Ce qui ne doit jamais être modifié :
+- `~/Vaults/` — vos identifiants
 - `~/git/Diwall/` — les sources Git
 - Le cache du navigateur Playwright (`~/.cache/ms-playwright/`)
 
