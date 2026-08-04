@@ -353,7 +353,7 @@ URL_SMOKE="https://example.com"
 NB_ECHECS=0
 # v1.18.0 — doit rester synchronisé avec GUIDE_VERSION_ATTENDUE dans
 # lib/preflight_guide.py et <!-- notice-version --> en tête de docs/GUIDE_LLM.md.
-GUIDE_VERSION="3.7"
+GUIDE_VERSION="4.1"
 
 if [ ! -f "$PYTHON" ]; then
     echo "SKIP — $DEST/venv absent (installation non déployée)"

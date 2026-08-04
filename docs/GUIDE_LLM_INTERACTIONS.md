@@ -1,7 +1,7 @@
 # Diwall — Interactions guide (SoM, selectors, dialogs, assertions)
 
-<!-- notice-version: 1.8 -->
-Version 1.8 — July 2026 (v1.19.0) — nested iframes (`iframe_chemin`), FN14 (`force: true` in a script-opened dialog), practical depth guidance for `iframe_chemin`
+<!-- notice-version: 1.10 -->
+Version 1.10 — July 2026 (v1.22.0) — `--wait-until` for never-idle targets; `citoyennete` renamed to `respect` (breaking). Prior (v1.22.0): `repli_js` second-level escalation on `cliquer`.
 
 Load this notice when: timeout on `cliquer`, CSS/showModal dialog, SoM IDs, strict mode
 violation, nth-match error, evaluer assertions, DOM mutations.
@@ -70,7 +70,81 @@ workaround requires switching to `evaluer` JS. `force: true` keeps you in the sa
 **`force` is NOT available on `cliquer_som`** — `cliquer_som` uses coordinate-based click
 (`page.mouse.click(x, y)`) which already bypasses interactability checks natively.
 
-**If `force` fails** (element does not exist in DOM): fall back to `evaluer`.
+**If `force` fails** (element does not exist in DOM): fall back to `evaluer`,
+or set `repli_js: true` on the same action — see below.
+
+---
+
+## `repli_js` on `cliquer` — second-level escalation (v1.22.0)
+
+Distinct from `force: true`, and not a replacement for it. `force` bypasses
+Playwright's own interactability check; `repli_js` is a second level, tried
+only after a native click (with or without `force`) still fails on an
+interactability/obstruction error — this is exactly the FN14 case below,
+where `force: true` alone was confirmed insufficient on a script-opened
+`<dialog>`.
+
+```json
+{"type": "cliquer", "selecteur": "#dialog-confirm button[type=submit]", "force": true, "repli_js": true}
+```
+
+On failure, Diwall retries with `page.eval_on_selector(selecteur, "el => el.click()")` —
+the same JS click you would otherwise write by hand in `evaluer`, now built
+into `cliquer` itself. `boussole.repli_js_utilise: true` appears only when
+the escalation actually ran (never just because the flag is set — same
+discipline as `stealth_actif`).
+
+**Incompatible with `--no-evaluer`:** `repli_js` executes JS, which
+`--no-evaluer` forbids on the run. A scenario combining both is rejected at
+validation (`arguments_incompatibles`, exit 2) before any browser launch —
+never a silent no-op.
+
+---
+
+## `--wait-until` — initial navigation on a never-idle target (v1.22.0)
+
+**Symptom:** `shot.py --url <target>` fails with `TimeoutError` on the initial
+navigation, and raising `--timeout` changes nothing — 45 s fails exactly like
+10 s. **Cause:** by default Diwall waits for `networkidle` (500 ms of network
+silence). A page that polls continuously — a live-stats panel, a dashboard
+refreshing counters, a router admin UI — never produces that silence. This is
+not a duration problem: the target will never "finish".
+
+```bash
+# shot.py — direct reconnaissance
+/opt/diwall/venv/bin/python3 /opt/diwall/shot.py \
+  --url http://<target>/ --wait-until load --som --a11y
+
+# rpa.py — same flag, propagated to shot.py
+/opt/diwall/venv/bin/python3 /opt/diwall/rpa.py \
+  --scenario ./login.json --wait-until load
+```
+
+A scenario can also carry it as a root property, so it stays self-contained:
+
+```json
+{"url": "http://target.local/", "wait_until": "load", "actions": [...]}
+```
+
+The CLI flag wins over the scenario property — unlike `shadow_dom` or
+`http_credentials`, which are booleans combined with OR, this one carries a
+value and two values do not add up.
+
+| Value | Waits for | Use when |
+|---|---|---|
+| `networkidle` | 500 ms of network silence | default — unchanged, keep it unless it fails |
+| `load` | `load` event (page and sub-resources) | continuous polling / live stats |
+| `domcontentloaded` | HTML parsed, sub-resources pending | very heavy page, you only need the DOM |
+
+Applies to the **initial navigation only** — the `naviguer` action is
+unaffected (it already uses Playwright's `load` default). `boussole.wait_until`
+reports the value only when it differs from the default, so its absence means
+the run behaved exactly as before v1.22.0.
+
+**Why not rely on the failure fallback:** when the initial navigation raises,
+Diwall still captures a best-effort screenshot, but that path yields neither
+`elements_som` nor `a11y_tree` — a proof of failure, not usable reconnaissance.
+Getting the navigation to genuinely succeed is what gives you a map to act on.
 
 ---
 
@@ -126,6 +200,10 @@ keep retrying it — switch to `evaluer` JS for the whole sequence:
 ```json
 {"type": "evaluer", "script": "(function(){ document.getElementById('dialog-supp-X').showModal(); var cb=document.querySelector('#confirm-checkbox'); cb.checked=true; cb.dispatchEvent(new Event('change',{bubbles:true})); document.querySelector('#btn-submit').click(); })()"}
 ```
+Since v1.22.0, `repli_js: true` on the `cliquer` action covers the simple
+single-click case above without a hand-written `evaluer` script — see
+`repli_js` section above. The manual `evaluer` form above remains necessary
+for multi-step sequences (opening the dialog, checking a box, then clicking).
 
 **Conditional button with JS guard — silent no-op on `cliquer` (REX #62):**
 ```json
@@ -360,22 +438,22 @@ remainder of the run:
 | Shadow root count > 0, or Angular/Lit/Stencil detected | Add `--shadow-dom` to every subsequent `--som` call, and expect stability waits to need `attendre_selecteur_present` more than `attendre_navigation` |
 | `data-testid`/`data-test` attributes present in the inventory | Use them as primary selectors (see priority order above) instead of `#id` |
 
-**Citizenship self-regulation (v1.15.2, ChatGPT C1):** `citoyennete` (root and
+**Navigation self-regulation (v1.15.2, ChatGPT C1):** `respect` (root and
 `boussole`) is not only an audit trail for the operator — the agent can read it
 mid-strategy. If `pages_visitees` or `actions_executees` approaches the caps
 configured in `diwall.conf` (`max_pages_par_run`, `max_actions_par_run`),
 narrow the exploration scope or end the run cleanly before hitting
-`plafond_atteint` (see the citizenship cap behavior notice in
+`plafond_atteint` (see the navigation cap behavior notice in
 `GUIDE_LLM_MONITORING.md`).
 
-**Aggressiveness index — `citoyennete.indice_agressivite` (v1.16.0, Grok G1):**
+**Aggressiveness index — `respect.indice_agressivite` (v1.16.0, Grok G1):**
 ratio of mutating actions (`cliquer`, `cliquer_som`, `cliquer_visuel`,
 `remplir`, `remplir_som`, `evaluer`, `attendre_mfa_ntfy`) over the total
 actions executed in the run — logged in the journal alongside every run.
 Recommendation for open-ended exploration: keep this ratio under 0.3 (30%
 writes). A high ratio during exploration signals the agent is mutating the
-target more than it is observing it — a citizenship-adjacent concern, not a
-runtime-enforced cap.
+target more than it is observing it — a matter of respect for the target, not
+a runtime-enforced cap.
 
 ---
 

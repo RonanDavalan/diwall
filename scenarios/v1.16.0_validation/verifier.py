@@ -113,11 +113,11 @@ def test_e1_indice_agressivite():
         {"type": "evaluer", "script": "document.title"},               # écriture (prudence)
     ])
     code, data = _run("--no-capture", "--actions", actions)
-    citoyennete = data.get("citoyennete") if data else None
+    respect = data.get("respect") if data else None
     return _verdict("T-E1) indice_agressivite == 0.5 (1 écriture / 2 actions)", [
         ("exit code == 0", code == 0),
         ("indice_agressivite == 0.5",
-         citoyennete is not None and citoyennete.get("indice_agressivite") == 0.5),
+         respect is not None and respect.get("indice_agressivite") == 0.5),
     ])
 
 

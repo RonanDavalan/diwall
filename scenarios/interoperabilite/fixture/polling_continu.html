@@ -1,0 +1,43 @@
+<!DOCTYPE html>
+<!--
+  Fixture Axe D (v1.22.0) — page à polling réseau continu.
+
+  Reproduit de façon déterministe la cible qui a motivé --wait-until : un
+  panneau d'administration domestique qui interroge en boucle ses statistiques
+  live. La fenêtre de 500 ms de silence réseau qu'exige `networkidle` n'est
+  jamais atteinte — ce n'est pas un problème de durée, la page ne « finit »
+  jamais. Augmenter --timeout ne change rien ; seul --wait-until load aboutit.
+
+  L'intervalle (200 ms) est volontairement bien inférieur au seuil de 500 ms
+  de Playwright, avec une marge suffisante pour rester vrai sur une machine
+  lente. Le contenu est peint dès le chargement initial, sans dépendre du
+  polling : une navigation en `load` doit produire une capture et un SoM
+  exploitables, pas une page blanche.
+-->
+<html lang="fr">
+<head>
+  <meta charset="utf-8">
+  <title>Fixture — statistiques live</title>
+</head>
+<body>
+  <h1 id="titre">Statistiques live</h1>
+  <p>Cette page interroge le serveur en continu et n'atteint jamais le silence réseau.</p>
+  <p>Requêtes émises : <span id="compteur">0</span></p>
+  <button id="btn-temoin" type="button">Bouton témoin</button>
+
+  <script>
+    // Polling perpétuel sur une ressource du même serveur de fixture.
+    // cache: 'no-store' + paramètre horodaté : chaque appel part réellement
+    // sur le réseau, jamais servi depuis le cache navigateur.
+    let n = 0;
+    setInterval(function () {
+      fetch('index.html?tick=' + Date.now(), { cache: 'no-store' })
+        .then(function () {
+          n += 1;
+          document.getElementById('compteur').textContent = String(n);
+        })
+        .catch(function () { /* fixture : un échec réseau ponctuel est sans effet */ });
+    }, 200);
+  </script>
+</body>
+</html>

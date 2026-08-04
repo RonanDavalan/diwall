@@ -21,10 +21,10 @@ successful diagnostics, and `chainage` traceability for `declencher_scenario`.
   (`profondeur: 0`) and the sub-scenario (`profondeur: 1`) entries; root
   `journal.py --limite 1` renders the indented tree.
 
-**Non-regression note:** this suite requires `--guide-version 3.7` (bumped
+**Non-regression note:** this suite requires `--guide-version 4.1` (bumped
 from 3.6 in this cycle) or a valid local marker. Reseed before running any
 pre-existing suite:
 
 ```bash
-/opt/diwall/venv/bin/python3 shot.py --url https://example.com --no-capture --guide-version 3.7
+/opt/diwall/venv/bin/python3 shot.py --url https://example.com --no-capture --guide-version 4.1
 ```

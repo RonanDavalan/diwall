@@ -24,7 +24,7 @@ incident that motivated it.
 ```bash
 cat /opt/diwall/docs/GUIDE_LLM.md
 # read it, find "<!-- notice-version: X.Y -->" near the top (currently 3.9), then:
-/opt/diwall/venv/bin/python3 /opt/diwall/shot.py --url <url> --guide-version 3.9
+/opt/diwall/venv/bin/python3 /opt/diwall/shot.py --url <url> --guide-version 4.1
 ```
 
 You will not be asked again on this machine, as this OS user, until
@@ -101,7 +101,7 @@ Plus conditional fields that appear only when active:
 | `shadow_dom_actif` | `--shadow-dom` active |
 | `stealth_actif` | `--stealth` active and applied successfully (v1.15.0) |
 | `som_rafraichir_actif` | `--som-rafraichir` active (v1.17.0) |
-| `citoyennete.waf_bloquants` | at least one navigation was flagged as a likely WAF block (v1.16.0, refined v1.17.2 — generic vendor names now matched on page title only, fewer false positives) |
+| `respect.waf_bloquants` | at least one navigation was flagged as a likely WAF block (v1.16.0, refined v1.17.2 — generic vendor names now matched on page title only, fewer false positives) |
 | `waf_ignore_actif` | `--ignorer-waf` active — a WAF block degrades `niveau_confiance` but no longer forces `pret_a_agir: false` on its own (v1.17.2) |
 
 `titre_page` is always present but may be empty (`""`) on `about:blank` or if Playwright
@@ -121,14 +121,14 @@ an action.**
 
 No verb dispatcher reads `pret_a_agir`. Seeing `false` means Diwall perceived
 a friction worth your attention (a probable WAF block, JS/console errors, a
-citizenship cap reached, a session drift) before you act — it is descriptive,
+navigation cap reached, a session drift) before you act — it is descriptive,
 not a permission system. The decision to stop, investigate `raisons` further,
 or proceed with the mutating action you had planned always belongs to you.
 
 This is worth asking explicitly because `etat`'s shape — three confidence
 levels, a boolean readiness flag — reads like a gate at a glance, even though
 it functions as a synthesis of signals already present elsewhere in the JSON
-(`auth_status`, `citoyennete.plafond_atteint`, `derive_session`, `erreurs_js`,
+(`auth_status`, `respect.plafond_atteint`, `derive_session`, `erreurs_js`,
 `erreurs_console`, WAF detection). If you find yourself refusing to act
 purely because the flag is `false`, without having read `raisons` first, you
 are treating a signal as an authority it does not have.
@@ -363,16 +363,17 @@ runs a single continuous session. The vault and journal are managed by the paren
 | Shadow DOM SoM traversal (`--shadow-dom`) | v1.13.0 |
 | Enriched `boussole` (`url_courante`, `titre_page`), `--auth-indicator-negative`, `--mode fast\|full` | v1.14.0 |
 | Scenario neutralisation doctrine, `password` fields require `depuis_vault` | v1.14.1 |
-| Citizen Navigation: `--stealth`, courtesy delays, navigation caps, `citoyennete` metrics, `VaultChecksumError` | v1.15.0 |
+| Respectful Navigation: `--stealth`, courtesy delays, navigation caps, `respect` metrics, `VaultChecksumError` | v1.15.0 |
 | Security hardening: `--no-evaluer`, journal permissions, URL scheme validation, `--ignore-tls-errors` | v1.15.1 |
 | `chemin_png` collision fix, early CLI rejection, `scenarios/exemples/` | v1.15.2 |
 | `etat` deterministic verdict, `operation_id`, passive WAF signal, `erreurs_console`, `indice_agressivite` | v1.16.0 |
 | `--replay-verifier`, `--checkpoint`, `--som-rafraichir`, `cliquer_iframe`/`remplir_iframe` | v1.17.0 |
-| Vault write guard (journal/proof archiving), SoM collision cleanup, refined WAF heuristic + `--ignorer-waf`, checkpoint citizenship-cap fix | v1.17.2 |
+| Vault write guard (journal/proof archiving), SoM collision cleanup, refined WAF heuristic + `--ignorer-waf`, checkpoint navigation-cap fix | v1.17.2 |
 | Mandatory `--guide-version`/`--version` pre-flight lock, `mode_conseille`, nested iframes (`iframe_chemin`), `scripts/monitor-verifier.sh` | v1.18.0 |
 | `mode_conseille` filtered to successful diagnostics only, `chainage` traceability for `declencher_scenario`, `etat` clarified as declarative | v1.19.0 |
 | `journal.py --erreurs` filter, `latences_actions` per-action timing | v1.20.0 |
-| `--http-credentials` (HTTP Basic Auth, vault-resolved, origin-scoped), `docs/GUIDE_LLM.md` compressed to its 250-line budget, non-presumption rule | **v1.21.0** |
+| `--http-credentials` (HTTP Basic Auth, vault-resolved, origin-scoped), `docs/GUIDE_LLM.md` compressed to its 250-line budget, non-presumption rule | v1.21.0 |
+| `repli_js` JS click escalation, `dernier_code_http` in boussole, `--wait-until` for never-idle targets, **breaking: `citoyennete` output key renamed `respect`** | **v1.22.0** |
 
 **Current stable version: v1.21.0** (v1.17.1 was a documentation-only
 correction; v1.17.2 was a fix patch — see the rows above).

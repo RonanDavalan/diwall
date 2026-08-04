@@ -19,6 +19,6 @@ Live and unit evidence for the vault-hardening and reliability items.
   `checking your browser`) and HTTP 403 are still detected. `--ignorer-waf`
   keeps `niveau_confiance` degraded but no longer forces `pret_a_agir: false`
   on its own (item 3).
-- **T-4** — checkpoint on citizenship cap: a mocked `shot.py` response with
+- **T-4** — checkpoint on navigation cap: a mocked `shot.py` response with
   `succes: true` and `plafond_atteint` set no longer deletes the checkpoint
   file — it's updated with the run's progress instead (item 4, FR-80).

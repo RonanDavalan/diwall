@@ -4,6 +4,179 @@ History of decisions and discoveries by session, in reverse chronological order.
 
 ---
 
+## 2026-07-29 — Session 62 (v1.22.0 — `--wait-until`, `citoyennete` → `respect` breaking rename, `man diwall`, packaging)
+
+**Breaking change — the `citoyennete` output key is now `respect`.** At the
+JSON root, inside `boussole`, and in the operations log. Sub-keys unchanged
+(`pages_visitees`, `actions_executees`, `duree_totale_ms`, `plafond_atteint`,
+`waf_bloquants`, `indice_agressivite`). No transitional dual emission: a
+deprecation window installs permanent debt to avoid a one-minute update, on
+infrastructure whose consumers are known and reachable. Anyone reading
+`citoyennete.waf_bloquants` or `citoyennete.plafond_atteint` must update.
+
+The doctrine itself does not change — measured pace, declared identity never
+disguised, navigation caps, counters reported in the output. Only the name
+does: "Citizen Navigation" becomes "Respectful Navigation" throughout. The
+previous term carried a civic-political register foreign to the intent, and
+translates badly in a four-language site (*Bürger*, *ciudadano* carry the same
+charge). The rename landed in a version that was never tagged or published, so
+no released version has ever carried the obsolete contract.
+
+**`--wait-until {networkidle,load,domcontentloaded}` (`shot.py`):** sets when
+the initial navigation is considered finished; the default `networkidle` is
+unchanged. Motivated by a real target — a router administration panel that
+polls live statistics, where the 500 ms of network silence `networkidle`
+requires simply never occurs. That is not a duration problem: `--timeout
+45000` fails exactly like `--timeout 10000`, because the page never finishes.
+Propagated by `rpa.py` to its `shot.py` subprocess, and available as a root
+`wait_until` property on a scenario so it stays self-contained (the CLI flag
+wins over the property — it carries a value, unlike the boolean activation
+flags combined with OR). Without that propagation the flag would only have
+served direct reconnaissance, while the target that motivated it is
+administered by scenario. Applies to the initial navigation only; the
+`naviguer` action keeps Playwright's `load` default, an asymmetry left as is
+for lack of a second real use case. `boussole.wait_until` carries the value used, and only when it
+differs from the default — never the bare CLI flag (same discipline as
+`stealth_actif`, fixed in v1.16.0). It reports the value rather than a boolean
+because an agent re-reading an output needs to know under which condition the
+page was judged ready.
+
+**`man diwall(1)`:** the six `/usr/bin/diwall-*` commands shipped with no
+manual page at all — a genuine packaging defect on Debian, where `man
+<command>` is the first reflex. One page documents all six, `git(1)`-style:
+seven pages would drift out of sync with `--help`, one has a single source of
+truth. Generated at build time by pandoc from `debian/diwall.1.md`, so it
+cannot go stale by omission, and `man diwall-shot` (plus the five other names)
+resolves to it. A real defect was found while writing it: pandoc's default
+`smart` extension rewrites `--url` as an en dash, which would have shipped a
+manual page documenting options nobody can type — hence `markdown-smart` in
+`debian/rules`.
+
+**`scripts/construire-paquet.sh`:** builds, then moves the `.deb`,
+`.buildinfo` and `.changes` into `paquets/<version>/`. `dpkg-buildpackage`
+writes to the parent directory by construction and no `debian/rules` setting
+redirects that cleanly, so build artefacts had been accumulating in a
+directory that was never meant to be a build output. Building then moving
+leaves the tool's own behaviour intact. All versions are kept — the
+`.buildinfo` is the only record of the exact build environment.
+
+**Pre-existing desynchronisation found and fixed:** `scripts/install.sh` and
+`scripts/preflight-publication.sh` still passed `--guide-version 3.7` while
+the guide had moved to 4.0 — masked by an already-valid local marker on the
+development machine, which is precisely the failure mode the guide-read lock
+exists to prevent. Same staleness in three user-facing examples
+(`docs/MANUEL.md`, `docs/GUIDE.md`, `docs/FAQ_LLM.md`, all at 3.9): an
+operator copying those commands would have hit `guide_non_lu`. All
+resynchronised to 4.1, and `scripts/verifier-coherence.sh` now fails on any
+future divergence between the guide's own `notice-version`, the
+`GUIDE_VERSION_ATTENDUE` constant, and the token those two scripts pass.
+This check has to be static: the cold-install test cannot catch this class of
+drift, since the `.deb` channel passes no token at all — the defect lives on
+the git-clone path, where `install.sh` would fail its own final smoke test on
+a clean machine.
+
+**Validation:** `scenarios/v1.22.0_validation/` 11/11 green, including a new
+fixture (`polling_continu.html`, one request every 200 ms) with a contrast
+test proving `networkidle` genuinely fails on it and `--wait-until load`
+succeeds by the normal path — not by the error fallback, which yields neither
+`elements_som` nor `a11y_tree`. Regression: `v1.15.2` 4/4, `v1.16.0` 7/7,
+`v1.17.0` 4/4, `v1.17.2` 4/4, `v1.18.0` 5/5, `v1.19.0` 3/3, `v1.20.0` 3/3,
+`v1.21.0` 3/3.
+
+**Comment tester / comment lancer :**
+
+```bash
+# Suite de validation v1.22.0, depuis la racine du dépôt source
+/opt/diwall/venv/bin/python3 scenarios/v1.22.0_validation/verifier.py
+
+# --wait-until sur une cible qui n'atteint jamais le silence réseau
+/opt/diwall/venv/bin/python3 /opt/diwall/shot.py \
+  --url http://<cible>/ --wait-until load --som --a11y --guide-version 4.1
+
+# Lire la nouvelle clé respect (ex-citoyennete)
+/opt/diwall/venv/bin/python3 /opt/diwall/shot.py --url https://example.com \
+  --no-capture --guide-version 4.1 | python3 -c \
+  "import json,sys; print(json.load(sys.stdin)['respect'])"
+
+# Construire le paquet et le ranger dans paquets/<version>/
+bash ~/git/Diwall/Diwall/scripts/construire-paquet.sh
+man diwall
+```
+
+---
+
+## 2026-07-19 — Session 58 (v1.22.0 — JS click escalation, last HTTP status in boussole, clearer vault error)
+
+**`repli_js` on `cliquer` (`shot.py`):** new optional boolean key on the
+`cliquer` action, distinct from `force: true` and not a replacement for it —
+a second-level escalation, tried only when a native click (with or without
+`force`) still fails on an interactability/obstruction error. On failure,
+Diwall retries via `page.eval_on_selector(selecteur, "el => el.click()")`.
+`boussole.repli_js_utilise: true` appears only when the escalation actually
+ran, never just because the flag is set (same discipline as `stealth_actif`).
+Rejected at scenario validation (`arguments_incompatibles`, exit 2, before any
+browser launch) when combined with `--no-evaluer`, since `repli_js` executes
+JS and `--no-evaluer` forbids that on the run.
+
+Real bug found while writing the regression fixture: the native-click failure
+this feature targets (`showModal()`/CSS-hidden containers, previously
+documented as FN14) raises a plain Playwright `Error` ("Element is not
+visible"), not a `TimeoutError` — an initial implementation catching only
+`TimeoutError` would have silently missed the exact case this item exists to
+fix. Caught by testing against a real fixture before finalizing, not assumed.
+
+**`dernier_code_http` in boussole (`shot.py`):** always present (unlike the
+conditional `session_derive`), reflects the last navigation's HTTP status —
+the initial navigation if the run performs no `naviguer` action, or the most
+recent `naviguer` action otherwise. Reuses the status already captured for
+WAF detection (v1.16.0), no new capture plumbing. On a run with several
+navigations, reflects the last one only — documented as a known limit rather
+than a guarantee.
+
+**Clearer `VaultNonConfigureError` message (`lib/vault.py`):** the runtime
+error now cites both fixes for a missing vault configuration — creating
+`diwall.conf` from the sample file, or pointing `DIWALL_CONF` at a
+project-specific file — instead of only the first. The second path already
+existed and is the one that avoids the on-disk symlink workaround previously
+seen in real usage.
+
+**Validation:** `scenarios/v1.22.0_validation/` — 5/5 green, including a new
+local fixture (`scenarios/interoperabilite/fixture/dialog_ferme.html`, a
+never-opened `<dialog>`) reproducing the native-click failure deterministically,
+plus a contrast test proving the same click genuinely fails without
+`repli_js`. Regression: `v1.15.2_validation` 4/4, `v1.16.0_validation` 7/7,
+`v1.17.2_validation` 4/4, `v1.18.0_validation` 5/5, `v1.19.0_validation` 3/3,
+`v1.20.0_validation` 3/3, `v1.21.0_validation` 3/3 (hardcoded guide-version
+tokens resynchronised across four of these suites, pre-existing staleness
+found while running them, not a functional regression — same pattern as
+prior cycles). Preflight exit 0 (103 files scanned, 3 smoke tests green
+against a live `/opt/diwall/` deployment).
+
+**Comment tester / comment lancer :**
+
+```bash
+# Suite de validation v1.22.0, depuis la racine du dépôt source
+/opt/diwall/venv/bin/python3 scenarios/v1.22.0_validation/verifier.py
+
+# repli_js en conditions réelles (cliquer sur un élément obstrué)
+/opt/diwall/venv/bin/python3 /opt/diwall/rpa.py \
+  --scenario mon_scenario.json --guide-version 4.1
+# où mon_scenario.json contient une action :
+#   {"type": "cliquer", "selecteur": "...", "repli_js": true}
+
+# dernier_code_http — lire la boussole de n'importe quel run
+/opt/diwall/venv/bin/python3 /opt/diwall/shot.py --url <cible> \
+  --no-capture --guide-version 4.1 | python3 -c \
+  "import json,sys; print(json.load(sys.stdin)['boussole']['dernier_code_http'])"
+```
+
+**Not yet tagged/released** — `__version__` bumped to `1.22.0` in `shot.py`
+only (`rpa.py`/`journal.py`/`watch.py` untouched this cycle, no functional
+change to any of them, matching the per-file version bump discipline already
+in place).
+
+---
+
 ## 2026-07-14/15 — Session 55 (v1.21.0 — HTTP Basic Auth + guide hygiene + demonstration cases)
 
 **Context:** triggered by a field report from a partner project (`__HOST_VPS__`) — Diwall

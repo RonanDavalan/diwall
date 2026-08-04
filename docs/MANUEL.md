@@ -18,7 +18,7 @@ No architectural descriptions. Commands that work.
 
 1. [Verify the installation](#1-verify-the-installation)
 2. [Capture a page](#2-capture-a-page)
-3. [Citizen navigation (v1.15.0)](#3-citizen-navigation-v1150)
+3. [Respectful navigation (v1.15.0)](#3-respectful-navigation-v1150)
 4. [Vault and credentials](#4-vault-and-credentials)
 5. [Write and run an RPA scenario](#5-write-and-run-an-rpa-scenario)
 6. [Actions — complete reference](#6-actions--complete-reference)
@@ -35,7 +35,7 @@ v1.17.0 additions: [5h](#5h-structural-non-regression-without-pixels---replay-ve
 [7j](#7j-som-id-drift-on-highly-dynamic-pages---som-rafraichir) (`--som-rafraichir`).
 v1.17.2 fixes (no new sections): [3e](#3e-waf-detection-signal-v1160-refined-v1172)
 (refined WAF heuristic, `--ignorer-waf`), [5i](#5i-resume-a-long-scenario-after-failure---checkpoint)
-(citizenship-cap checkpoint fix), [7j](#7j-som-id-drift-on-highly-dynamic-pages---som-rafraichir)
+(navigation-cap checkpoint fix), [7j](#7j-som-id-drift-on-highly-dynamic-pages---som-rafraichir)
 (SoM collision cleanup).
 v1.18.0 additions: [1](#1-verify-the-installation) (`--version`/`--guide-version`
 mandatory pre-flight), [2e](#2e-mode_conseille--pre-flight-configuration-advice)
@@ -45,6 +45,9 @@ v1.20.0 additions: [9](#9-operation-log) (`journal.py --erreurs`),
 [11](#11-exit-codes-and-output) (`latences_actions` per-action timing).
 v1.21.0 additions: [4g](#4g-http-basic-auth---http-credentials-v1210)
 (`--http-credentials`, HTTP Basic Auth, confirmed against a real target).
+v1.22.0 additions: [7l](#7l-initial-navigation-never-completes---wait-until-v1220)
+(`--wait-until` for never-idle targets). **Breaking change:** the output key
+`citoyennete` is renamed `respect` throughout — sub-keys unchanged.
 
 ---
 
@@ -59,7 +62,7 @@ v1.21.0 additions: [4g](#4g-http-basic-auth---http-credentials-v1210)
 ```bash
 # Full test in one command (~3 s)
 /opt/diwall/venv/bin/python3 /opt/diwall/shot.py \
-  --url https://example.com --mode fast --guide-version 3.9
+  --url https://example.com --mode fast --guide-version 4.1
 ```
 
 Expected result: JSON on stdout with `"succes": true`.
@@ -100,8 +103,9 @@ alternative channel, never a replacement; the two are mutually exclusive on
 a single machine (both target `/opt/diwall/`).
 
 ```bash
-sudo apt install ./diwall_1.20.0-1_all.deb
+sudo apt install ./diwall_1.22.0-1_all.deb
 diwall-shot --version
+man diwall
 ```
 
 Installing the `.deb` requires network access (dependency install and
@@ -131,6 +135,23 @@ sudo usermod -aG diwall $USER
 `apt remove diwall` keeps `/var/log/diwall/` (operations journal, evidence)
 intact — `apt purge diwall` also removes it. `~/Vaults/` is never touched by
 either, on both channels.
+
+**Manual page (v1.22.0):** `man diwall` documents all six commands on a
+single page. The five other command names (`man diwall-rpa`, and so on)
+resolve to the same page. It is generated from `debian/diwall.1.md` at build
+time, so it cannot silently go stale — but for the exhaustive option list of
+any command, `--help` remains authoritative over the manual page.
+
+**Building the package (maintainer):**
+
+```bash
+bash ~/git/Diwall/Diwall/scripts/construire-paquet.sh
+```
+
+Builds and then files the three artefacts (`.deb`, `.buildinfo`, `.changes`)
+under `~/git/Diwall/paquets/<version>/`. All versions are kept: the
+`.buildinfo` is the only record of the exact environment a package was built
+in, and it is worth nothing unkept.
 
 ---
 
@@ -171,7 +192,7 @@ Every output contains a `boussole` object — read it before everything else:
   "titre_page": "Dashboard — My App",
   "auth_status": "active",
   "stealth_actif": true,
-  "citoyennete": {
+  "respect": {
     "pages_visitees": 0,
     "actions_executees": 3,
     "duree_totale_ms": 2140
@@ -186,7 +207,7 @@ before any mutating action.
 
 Every successful run includes an `etat` object at the JSON root — read it
 before any mutating action instead of manually cross-checking `auth_status`,
-`citoyennete.plafond_atteint`, `erreurs_js`, and `erreurs_console` yourself:
+`respect.plafond_atteint`, `erreurs_js`, and `erreurs_console` yourself:
 
 ```json
 "etat": {
@@ -197,7 +218,7 @@ before any mutating action instead of manually cross-checking `auth_status`,
 ```
 
 If `pret_a_agir` is `false`: read `raisons` for the cause (inactive
-authentication, session drift, citizenship cap reached, or a detected WAF
+authentication, session drift, navigation cap reached, or a detected WAF
 block) before proceeding.
 
 `etat` does not check whether the URL or page content matches your business
@@ -237,7 +258,7 @@ guess. Full detail in `GUIDE_LLM_MONITORING.md`.
 
 ---
 
-## 3. Citizen navigation (v1.15.0)
+## 3. Respectful navigation (v1.15.0)
 
 ### 3a. Stealth mode `--stealth`
 
@@ -302,7 +323,7 @@ The `max_pages_par_run` and `max_actions_par_run` caps cleanly stop the run
 if exceeded. No exception — the output JSON will contain:
 
 ```json
-"citoyennete": {
+"respect": {
   "pages_visitees": 10,
   "actions_executees": 10,
   "duree_totale_ms": 12400,
@@ -312,7 +333,7 @@ if exceeded. No exception — the output JSON will contain:
 
 ### 3c. Impact metrics
 
-Each run returns `citoyennete` in (JSON root and inside boussole):
+Each run returns `respect` in (JSON root and inside boussole):
 
 | Key | Meaning |
 |---|---|
@@ -358,7 +379,7 @@ screenshots to inspect:
 
 `capture_sannysoft_*.png` and `capture_intoli_*.png` land in that directory.
 Note: both target pages discuss bot detection in their own content, which
-can trigger `citoyennete.waf_bloquants` as a false positive (section 3e) —
+can trigger `respect.waf_bloquants` as a false positive (section 3e) —
 expected on this specific benchmark, not a sign of an actual block.
 
 ### 3e. WAF detection signal (v1.16.0, refined v1.17.2)
@@ -368,7 +389,7 @@ keyword match (`Cloudflare`, `CAPTCHA`, `checking your browser`, etc.). This
 is a signal, never an exception — the run completes normally:
 
 ```json
-"citoyennete": {
+"respect": {
   "waf_bloquants": 1
 }
 ```
@@ -759,7 +780,7 @@ written with the count of completed actions and a session file. **Relaunch
 the exact same command** to resume: already-completed actions are skipped.
 On full success, the checkpoint file is deleted automatically.
 
-A run stopped by a citizenship cap (`max_actions_par_run`/`max_pages_par_run`)
+A run stopped by a navigation cap (`max_actions_par_run`/`max_pages_par_run`)
 is treated the same way as a partial failure since v1.17.2 — the checkpoint
 is updated with the actual progress, not deleted. Before v1.17.2 it was
 deleted in this case too (it returns the same `succes: true` signal as a
@@ -812,7 +833,7 @@ iframe, keep using `iframe_selecteur` (section 5j).
 
 | Type | Required params | Optional params | Notes |
 |---|---|---|---|
-| `naviguer` | `url` | — | Full HTTP reload. Counted in `citoyennete.pages_visitees` |
+| `naviguer` | `url` | — | Full HTTP reload. Counted in `respect.pages_visitees` |
 | `cliquer` | `selecteur` | `force` (bool) | `force: true` bypasses CSS-hidden elements or showModal |
 | `cliquer_som` | `id` | — | Click at element centre coordinates. No `force` needed |
 | `cliquer_visuel` | `description` | — | LLM vision (~32 s). Last resort for canvas or attribute-less elements |
@@ -933,7 +954,7 @@ Intermediate captures appear in `stream_captures[]`.
 
 ### 7g. Cap reached (v1.15.0)
 
-If `citoyennete.plafond_atteint` is present in the output, the run was stopped
+If `respect.plafond_atteint` is present in the output, the run was stopped
 before the scenario completed. Remaining actions were not executed.
 
 Options:
@@ -991,7 +1012,42 @@ behavioural analysis (Cloudflare Enterprise). `playwright-stealth` does not bypa
 See `docs/RETOUR_EXPERIENCE.md` FR-77/FR-78/FR-79 for context.
 
 Diwall also flags a likely block passively without you having to check the
-HTTP status yourself — see section 3e (`citoyennete.waf_bloquants`).
+HTTP status yourself — see section 3e (`respect.waf_bloquants`).
+
+### 7l. Initial navigation never completes — `--wait-until` (v1.22.0)
+
+Symptom: `TimeoutError` on the initial navigation, and raising `--timeout`
+changes nothing (45 s fails exactly like 10 s). Cause: by default Diwall waits
+for `networkidle` — 500 ms of network silence. A page that polls continuously
+(live statistics, auto-refreshing counters, router admin panels) never
+produces that silence, so no timeout value can ever be large enough.
+
+```bash
+# shot.py — direct reconnaissance
+/opt/diwall/venv/bin/python3 /opt/diwall/shot.py \
+  --url http://target.local/ --wait-until load --som --a11y --guide-version 4.1
+
+# rpa.py — propagated to shot.py, so scenarios reach the same targets
+/opt/diwall/venv/bin/python3 /opt/diwall/rpa.py \
+  --scenario ./admin_login.json --wait-until load --guide-version 4.1
+```
+
+A scenario can carry it as a root property instead, staying self-contained:
+
+```json
+{"url": "http://target.local/", "wait_until": "load", "actions": [...]}
+```
+
+The CLI flag takes precedence over the scenario property.
+
+| Value | Waits for | Use when |
+|---|---|---|
+| `networkidle` | 500 ms of network silence | default — keep it unless it fails |
+| `load` | `load` event (page and sub-resources) | continuous polling / live statistics |
+| `domcontentloaded` | HTML parsed, sub-resources still pending | very heavy page, DOM is all you need |
+
+Applies to the initial navigation only — the `naviguer` action is unaffected.
+`boussole.wait_until` reports the value only when it differs from the default.
 
 ---
 
@@ -1105,7 +1161,7 @@ bash ~/git/Diwall/Diwall/scripts/monitor-verifier.sh \
 
 Stable → silence. Regression → one `ntfy` notification with the diff. Each
 invocation is an isolated process — no daemon, no memory-leak risk, and
-Navigation Citoyenne caps reset cleanly on every pass.
+Respectful Navigation caps reset cleanly on every pass.
 
 ---
 
@@ -1265,7 +1321,7 @@ Propagates all relevant shot.py flags, plus:
     {"index": 0, "type": "naviguer", "latence_ms": 842},
     {"index": 1, "type": "cliquer_som", "latence_ms": 63}
   ],
-  "citoyennete": {
+  "respect": {
     "pages_visitees": 0,
     "actions_executees": 3,
     "duree_totale_ms": 2400,
@@ -1288,7 +1344,7 @@ Propagates all relevant shot.py flags, plus:
     "som_rafraichir_actif": true,
     "auth_status": "active",
     "som_hors_viewport": 0,
-    "citoyennete": { "pages_visitees": 0, "actions_executees": 3, "duree_totale_ms": 2400, "indice_agressivite": 0.33 }
+    "respect": { "pages_visitees": 0, "actions_executees": 3, "duree_totale_ms": 2400, "indice_agressivite": 0.33 }
   },
   "diwall_meta": {
     "version_shot": "1.17.2",
@@ -1304,12 +1360,12 @@ matches the `operation_id` field of this run's entry in the operations log
 (section 9). `etat` (v1.16.0) is present on the success path only.
 `latences_actions` (v1.20.0) is always present (empty list if no actions),
 one entry per action that actually dispatched — see `GUIDE_LLM_MONITORING.md`
-for how it complements `citoyennete.duree_totale_ms`.
+for how it complements `respect.duree_totale_ms`.
 
 Conditional keys (absent when inactive): `capture`, `capture_som`, `elements_som`, `a11y_tree`,
 `evaluations`, `auth_status`, `stealth_actif`, `shadow_dom_actif`, `som_rafraichir_actif`,
-`som_hors_viewport`, `session_derive`, `citoyennete.plafond_atteint`, `citoyennete.waf_bloquants`,
-`citoyennete.indice_agressivite` (present whenever at least one action ran),
+`som_hors_viewport`, `session_derive`, `respect.plafond_atteint`, `respect.waf_bloquants`,
+`respect.indice_agressivite` (present whenever at least one action ran),
 `actions_executees_avant_echec`, `pages_visitees_avant_echec` (failure JSON only, v1.17.0),
 `etat.mode_conseille` (present only with real prior `diagnostic_dom.json` data for this host, v1.18.0, section 2e).
 

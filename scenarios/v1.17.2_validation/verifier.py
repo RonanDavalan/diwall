@@ -134,7 +134,7 @@ def test_4_checkpoint_plafond():
 
         sortie_plafond = {
             "succes": True,
-            "citoyennete": {"actions_executees": 8, "plafond_atteint": "max_actions_par_run"},
+            "respect": {"actions_executees": 8, "plafond_atteint": "max_actions_par_run"},
         }
         fake_result = mock.Mock(
             returncode=0, stdout=json.dumps(sortie_plafond) + "\n", stderr="",

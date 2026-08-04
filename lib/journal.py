@@ -176,7 +176,7 @@ def archiver_preuves(operation_id, captures):
 def enregistrer_operation(outil, version, cible_url, resultat, actions,
                           diwall_meta=None, intention=None, captures=None,
                           erreur=None, mutatif=None, evaluations=None,
-                          operation_id=None, citoyennete=None,
+                          operation_id=None, respect=None,
                           source_scenario=None, chainage=None):
     """Compose et écrit une entrée de journal. Best-effort, ne lève jamais.
 
@@ -246,8 +246,8 @@ def enregistrer_operation(outil, version, cible_url, resultat, actions,
             entree["modeles_utilises"] = meta["modeles_utilises"]
         if erreur:
             entree["erreur"] = erreur
-        if citoyennete:
-            entree["citoyennete"] = citoyennete
+        if respect:
+            entree["respect"] = respect
         if evaluations:
             entree["evaluations"] = [
                 {"script": e.get("script", "")[:500], "valeur_retournee": e.get("valeur")}

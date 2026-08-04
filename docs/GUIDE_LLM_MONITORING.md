@@ -1,7 +1,7 @@
 # Diwall — Monitoring guide (watch.py, long ops, screenshot timeouts, journal)
 
-<!-- notice-version: 1.10 -->
-Version 1.10 — July 2026 (v1.20.0) — `latences_actions` per-action timing, `journal.py --erreurs` filter documented
+<!-- notice-version: 1.11 -->
+Version 1.11 — July 2026 (v1.22.0) — `citoyennete` renamed to `respect` (breaking). Prior (v1.20.0): `latences_actions` per-action timing, `journal.py --erreurs` filter documented
 
 Load this notice when: watch.py, pixel diff, long-running operations, `--screenshot-timeout`,
 interval_capture, journal.py, FN7/FN8/FN9.
@@ -21,7 +21,7 @@ in this table in the same commit (design rule, see below).
 | `repertoire` | string | always | `os.getcwd()` at invocation |
 | `url_courante` | string | always | final URL after navigation and actions |
 | `titre_page` | string | always | empty string if `page.title()` fails |
-| `citoyennete` | object | always | `{pages_visitees, actions_executees, duree_totale_ms}`; sub-key `plafond_atteint` only if `max_pages_par_run` or `max_actions_par_run` was hit — since v1.17.2, `rpa.py --checkpoint` treats this as a partial run and preserves progress instead of deleting the checkpoint; sub-key `waf_bloquants` (integer, v1.16.0, refined v1.17.2) only if at least one navigation (initial or `naviguer` action) was flagged as WAF-blocked; sub-key `indice_agressivite` (float, v1.16.0) present whenever at least one action ran |
+| `respect` | object | always | `{pages_visitees, actions_executees, duree_totale_ms}`; sub-key `plafond_atteint` only if `max_pages_par_run` or `max_actions_par_run` was hit — since v1.17.2, `rpa.py --checkpoint` treats this as a partial run and preserves progress instead of deleting the checkpoint; sub-key `waf_bloquants` (integer, v1.16.0, refined v1.17.2) only if at least one navigation (initial or `naviguer` action) was flagged as WAF-blocked; sub-key `indice_agressivite` (float, v1.16.0) present whenever at least one action ran |
 | `operation_id` | string (12 hex chars) | always | unified run identity (v1.16.0, item B) — same value in the journal entry for this run and in the isolated temp directory path |
 | `session_derive` | object | conditional | `--reprendre-session` active **and** final URL diverged from the URL saved at `--sauver-session` time |
 | `auth_status` | string (`"active"`\|`"inactive"`) | conditional | `--auth-indicator` provided |
@@ -34,7 +34,7 @@ in this table in the same commit (design rule, see below).
 Do not assert the absence of conditional keys as a failure signal. Check `auth_status`
 value (`"active"` / `"inactive"`), not its presence alone.
 
-**Root vs `boussole` duplication:** `citoyennete`, `auth_status`, and `derive_session`
+**Root vs `boussole` duplication:** `respect`, `auth_status`, and `derive_session`
 (root spelling) / `session_derive` (boussole spelling — same object, different key name)
 appear **both** at the JSON root and inside `boussole`. This is intentional (two
 consumers, spec `V1_15_0_NAVIGATION_CITOYENNE.md`): the root serves structured
@@ -365,7 +365,7 @@ the `diwall` service account, which has no access to `~/git/Diwall/Diwall/`):
 ```
 
 Each invocation is an isolated process — no memory leak risk from a
-long-running daemon, and Navigation Citoyenne caps (`max_pages_par_run`,
+long-running daemon, and Respectful Navigation caps (`max_pages_par_run`,
 `max_actions_par_run`) reset cleanly on every run instead of accumulating
 across an unbounded loop.
 
@@ -422,9 +422,9 @@ or to audit which models were used in a given session.
 
 Every `shot.py` run includes a `latences_actions` list at the JSON root,
 always present (empty list if no actions were passed). One entry per action
-that actually dispatched — an action skipped because a citizenship cap
+that actually dispatched — an action skipped because a navigation cap
 (`max_actions_par_run`/`max_pages_par_run`) was hit before dispatch produces
-no entry, consistent with `citoyennete.actions_executees` not counting it
+no entry, consistent with `respect.actions_executees` not counting it
 either.
 
 ```json
@@ -435,7 +435,7 @@ either.
 ]
 ```
 
-Complements `citoyennete.duree_totale_ms` (global, single measurement at run
+Complements `respect.duree_totale_ms` (global, single measurement at run
 end): `latences_actions` breaks that total down per action, useful to spot
 which specific step of a scenario is slow before reaching for
 `--screenshot-timeout` or a longer `--timeout`. Measurement cost is nil — a
@@ -448,7 +448,7 @@ which specific step of a scenario is slow before reaching for
 Every successful `shot.py` run includes an `etat` object at the JSON root —
 a pre-computed verdict synthesizing the signals already present elsewhere in
 the output, so you do not have to cross-reference `auth_status`,
-`citoyennete.plafond_atteint`, `derive_session`, and `erreurs_js` by hand
+`respect.plafond_atteint`, `derive_session`, and `erreurs_js` by hand
 before deciding whether to proceed with a mutating action.
 
 ```json
@@ -461,7 +461,7 @@ before deciding whether to proceed with a mutating action.
 
 | Field | Type | Meaning |
 |---|---|---|
-| `pret_a_agir` | boolean | `false` if authentication is inactive, session drifted, or a citizenship cap was hit |
+| `pret_a_agir` | boolean | `false` if authentication is inactive, session drifted, or a navigation cap was hit |
 | `niveau_confiance` | `"eleve"` \| `"modere"` \| `"faible"` | degrades to `modere` on non-blocking friction (JS/console errors, cap hit), to `faible` on auth/session problems or a detected WAF block |
 | `raisons` | array of strings | one entry per signal that contributed to the verdict; `["aucun signal de friction détecté"]` when everything is clean |
 
@@ -594,10 +594,10 @@ with `secrets_defaut` instead of `--secrets` in cron.
 
 ---
 
-## Behavior after hitting a citizenship cap (v1.15.2, Qwen Q3)
+## Behavior after hitting a navigation cap (v1.15.2, Qwen Q3)
 
 When `max_pages_par_run` or `max_actions_par_run` is reached, `shot.py` closes
-the Chromium process cleanly (see `citoyennete.plafond_atteint` in `boussole`).
+the Chromium process cleanly (see `respect.plafond_atteint` in `boussole`).
 This has consequences for state:
 
 - **DOM state is destroyed** — open modals, unsubmitted form fields, scroll
@@ -608,7 +608,7 @@ This has consequences for state:
   it does not replay DOM interactions since the save.
 
 **Planning consequence:** submit data (forms, confirmations) *before* the
-citizenship caps are likely to be reached. Only save session state at a point
+navigation caps are likely to be reached. Only save session state at a point
 where the DOM is stable (no open modal, no pending submission) — a save
 mid-interaction is not a checkpoint, it is a snapshot of cookies only.
 
@@ -616,7 +616,7 @@ mid-interaction is not a checkpoint, it is a snapshot of cookies only.
 
 ## Duration thresholds — suspecting a stuck run (v1.15.2, Qwen Q5)
 
-`citoyennete.duree_totale_ms` (root and `boussole`) measures wall-clock time
+`respect.duree_totale_ms` (root and `boussole`) measures wall-clock time
 spent in `executer_actions()`. Indicative thresholds, not hard caps enforced by
 the runtime:
 

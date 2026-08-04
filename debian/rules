@@ -2,3 +2,29 @@
 
 %:
 	dh $@
+
+# Page de manuel — v1.22.0.
+#
+# Une seule page `diwall(1)` décrit les six commandes /usr/bin/diwall-*, à la
+# manière de git(1) : sept pages à tenir synchronisées avec --help divergeraient
+# inévitablement, une seule a un seul point de vérité.
+#
+# Génération au build plutôt que page committée : le markdown reste la source
+# unique, la page ne peut pas se périmer par oubli de régénération.
+#
+# `markdown-smart` (et non `markdown`) est obligatoire : avec l'extension smart
+# active, pandoc convertit « --url » en tiret cadratin, et la page documenterait
+# des options que personne ne peut taper.
+override_dh_installman:
+	pandoc --standalone --from markdown-smart --to man \
+	       debian/diwall.1.md -o debian/diwall.1
+	# Alias : `man diwall-shot` doit aboutir, sinon la simplicité de
+	# maintenance se paierait d'une impasse à l'usage.
+	for cmd in shot rpa watch mount-vault umount-vault monitor-verifier; do \
+	    printf '.so man1/diwall.1\n' > debian/diwall-$$cmd.1; \
+	done
+	dh_installman
+
+override_dh_auto_clean:
+	rm -f debian/diwall.1 debian/diwall-*.1
+	dh_auto_clean

@@ -24,10 +24,10 @@ development/production installation, documented in `PROTOCOLE_CLOTURE.md`
 instruction n°1bis (private `_CADRE/`) and reported in the session's
 ADDENDUM.
 
-**Non-regression note:** this suite requires `--guide-version 3.8` (bumped
+**Non-regression note:** this suite requires `--guide-version 4.1` (bumped
 from 3.7 in this cycle) or a valid local marker. Reseed before running any
 pre-existing suite:
 
 ```bash
-/opt/diwall/venv/bin/python3 shot.py --url https://example.com --no-capture --guide-version 3.8
+/opt/diwall/venv/bin/python3 shot.py --url https://example.com --no-capture --guide-version 4.1
 ```

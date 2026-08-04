@@ -2,7 +2,7 @@ Source: diwall
 Section: utils
 Priority: optional
 Maintainer: Ronan Davalan <ronan@davalan.fr>
-Build-Depends: debhelper-compat (= 13)
+Build-Depends: debhelper-compat (= 13), pandoc
 Standards-Version: 4.6.2
 Homepage: https://diwall.davalan.fr
 

@@ -50,9 +50,9 @@ class VaultNonConfigureError(Exception):
     """diwall.conf absent ou sans clé vault_dir — aucune configuration vault active.
 
     Code de sortie recommandé : 43.
-    Créer diwall.conf depuis le modèle :
-      sudo cp /opt/diwall/diwall-sample.conf /opt/diwall/diwall.conf
-      sudo nano /opt/diwall/diwall.conf  # → {"vault_dir": "~/Vaults/<PROJET>/Diwall"}
+    Deux solutions : diwall.conf global (sudo cp /opt/diwall/diwall-sample.conf
+    /opt/diwall/diwall.conf) ou DIWALL_CONF pour une configuration par projet
+    (variable d'environnement, déjà supportée par _chemin_vault()).
     """
     CODE_SORTIE = 43
 
@@ -86,9 +86,13 @@ def _chemin_vault() -> str:
     raise VaultNonConfigureError(
         f"Aucune configuration vault active.\n"
         f"  {conf_path_effectif} est absent ou ne contient pas de clé 'vault_dir'.\n"
-        f"  Créez-le depuis le modèle :\n"
-        f"    sudo cp /opt/diwall/diwall-sample.conf {conf_path_effectif}\n"
-        f"    sudo nano {conf_path_effectif}  # → {{\"vault_dir\": \"~/Vaults/<PROJET>/Diwall\"}}"
+        f"  Deux solutions possibles :\n"
+        f"  1. Configuration globale — créez {conf_path_effectif} depuis le modèle :\n"
+        f"       sudo cp /opt/diwall/diwall-sample.conf {conf_path_effectif}\n"
+        f"       sudo nano {conf_path_effectif}  # → {{\"vault_dir\": \"~/Vaults/<PROJET>/Diwall\"}}\n"
+        f"  2. Configuration par projet — pointez DIWALL_CONF vers un fichier dédié, sans "
+        f"toucher à la configuration globale :\n"
+        f"       DIWALL_CONF=/chemin/vers/votre-projet/diwall.conf ...  # avant shot.py/rpa.py"
     )
 
 

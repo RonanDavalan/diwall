@@ -1,6 +1,6 @@
 # Diwall — Operator guide
 
-Version 1.9 — July 2026 (v1.21.0) — four more demonstration use cases (self-hosted observability, ticketing platform administration, local events tracking, e-commerce access under Citizen Navigation)
+Version 1.9 — July 2026 (v1.21.0) — four more demonstration use cases (self-hosted observability, ticketing platform administration, local events tracking, e-commerce access under Respectful Navigation)
 
 ---
 
@@ -39,13 +39,13 @@ You keep **high-level sense validation**: deciding whether the result
 the model presents is acceptable, consistent with your expectations, and in line
 with what your users should see. That decision remains yours.
 
-### Citizen Navigation (v1.15.0)
+### Respectful Navigation (v1.15.0)
 
 Diwall does not disguise its identity to bypass bot detection. `--stealth`
 removes automatic technical markers (`navigator.webdriver`) that block
 headless browsers regardless of intent — it does not change the operator's
 IP, identity, or the fact that the run is declared. In exchange, every run
-reports its own footprint (`citoyennete`: pages visited, actions executed,
+reports its own footprint (`respect`: pages visited, actions executed,
 duration) and respects configurable courtesy delays and hard caps
 (`diwall.conf [navigation]`). The right to navigate and the duty to navigate
 measurably are treated as inseparable — see `docs/RETOUR_EXPERIENCE.md`
@@ -98,7 +98,7 @@ regression. Run it directly:
 ```bash
 /opt/diwall/venv/bin/python3 /opt/diwall/rpa.py \
   --scenario /opt/diwall/scenarios/exemples/depannage_local.json \
-  --guide-version 3.9
+  --guide-version 4.1
 ```
 
 The two cases below are narrative only — no scenario file is committed for
@@ -184,7 +184,7 @@ report back in a handful of requests — no vision model needed for this
 kind of read-only, text-driven task. One session also produced a clean,
 real example of the WAF signal's documented false-positive behaviour: a
 page loaded normally (rich content, no captcha, no interstitial) while
-`citoyennete.waf_bloquants` still fired, because of an unrelated third-party
+`respect.waf_bloquants` still fired, because of an unrelated third-party
 resource on the page matching a detection keyword — resolved in about a
 minute by reading the accessibility tree already present in the same
 response, exactly as the guide's "signal, never a lock" rule anticipates.
@@ -193,7 +193,7 @@ response, exactly as the guide's "signal, never a lock" rule anticipates.
 is not a stable, reproducible public target, and naming one publicly is
 the operator's call, not a project default.
 
-### Case 7 — testing real-world access to e-commerce sites under Citizen Navigation
+### Case 7 — testing real-world access to e-commerce sites under Respectful Navigation
 
 A recurring, honest observation from actual sessions: used respectfully
 (rate-limited delays, page/action caps, `--stealth` active, no attempt to
@@ -202,10 +202,10 @@ sites finds that a large share of major platforms return an outright
 block — HTTP 403, or a request that never completes — regardless of how
 courteous the traffic is. This is not a Diwall shortcoming to fix:
 anti-bot posture is the site's own choice, and Diwall does not attempt to
-defeat it (see "Citizen Navigation" above). Practically: for
+defeat it (see "Respectful Navigation" above). Practically: for
 shopping-comparison tasks against large commercial platforms, expect a
 meaningful share of dead ends, and treat a block signal
-(`citoyennete.waf_bloquants`) as information to route around, not an error
+(`respect.waf_bloquants`) as information to route around, not an error
 to retry against.
 
 A distinction worth keeping in mind: an invisible verification screen that
@@ -457,7 +457,7 @@ which cannot reach `~/git/Diwall/Diwall/`):
 | Click has no effect on out-of-viewport button | Add `{"type":"defiler","selecteur":"#the-button"}` before the click |
 | `auth_status: "active"` even on the login page | Positive selector is ambiguous (persistent header) — add `--auth-indicator-negative .btn-login` |
 | Web Components elements not numbered by SoM | Add `--shadow-dom` (Angular, Lit, Stencil) |
-| `citoyennete.waf_bloquants` appears on a page that is not actually blocked | Detection is keyword-based (v1.16.0, refined v1.17.2) — treat as a signal, not a verdict. If it persists on a page you've confirmed is not blocked, add `--ignorer-waf` |
+| `respect.waf_bloquants` appears on a page that is not actually blocked | Detection is keyword-based (v1.16.0, refined v1.17.2) — treat as a signal, not a verdict. If it persists on a page you've confirmed is not blocked, add `--ignorer-waf` |
 | `cliquer_som` clicks the wrong element on a page that mutated between capture and click | Add `--som-rafraichir` (v1.17.0) — resolves by a stable marker instead of live re-indexing |
 | A long RPA scenario fails partway through and you don't want to replay completed steps | Add `--checkpoint FILE` (v1.17.0) — relaunch the same command to resume; DOM state is not preserved, only session + action position |
 | Interactive elements inside an iframe are invisible to Diwall | SoM cannot number iframe content (same-origin or cross-origin) — use `cliquer_iframe`/`remplir_iframe` (v1.17.0) with an explicit CSS selector, or `iframe_chemin` (v1.18.0) for an iframe nested inside another |

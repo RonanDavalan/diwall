@@ -1,7 +1,10 @@
 # Diwall — Sessions guide (vault, credentials, SPA, MFA, multi-page)
 
-<!-- notice-version: 1.8 -->
-Version 1.8 — July 2026 (v1.21.0) — `--http-credentials`: username/password
+<!-- notice-version: 1.10 -->
+Version 1.10 — July 2026 (v1.22.0) — `citoyennete` renamed to `respect` (breaking).
+Prior (v1.22.0): `dernier_code_http` in boussole,
+disambiguates real session expiry from a masked server error on the same
+login redirect. Prior (v1.21.0): `--http-credentials`: username/password
 fallback, confirmed against a real Caddy target. Fixed a false claim that
 `--secrets` accumulates across repeated flags (it does not); clarified that
 its filename is arbitrary, never hostname-derived — both found via a real
@@ -168,11 +171,22 @@ in the JSON output. Check it after every `--reprendre-session` call.
 ```json
 "boussole": {
   "session_derive": true,
-  "url_courante": "https://target.local/login"
+  "url_courante": "https://target.local/login",
+  "dernier_code_http": 302
 }
 ```
 
 If `session_derive` is true: run the full login flow again without `--reprendre-session`.
+
+**`dernier_code_http` (v1.22.0), always present, disambiguates the cause:** a
+real expired session and a masked server-side error (e.g. `display_errors=0`
+hiding a 500) both redirect to the same login page — `session_derive: true`
+looks identical either way. Compare `dernier_code_http`: `302`/`200` on the
+redirect points to a real session expiry, `500`/`4xx` points to an
+application error, not your session. **Nuance:** on a run with several
+`naviguer` actions, this reflects the *last* navigation only — not
+necessarily the one that explains the drift if more than one navigation
+happened in the same run.
 
 ---
 
@@ -200,7 +214,7 @@ resume point.
 - On a failure with no recoverable progress (e.g. vault closed before any
   action ran): the checkpoint file is left untouched — retry is identical
   to before.
-- **Citizenship cap reached (fixed in v1.17.2):** if the run stops because
+- **Navigation cap reached (fixed in v1.17.2):** if the run stops because
   `max_actions_par_run`/`max_pages_par_run` was hit, it returns `succes: true`
   like a genuinely completed tronçon — before v1.17.2 the checkpoint was
   deleted in this case too, silently losing the remaining progress on long

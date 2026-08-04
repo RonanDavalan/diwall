@@ -6,7 +6,7 @@
 # le temps est déléguée à cron/systemd-timer (voir docs/GUIDE.md, docs/
 # GUIDE_LLM_MONITORING.md). Chaque exécution est un processus isolé : aucun
 # risque de fuite mémoire d'un daemon long-running, et les plafonds de
-# Navigation Citoyenne se réinitialisent proprement à chaque passage.
+# Navigation Respectueuse se réinitialisent proprement à chaque passage.
 #
 # Stable → silence, exit 0. Régression détectée → notification ntfy (si
 # --ntfy-topic fourni), exit 1 (même code que rpa.py --replay-verifier).

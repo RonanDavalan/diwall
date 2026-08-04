@@ -1,3 +1,64 @@
+diwall (1.22.0-1) unstable; urgency=medium
+
+  * BREAKING: the citoyennete output key is renamed respect, at the JSON
+    root, inside boussole, and in the operations log. Sub-keys are
+    unchanged (pages_visitees, actions_executees, duree_totale_ms,
+    plafond_atteint, waf_bloquants, indice_agressivite). No transitional
+    dual emission: a deprecation window would install permanent debt to
+    avoid a one-minute update, on infrastructure whose consumers are
+    known. Consumers reading citoyennete.waf_bloquants or
+    citoyennete.plafond_atteint must update. Doctrine and behaviour are
+    unchanged — only the name is: "Citizen Navigation" becomes
+    "Respectful Navigation" throughout the documentation, the previous
+    term carrying a civic-political register foreign to the intent and
+    translating badly in a four-language site.
+  * --wait-until {networkidle,load,domcontentloaded} (shot.py): sets when
+    the initial navigation is considered done, default networkidle
+    unchanged. Motivated by a real target — a router administration panel
+    polling live statistics, where the 500 ms of network silence
+    networkidle requires never occurs, so no --timeout value could ever
+    succeed. Applies to the initial navigation only; the naviguer action
+    is untouched. boussole.wait_until reports the value only when it
+    differs from the default, never the bare CLI flag (same discipline as
+    stealth_actif, fixed in v1.16.0). Propagated by rpa.py to its shot.py
+    subprocess, and available as a root wait_until property on a scenario
+    (CLI flag wins over the property): without that, the flag would only
+    have served direct reconnaissance, while the target that motivated it
+    is administered by scenario.
+  * repli_js on cliquer, dernier_code_http in boussole, and a
+    VaultNonConfigureError message citing both fixes (DIWALL_CONF as well
+    as diwall.conf) — implemented in source earlier in this cycle, first
+    released here.
+  * man diwall(1): the six /usr/bin/diwall-* commands had no manual page
+    at all, a genuine packaging defect on a Debian system. One page
+    documents all six, git(1)-style — seven pages would drift out of sync
+    with --help, one has a single source of truth. Generated at build time
+    by pandoc from debian/diwall.1.md, so it cannot go stale by omission;
+    man diwall-shot and the five other names resolve to it via .so aliases.
+  * scripts/construire-paquet.sh: builds then moves the .deb, .buildinfo
+    and .changes into paquets/<version>/. dpkg-buildpackage writes to the
+    parent directory by construction, which left build artefacts
+    accumulating in a directory that was never meant to be a build output.
+    All versions are kept — the .buildinfo is the only record of the exact
+    build environment.
+  * scenarios/v1.22.0_validation/: 11/11 green, including a new fixture
+    (polling_continu.html) that polls every 200 ms, with a contrast test
+    proving networkidle genuinely fails on it and --wait-until load
+    succeeds by the normal path. Regression suites v1.15.2 through
+    v1.21.0 all green.
+  * Guide notice-version 4.0 -> 4.1 (breaking key rename), notices bumped
+    accordingly. Resynchronised the hardcoded guide-version token in
+    scripts/install.sh and scripts/preflight-publication.sh, which still
+    carried 3.7 while the guide had moved to 4.0 — a pre-existing
+    desynchronisation masked by an already-valid local marker, i.e. the
+    exact failure mode this token is meant to prevent.
+    scripts/verifier-coherence.sh now fails on any future divergence
+    between the guide's notice-version, GUIDE_VERSION_ATTENDUE and the
+    token those scripts pass -- a static check, because the cold-install
+    test structurally cannot catch it (the .deb channel passes no token).
+
+ -- Ronan Davalan <ronan@davalan.fr>  Wed, 29 Jul 2026 11:20:00 +0200
+
 diwall (1.21.0-1) unstable; urgency=medium
 
   * Documentation completeness pass across docs/: docs/GUIDE.md Case 4

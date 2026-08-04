@@ -70,7 +70,7 @@ EOF
 # 3. Lancer le scénario
 cd /opt/diwall
 venv/bin/python3 rpa.py --scenario scenarios/interoperabilite/scenario_basicauth.json \
-  --secrets ~/Vaults/<COFFRE_MONTE>/diwall_fixture_vault.json --guide-version 3.9
+  --secrets ~/Vaults/<COFFRE_MONTE>/diwall_fixture_vault.json --guide-version 4.1
 
 # Vérifications attendues dans la sortie JSON :
 #   succes: true

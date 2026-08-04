@@ -63,10 +63,10 @@ The language model decides what to do next.
 | **Model traceability** | Every run records which models were called, including Ollama digest (v1.3) |
 | **Operation log** | Persistent append-only log of all runs — who did what, where, when (v1.4) |
 | **Shadow DOM traversal** | `--shadow-dom` numbers interactive elements inside open Shadow Roots — Angular, Lit, Stencil, FAST (v1.13.0) |
-| **Citizen Navigation** | `--stealth` (removes automatic headless markers), courtesy delays and hard caps (`min_action_delay_ms`, `max_pages_par_run`, `max_actions_par_run`), impact metrics (`citoyennete`) reported on every run (v1.15.0) |
+| **Respectful Navigation** | `--stealth` (removes automatic headless markers), courtesy delays and hard caps (`min_action_delay_ms`, `max_pages_par_run`, `max_actions_par_run`), impact metrics (`respect`) reported on every run (v1.15.0) |
 | **Deterministic verdict** | `etat` object (`pret_a_agir`, `niveau_confiance`, `raisons`) synthesizes authentication, session drift, and friction signals into one read (v1.16.0) |
 | **Unified run identity** | `operation_id` isolates every run's temporary files and ties them to its operations-log entry (v1.16.0) |
-| **Passive WAF signal** | `citoyennete.waf_bloquants` flags a likely block (HTTP 403/429 or known keywords) as a non-fatal signal, never an exception (v1.16.0) |
+| **Passive WAF signal** | `respect.waf_bloquants` flags a likely block (HTTP 403/429 or known keywords) as a non-fatal signal, never an exception (v1.16.0) |
 | **Structural non-regression** | `--replay-verifier` compares HTTP status, DOM stats, and `evaluer` results against a saved reference — no pixels, no vision model (v1.17.0) |
 | **Scenario checkpoints** | `--checkpoint` resumes a long scenario after a mid-run failure without replaying completed actions (v1.17.0) |
 | **Stable SoM identity** | `--som-rafraichir` resolves `cliquer_som`/`remplir_som` by a DOM marker instead of live re-indexing, preventing silent retargeting on highly dynamic pages (v1.17.0) |
@@ -78,6 +78,8 @@ The language model decides what to do next.
 | **Per-action timing** | `latences_actions` reports dispatch latency for every action executed, always present (v1.20.0) |
 | **Error-only log view** | `journal.py --erreurs` filters the operations log to failed runs only (v1.20.0) |
 | **HTTP Basic Auth** | `--http-credentials` resolves network-level Basic Auth (RFC 7617) from the vault, scoped to the target's origin — distinct from and additional to form-based vault authentication (v1.21.0) |
+| **JS click escalation** | `repli_js` on `cliquer` retries a failed native click via JS, reported in the boussole only when it actually ran (v1.22.0) |
+| **Never-idle targets** | `--wait-until load\|domcontentloaded` reaches pages that poll continuously and never go network-silent, where no `--timeout` value would ever suffice (v1.22.0) |
 
 ---
 

@@ -11,7 +11,7 @@ import uuid
 from datetime import datetime, timezone
 from urllib.parse import urlparse
 
-__version__ = "1.21.0"
+__version__ = "1.22.0"
 
 # Permet d'importer lib/ depuis le même répertoire que shot.py
 sys.path.insert(0, os.path.dirname(os.path.abspath(__file__)))
@@ -550,7 +550,7 @@ def _calculer_mode_conseille(url_finale):
         return None
 
 
-def _construire_etat(auth_status, citoyennete, derive_session, erreurs_js,
+def _construire_etat(auth_status, respect, derive_session, erreurs_js,
                      waf_bloquants=None, erreurs_console=None, ignorer_waf=False,
                      mode_conseille=None):
     """Synthèse déterministe de l'état opérationnel (v1.16.0, item A).
@@ -565,7 +565,7 @@ def _construire_etat(auth_status, citoyennete, derive_session, erreurs_js,
     cela — c'est le rôle des assertions `evaluer` + `contient`/`motif`/`attendu`
     de rpa.py). Il agrège uniquement les signaux que shot.py peut déterminer
     par lui-même : authentification, dérive de session, plafond de
-    citoyenneté, friction réseau/applicative (WAF, erreurs JS/console).
+    navigation, friction réseau/applicative (WAF, erreurs JS/console).
 
     `ignorer_waf` (v1.17.2) : quand actif, un blocage WAF dégrade toujours
     `niveau_confiance` mais ne force plus `pret_a_agir` à `False` à lui seul —
@@ -591,8 +591,8 @@ def _construire_etat(auth_status, citoyennete, derive_session, erreurs_js,
         pret = False
         niveau = "faible"
 
-    if citoyennete and citoyennete.get("plafond_atteint"):
-        raisons.append(f"plafond de citoyenneté atteint ({citoyennete['plafond_atteint']})")
+    if respect and respect.get("plafond_atteint"):
+        raisons.append(f"plafond de navigation atteint ({respect['plafond_atteint']})")
         pret = False
         if niveau == "eleve":
             niveau = "modere"
@@ -680,7 +680,7 @@ def _journaliser_run(result, actions, intention, cible_url, resultat, erreur=Non
         erreur=erreur,
         evaluations=result.get("evaluations"),
         operation_id=operation_id,
-        citoyennete=result.get("citoyennete"),
+        respect=result.get("respect"),
         source_scenario=source_scenario,
         chainage=chainage,
     )
@@ -777,6 +777,14 @@ def parse_args():
     p.add_argument("--screenshot-timeout", dest="screenshot_timeout", type=int, default=120_000,
                    help="Timeout ms pour page.screenshot() (défaut : 120000). "
                         "Distinct de --timeout (actions Playwright).")
+    p.add_argument("--wait-until", dest="wait_until",
+                   choices=["networkidle", "load", "domcontentloaded"],
+                   default="networkidle",
+                   help="Condition d'arrêt de la navigation initiale (v1.22.0, défaut : "
+                        "networkidle, inchangé). Utiliser 'load' sur une cible qui "
+                        "n'atteint jamais le silence réseau (page à statistiques live, "
+                        "polling continu) : le timeout n'est alors pas une question de "
+                        "durée. N'affecte pas l'action 'naviguer'.")
     p.add_argument("--output-dir", dest="output_dir", default=_OUTPUT_DIR_DEFAUT,
                    help="Répertoire de sortie des captures auto (défaut : /tmp/diwall)")
     p.add_argument("--largeur", type=int, default=1280, help="Largeur viewport px (défaut : 1280)")
@@ -947,7 +955,7 @@ def executer_actions(page, actions, output_dir, timeout, mode_llm="local",
                      min_action_delay_ms=0, max_pages_par_run=0, max_actions_par_run=0,
                      t_debut=None, no_evaluer=False, operation_id=None, progress=None,
                      som_rafraichir=False):
-    from playwright.sync_api import TimeoutError as PWTimeoutError
+    from playwright.sync_api import TimeoutError as PWTimeoutError, Error as PWError
 
     if som_rafraichir:
         _som_trouver = _SOM_TROUVER_STABLE_JS_SHADOW if shadow_dom else _SOM_TROUVER_STABLE_JS
@@ -968,6 +976,15 @@ def executer_actions(page, actions, output_dir, timeout, mode_llm="local",
     actions_executees = 0
     plafond_atteint = None
     waf_bloquants = 0
+    # v1.22.0, Axe B — dernier code HTTP capturé sur une action naviguer,
+    # remonté en boussole à côté de session_derive. None si aucune action
+    # naviguer n'a eu lieu (le code de la navigation initiale, capturé par
+    # l'appelant, fait alors foi).
+    dernier_code_http = None
+    # v1.22.0, Axe A — reflète une escalade JS réellement survenue, jamais le
+    # seul flag posé sur l'action (même discipline que stealth_actif corrigé
+    # en v1.16.0/FR-79 : ne jamais confondre l'intention et l'application réelle).
+    repli_js_utilise = False
     if t_debut is None:
         t_debut = time.time()
 
@@ -1016,6 +1033,7 @@ def executer_actions(page, actions, output_dir, timeout, mode_llm="local",
             rep_nav = page.goto(a["url"], timeout=timeout)
             try:
                 statut_nav = rep_nav.status if rep_nav else None
+                dernier_code_http = statut_nav
                 if _detecter_waf(statut_nav, page.title(), page.content()[:5000]):
                     waf_bloquants += 1
             except Exception:
@@ -1098,10 +1116,31 @@ def executer_actions(page, actions, output_dir, timeout, mode_llm="local",
             page.locator(a["selecteur"]).fill(valeur, timeout=timeout)
 
         elif t == "cliquer":
-            page.locator(a["selecteur"]).click(
-                timeout=timeout,
-                force=bool(a.get("force", False)),
-            )
+            if a.get("repli_js"):
+                # v1.22.0, Axe A — escalade à deux niveaux, distincte de
+                # force: true (force-click natif Playwright, déjà insuffisant
+                # seul — FR-81) : force-click d'abord, clic JS ensuite
+                # seulement si le premier échoue par inaccessibilité/obstruction.
+                # --no-evaluer est garanti inactif ici (rejet précoce plus haut).
+                # PWError (classe mère) est capté, pas seulement PWTimeoutError :
+                # vérifié empiriquement (fixture dialog_ferme.html) qu'un clic
+                # avec force=True sur un élément sans boîte de mise en page
+                # (<dialog> non ouvert) lève "Element is not visible", une
+                # Error simple, jamais un TimeoutError — un except trop étroit
+                # aurait laissé passer exactement le cas réel FN14.
+                try:
+                    page.locator(a["selecteur"]).click(
+                        timeout=timeout,
+                        force=bool(a.get("force", False)),
+                    )
+                except PWError:
+                    page.eval_on_selector(a["selecteur"], "el => el.click()")
+                    repli_js_utilise = True
+            else:
+                page.locator(a["selecteur"]).click(
+                    timeout=timeout,
+                    force=bool(a.get("force", False)),
+                )
 
         elif t == "pause":
             duree_s = a.get("ms", 500) / 1000.0
@@ -1393,7 +1432,7 @@ def executer_actions(page, actions, output_dir, timeout, mode_llm="local",
 
         # Profilage latence par action (v1.20.0) — même point d'atteinte que le
         # marqueur de progression ci-dessous : uniquement si l'action s'est
-        # terminée sans exception et sans plafond de citoyenneté atteint avant
+        # terminée sans exception et sans plafond de navigation atteint avant
         # dispatch. Coût de mesure nul (un time.time() déjà en cours).
         latences_actions.append({
             "index": idx,
@@ -1412,18 +1451,19 @@ def executer_actions(page, actions, output_dir, timeout, mode_llm="local",
         if min_action_delay_ms > 0:
             time.sleep(min_action_delay_ms / 1000.0)
 
-    citoyennete = {
+    respect = {
         "pages_visitees": pages_visitees,
         "actions_executees": actions_executees,
         "duree_totale_ms": int((time.time() - t_debut) * 1000),
     }
     if plafond_atteint:
-        citoyennete["plafond_atteint"] = plafond_atteint
+        respect["plafond_atteint"] = plafond_atteint
     if waf_bloquants:
-        citoyennete["waf_bloquants"] = waf_bloquants
+        respect["waf_bloquants"] = waf_bloquants
     if actions_executees > 0:
-        citoyennete["indice_agressivite"] = round(actions_ecriture / actions_executees, 3)
-    return intermediaires, stream_captures, evaluations, modeles_appeles, citoyennete, latences_actions
+        respect["indice_agressivite"] = round(actions_ecriture / actions_executees, 3)
+    return (intermediaires, stream_captures, evaluations, modeles_appeles, respect,
+            latences_actions, dernier_code_http, repli_js_utilise)
 
 
 def _conf_navigation():
@@ -1588,6 +1628,23 @@ def main():
         }))
         sys.exit(2)
 
+    # ── Validation repli_js + --no-evaluer (v1.22.0, Axe A) ──────────────────
+    # repli_js exécute du JS (element.click()) — --no-evaluer l'interdit sur ce
+    # run. Rejet précoce, avant tout lancement de Chromium, même discipline que
+    # --auth-indicator-negative ci-dessus : un abandon silencieux laisserait
+    # l'agent face à l'échec du clic standard sans comprendre pourquoi son
+    # repli_js n'a rien fait.
+    if args.no_evaluer and any(
+        a.get("type") == "cliquer" and a.get("repli_js") for a in actions
+    ):
+        print(json.dumps({
+            "succes": False, "erreur": "arguments_incompatibles",
+            "message": "repli_js requiert que --no-evaluer soit inactif "
+                       "(repli_js exécute du JS, --no-evaluer l'interdit sur ce run)",
+            "horodatage": horodatage, "boussole": _boussole(operation_id),
+        }))
+        sys.exit(2)
+
     # ── Chemin de sortie ──────────────────────────────────────────────────────
     if args.output:
         sortie = args.output if os.path.splitext(args.output)[1] else args.output + ".png"
@@ -1602,6 +1659,10 @@ def main():
     # (support des checkpoints rpa.py).
     progress = {}
     http_status = None
+    # v1.22.0, Axe D — condition d'arrêt réellement appliquée à la navigation
+    # initiale, posée seulement si elle diffère du défaut et que la navigation
+    # a abouti. Initialisée ici pour rester lisible depuis le handler d'erreur.
+    wait_until_applique = None
     url_finale = args.url or ""
     url_cible = url_finale  # pour le handler d'erreur
 
@@ -1711,10 +1772,20 @@ def main():
             ))
 
             # ── Navigation ────────────────────────────────────────────────────
-            rep = page.goto(url_cible, timeout=args.timeout, wait_until="networkidle")
+            # v1.22.0, Axe D — la condition d'arrêt est paramétrable, défaut
+            # networkidle inchangé. Ne s'applique qu'ici : l'action `naviguer`
+            # de executer_actions() garde le défaut Playwright ("load"), sans
+            # override — asymétrie assumée, aucun second cas d'usage réel ne
+            # justifie de l'étendre à ce stade.
+            rep = page.goto(url_cible, timeout=args.timeout, wait_until=args.wait_until)
             if rep:
                 http_status = rep.status
             url_finale = page.url
+            # Signal boussole posé après coup, sur navigation réellement aboutie
+            # par une condition différente du défaut — jamais sur le seul flag CLI
+            # (précédent stealth_actif, corrigé en v1.16.0).
+            if args.wait_until != "networkidle":
+                wait_until_applique = args.wait_until
 
             # ── Détection WAF sur la navigation initiale (v1.16.0, item C) ────
             waf_initial = False
@@ -1745,7 +1816,8 @@ def main():
             # (avant la fermeture implicite par la sortie du bloc `with`) —
             # dernière occasion de sauvegarder la session pour un checkpoint.
             try:
-                interm, stream_captures, evaluations, modeles_appeles, citoyennete, latences_actions = executer_actions(
+                (interm, stream_captures, evaluations, modeles_appeles, respect,
+                 latences_actions, dernier_code_http_actions, repli_js_utilise) = executer_actions(
                     page, actions, args.output_dir, args.timeout, args.llm,
                     interval_capture_default=args.interval_capture,
                     modeles_appeles=modeles_appeles,
@@ -1770,7 +1842,7 @@ def main():
                         pass  # best-effort — ne jamais masquer l'erreur originale
                 raise
             if waf_initial:
-                citoyennete["waf_bloquants"] = citoyennete.get("waf_bloquants", 0) + 1
+                respect["waf_bloquants"] = respect.get("waf_bloquants", 0) + 1
             url_finale = page.url  # mise à jour après actions
 
             # ── Capture finale ────────────────────────────────────────────────
@@ -1865,6 +1937,14 @@ def main():
         result["boussole"] = _boussole(operation_id)
         result["boussole"]["url_courante"] = url_finale
         result["boussole"]["titre_page"] = titre_page
+        # v1.22.0, Axe B — toujours présent (contrairement à session_derive,
+        # conditionnel à --reprendre-session) : reflète la dernière navigation
+        # du run (une action naviguer si le scénario en contient une, sinon la
+        # navigation initiale). Sur un run multi-navigations, ne présume pas
+        # laquelle explique une dérive éventuelle — voir GUIDE_LLM_SESSIONS.md.
+        result["boussole"]["dernier_code_http"] = (
+            dernier_code_http_actions if dernier_code_http_actions is not None else http_status
+        )
         if args.shadow_dom:
             result["boussole"]["shadow_dom_actif"] = True
         if args.som_rafraichir:
@@ -1883,8 +1963,15 @@ def main():
             result["boussole"]["tls_errors_ignored"] = True
         if args.ignorer_waf:
             result["boussole"]["waf_ignore_actif"] = True
-        result["citoyennete"] = citoyennete
-        result["boussole"]["citoyennete"] = citoyennete
+        if repli_js_utilise:
+            result["boussole"]["repli_js_utilise"] = True
+        # v1.22.0, Axe D — porte la valeur employée, pas un booléen : un agent
+        # qui relit une sortie doit savoir sous quelle condition la page a été
+        # jugée prête. Absente quand la navigation a suivi le défaut.
+        if wait_until_applique is not None:
+            result["boussole"]["wait_until"] = wait_until_applique
+        result["respect"] = respect
+        result["boussole"]["respect"] = respect
         result["latences_actions"] = latences_actions
         if args.reprendre_session and derive_session is not None:
             result["boussole"]["session_derive"] = derive_session
@@ -1894,8 +1981,8 @@ def main():
             result["boussole"]["som_hors_viewport"] = hors_vp_som
         try:
             result["etat"] = _construire_etat(
-                auth_status, citoyennete, derive_session, erreurs_js,
-                waf_bloquants=citoyennete.get("waf_bloquants"),
+                auth_status, respect, derive_session, erreurs_js,
+                waf_bloquants=respect.get("waf_bloquants"),
                 erreurs_console=erreurs_console,
                 ignorer_waf=args.ignorer_waf,
                 mode_conseille=_calculer_mode_conseille(url_finale),

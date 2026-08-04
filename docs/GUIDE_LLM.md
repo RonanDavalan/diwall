@@ -1,8 +1,8 @@
 # Diwall — LLM Guide (index)
 
-<!-- notice-version: 3.9 -->
-Version 3.9 — July 2026 (v1.21.0) — compressed under the 250-line budget;
-non-presumption rule added; `--http-credentials` routing.
+<!-- notice-version: 4.1 -->
+Version 4.1 — July 2026 (v1.22.0) — **breaking: the `citoyennete` output key is now `respect`** (sub-keys unchanged);
+`--wait-until` for never-idle targets; `repli_js` (JS click escalation), `dernier_code_http` in boussole.
 
 **You are a language model. This is the entry point. Read it fully, then load
 the notice that matches your task.**
@@ -28,7 +28,7 @@ see Security below. Full reasoning: `Diwall/CLAUDE.md` Règle n°7.)
 (`<!-- notice-version: X.Y -->`), same convention as the three notices.
 
 ```bash
-/opt/diwall/venv/bin/python3 /opt/diwall/shot.py --url <url> --guide-version 3.9
+/opt/diwall/venv/bin/python3 /opt/diwall/shot.py --url <url> --guide-version 4.1
 ```
 
 Accepted once → a local marker (`~/.config/diwall/guide_state.json`) is
@@ -117,6 +117,7 @@ the same session. `--reprendre-session` reuses cookies only, never DOM state.
 | Number and click elements | `--som` |
 | Detect visual regression | `watch.py --comparer-pixel` |
 | Test Web Components | `--som --shadow-dom` |
+| Reach a target that never goes network-silent | `--wait-until load` (shot.py + rpa.py, v1.22.0) |
 
 `--mode fast` = `--no-capture --a11y` (~2s faster, no PNG). `--som` is
 opt-in with either mode.
@@ -128,7 +129,7 @@ opt-in with either mode.
 | Verb | Key params | Notes |
 |---|---|---|
 | `naviguer` | `url` | Full HTTP reload — avoid in SPAs |
-| `cliquer` | `selecteur`, [`force`] | `force: true` bypasses CSS-hidden / showModal |
+| `cliquer` | `selecteur`, [`force`\|`repli_js`] | `force` bypasses CSS-hidden/showModal; `repli_js` retries via JS if the native click still fails (needs `--no-evaluer` off) |
 | `cliquer_som` | `id` | Coordinate click — no `force` needed |
 | `cliquer_visuel` | `description` | LLM vision fallback (~32s) |
 | `remplir` | `selecteur`, `valeur` | `valeur` can be `"depuis_vault"` |
@@ -156,26 +157,25 @@ Every output includes a `boussole` object — read it first:
 "boussole": {
   "utilisateur": "operator", "ip_locale": "__IP_LAN__", "repertoire": "/opt/diwall",
   "url_courante": "https://target.local/dashboard", "titre_page": "Dashboard",
-  "auth_status": "active", "som_hors_viewport": 3
+  "auth_status": "active", "som_hors_viewport": 3, "dernier_code_http": 200
 }
 ```
 
-Conditional keys (absent when inactive): `session_derive` (`--reprendre-session`
-URL drift), `auth_status` (`--auth-indicator`), `som_hors_viewport` (>0),
-`shadow_dom_actif`, `stealth_actif`, `http_credentials_actif`/`http_auth_requise`
-(v1.21.0) — each conditioned on real effect, never just the CLI flag being
-passed (precedent: `stealth_actif` bug fixed v1.16.0).
+Conditional keys (absent when inactive): `session_derive` (`--reprendre-session` URL drift), `auth_status` (`--auth-indicator`), `som_hors_viewport` (>0),
+`shadow_dom_actif`, `stealth_actif`, `repli_js_utilise` (v1.22.0, real JS escalade only, never just the flag), `wait_until` (v1.22.0, only when it differs from the default), `http_credentials_actif`/`http_auth_requise`
+— each conditioned on real effect, never just the CLI flag being passed (precedent: `stealth_actif` bug fixed v1.16.0).
+Always present (unlike the above): `dernier_code_http` (v1.22.0) — last navigation's HTTP status; ambiguous across multi-navigation runs, see
+`GUIDE_LLM_SESSIONS.md` for the nuance.
 
 `etat.mode_conseille` — present only with real prior data for this host,
 never a guess. Full detail: `GUIDE_LLM_MONITORING.md`.
 
-If `boussole` does not match your expectation: stop and investigate before
-any mutating action.
+If `boussole` does not match your expectation: stop and investigate before any mutating action.
 
 **`etat` is declarative, never a gate:** `pret_a_agir`/`niveau_confiance`/
 `raisons` are a report, not a control — no dispatcher checks them before
 running. `pret_a_agir: false` means a friction was perceived (WAF, JS errors,
-citizenship cap, session drift) worth your attention, not a refusal. Read
+navigation cap, session drift) worth your attention, not a refusal. Read
 `raisons`, decide on the actual friction — the decision is always yours.
 
 ---
@@ -185,6 +185,7 @@ citizenship cap, session drift) worth your attention, not a refusal. Read
 | Symptom | Notice |
 |---|---|
 | Timeout on click/fill, `showModal()`, strict mode, SoM mismatch, Shadow DOM, `evaluer` assertion | `GUIDE_LLM_INTERACTIONS.md` |
+| Initial navigation times out despite a generous `--timeout` (live-stats/polling target) → `--wait-until load` | `GUIDE_LLM_INTERACTIONS.md` |
 | `exit 42`/`43` (vault), `--secrets`, `--http-credentials`, `--reprendre-session`, SPA nav, auth expiry | `GUIDE_LLM_SESSIONS.md` |
 | Screenshot timeout, `watch.py` diff, long operations, `journal.py` | `GUIDE_LLM_MONITORING.md` |
 
@@ -192,12 +193,11 @@ citizenship cap, session drift) worth your attention, not a refusal. Read
 
 | Notice | Load when | Version |
 |---|---|---|
-| `GUIDE_LLM_INTERACTIONS.md` | Interaction/DOM errors, Shadow DOM, iframes | v1.8 |
-| `GUIDE_LLM_SESSIONS.md` | Vault, `--secrets`, `--http-credentials`, sessions, SPA, MFA, `--checkpoint` | v1.8 |
-| `GUIDE_LLM_MONITORING.md` | `watch.py`, pixel diff, `--replay-verifier`, `mode_conseille`, journal | v1.10 |
+| `GUIDE_LLM_INTERACTIONS.md` | Interaction/DOM errors, `--wait-until`, Shadow DOM, iframes | v1.10 |
+| `GUIDE_LLM_SESSIONS.md` | Vault, `--secrets`, `--http-credentials`, sessions, SPA, MFA, `--checkpoint` | v1.10 |
+| `GUIDE_LLM_MONITORING.md` | `watch.py`, pixel diff, `--replay-verifier`, `mode_conseille`, journal | v1.11 |
 
-> Version column is canonical — reload a notice if your copy shows lower.
-> If in doubt: load INTERACTIONS first (most frequent errors).
+> Version column is canonical — reload a notice if your copy shows lower. If in doubt: load INTERACTIONS first (most frequent errors).
 
 ---
 
@@ -217,7 +217,7 @@ mutating before completing the map.
 
 ---
 
-## WAF and Cloudflare blocking — Navigation Citoyenne
+## WAF and Cloudflare blocking — Respectful Navigation
 
 `--stealth` (v1.15.0) is the first response — removes `navigator.webdriver`,
 normalises plugins/languages/platform. **Not** covered: TLS fingerprinting
@@ -225,7 +225,7 @@ normalises plugins/languages/platform. **Not** covered: TLS fingerprinting
 deep fingerprinting. Field data: `docs/RETOUR_EXPERIENCE.md` FR-77/FR-78,
 doctrine: `LEGITIMITE_ETRE_LLM.md`.
 
-**Passive detection — `citoyennete.waf_bloquants`:** flagged on every
+**Passive detection — `respect.waf_bloquants`:** flagged on every
 navigation (403/429, or a title/HTML keyword match) — a **signal, never an
 exception**, Diwall does not abort or moralize about access. Heuristic
 (keyword match): a false positive is possible on a page that legitimately

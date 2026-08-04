@@ -176,7 +176,7 @@ def test_4_iframe():
         ("succes == True", data is not None and data.get("succes") is True),
         ("indice_agressivite == 0.5 (1 écriture / 2 actions)",
          data is not None
-         and data.get("citoyennete", {}).get("indice_agressivite") == 0.5),
+         and data.get("respect", {}).get("indice_agressivite") == 0.5),
     ])
 
 

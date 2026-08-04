@@ -2491,11 +2491,16 @@ Sites accessibles : 2 sites SSR sans WAF. Sites bloqués : grandes enseignes et 
 
 ---
 
-### FR-78 — Droit à la navigation et contrat éthique de la Navigation Citoyenne
+### FR-78 — Droit à la navigation et contrat éthique de la Navigation Respectueuse
+
+> **Note de renommage (v1.22.0) :** ce relevé date de la v1.15.0, où la doctrine
+> s'appelait « Navigation Citoyenne » et la clé de sortie `citoyennete`. Le nom a
+> changé — pas la doctrine. Le texte ci-dessous porte les noms en vigueur pour
+> rester exact à la lecture ; le fait historique, lui, est inchangé.
 
 **Description :** l'expérience de recherche commerciale multi-sites (FR-77) a déclenché
 une réflexion de fond sur la légitimité de navigation d'un LLM. Elle a abouti à la
-formulation du contrat éthique de la Navigation Citoyenne, inscrit dans la v1.15.0.
+formulation du contrat éthique de la Navigation Respectueuse, inscrit dans la v1.15.0.
 
 **Constat :** un LLM naviguant pour un opérateur humain depuis son IP, avec son
 autorisation explicite, est refusé à l'entrée de sites publics par détection
@@ -2516,7 +2521,7 @@ n'est pas interdit de site web pour autant.
    de façon mesurée et respectueuse des ressources des sites visités :
    - délai minimum entre les actions (`min_action_delay_ms`)
    - plafond de pages et d'actions par run (`max_pages_par_run`, `max_actions_par_run`)
-   - métriques de son propre impact dans la boussole (`citoyennete`)
+   - métriques de son propre impact dans la boussole (`respect`)
 
 **Ce que Diwall ne fait pas :** créer de fausse identité, cacher l'opérateur ou son IP,
 prétendre être "Paul sur Safari". Le mode furtif (`--stealth`, v1.15.0) retire les

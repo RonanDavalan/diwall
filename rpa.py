@@ -20,7 +20,7 @@ Format du scénario :
 Le vault est résolu par lib/vault.py (DIWALL_VAULT_DIR > diwall.conf > ~/Vaults/Diwall/).
 Jamais de mot de passe dans les fichiers de scénario.
 """
-__version__ = "1.21.0"
+__version__ = "1.22.0"
 
 import argparse
 import json
@@ -324,6 +324,13 @@ def main():
                         "Propagé à shot.py.")
     p.add_argument("--stealth", action="store_true",
                    help="Active le mode furtif playwright-stealth (v1.15.0). Propagé à shot.py.")
+    p.add_argument("--wait-until", dest="wait_until",
+                   choices=["networkidle", "load", "domcontentloaded"], default=None,
+                   help="Condition d'arrêt de la navigation initiale (v1.22.0). Sans valeur, "
+                        "shot.py garde son défaut (networkidle). 'load' pour une cible qui "
+                        "n'atteint jamais le silence réseau (statistiques live, polling "
+                        "continu). Prime sur la propriété racine 'wait_until' du scénario. "
+                        "Propagé à shot.py.")
     p.add_argument("--ignore-tls-errors", dest="ignore_tls_errors", action="store_true",
                    help="Accepte les certificats TLS invalides (LAN dev/Step-CA). Propagé à shot.py. (v1.15.1)")
     p.add_argument("--http-credentials", dest="http_credentials", action="store_true",
@@ -573,6 +580,13 @@ def main():
         cmd += ["--mode", args.mode]
     if args.stealth:
         cmd.append("--stealth")
+    # v1.22.0, Axe D — l'argument CLI prime sur la propriété racine du scénario
+    # (et non un OR comme shadow_dom/http_credentials : ces deux-là sont des
+    # booléens d'activation, celui-ci porte une valeur, deux valeurs ne
+    # s'additionnent pas). Absent des deux côtés : shot.py garde son défaut.
+    wait_until = args.wait_until or scenario.get("wait_until")
+    if wait_until:
+        cmd += ["--wait-until", wait_until]
     if args.http_credentials or scenario.get("http_credentials"):
         cmd.append("--http-credentials")
     if args.ignore_tls_errors:
@@ -645,18 +659,18 @@ def main():
 
     # ── Mise à jour du checkpoint (v1.17.0, item 2 ; v1.17.2, plafond) ────────
     if args.checkpoint and sortie is not None:
-        plafond_atteint = (sortie.get("citoyennete") or {}).get("plafond_atteint")
+        plafond_atteint = (sortie.get("respect") or {}).get("plafond_atteint")
         if result.returncode == 0 and not plafond_atteint:
             # Tronçon restant entièrement exécuté — plus rien à reprendre.
             if os.path.isfile(args.checkpoint):
                 os.remove(args.checkpoint)
         else:
-            # v1.17.2 (FR-80) : un plafond de citoyenneté atteint retourne
+            # v1.17.2 (FR-80) : un plafond de navigation atteint retourne
             # succes: true / exit 0 comme un tronçon terminé — sans ce test
             # explicite, le checkpoint était supprimé à tort et la progression
             # perdue, alors qu'il restait des actions à exécuter.
             if plafond_atteint:
-                delta = (sortie.get("citoyennete") or {}).get("actions_executees")
+                delta = (sortie.get("respect") or {}).get("actions_executees")
             else:
                 delta = sortie.get("actions_executees_avant_echec")
             if delta is not None:

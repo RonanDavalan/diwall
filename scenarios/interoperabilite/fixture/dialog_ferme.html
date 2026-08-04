@@ -1,0 +1,13 @@
+<!DOCTYPE html>
+<html lang="fr">
+<head><meta charset="utf-8"><title>Fixture repli_js v1.22.0</title></head>
+<body>
+<!-- <dialog> sans attribut "open" : display:none par la feuille de style
+     utilisateur-agent par defaut, sans JS pour l'ouvrir. Cible deterministe
+     pour verifier qu'un clic natif (meme force:true) echoue sur un element
+     sans boite de mise en page, et que repli_js recupere via un clic JS. -->
+<dialog id="dialog-ferme">
+  <button id="btn-dans-dialog-ferme" onclick="this.textContent='Confirme'">Confirmer</button>
+</dialog>
+</body>
+</html>

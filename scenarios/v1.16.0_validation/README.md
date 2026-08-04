@@ -16,7 +16,7 @@ as `scripts/preflight-publication.sh`).
   external WAF target).
 - **T-D1** — `console.error(...)` captured in `erreurs_console`, distinct
   from `erreurs_js` (item D).
-- **T-E1** — `citoyennete.indice_agressivite` computed correctly on a mixed
+- **T-E1** — `respect.indice_agressivite` computed correctly on a mixed
   read/write action sequence (item E).
 - **T-F1** — `--stealth` genuinely masks `navigator.webdriver` and
   `boussole.stealth_actif` only reflects real application (FR-79 fix,
