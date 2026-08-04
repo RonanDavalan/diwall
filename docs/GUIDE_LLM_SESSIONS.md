@@ -1,8 +1,9 @@
-# Diwall — Sessions guide (vault, credentials, SPA, MFA, multi-page)
+# Diwall — Sessions guide (encrypted directory, credentials, SPA, MFA, multi-page)
 
-<!-- notice-version: 1.10 -->
-Version 1.10 — July 2026 (v1.22.0) — `citoyennete` renamed to `respect` (breaking).
-Prior (v1.22.0): `dernier_code_http` in boussole,
+<!-- notice-version: 1.0 -->
+Version 1.0 — August 2026. First published edition. This number counts
+revisions of this notice, not releases of Diwall.
+Notable in the current text: `dernier_code_http` in boussole,
 disambiguates real session expiry from a masked server error on the same
 login redirect. Prior (v1.21.0): `--http-credentials`: username/password
 fallback, confirmed against a real Caddy target. Fixed a false claim that
@@ -10,7 +11,7 @@ fallback, confirmed against a real Caddy target. Fixed a false claim that
 its filename is arbitrary, never hostname-derived — both found via a real
 field session (Qwen3.6 Plus, ticketing-platform check-in documentation, 14/07/2026)
 
-Load this notice when: vault credentials, `--secrets`, session persistence, SPA navigation,
+Load this notice when: credentials, `--secrets`, session persistence, SPA navigation,
 multi-page flows, MFA/TOTP, auth_indicator, --no-capture.
 
 ---
@@ -19,11 +20,11 @@ multi-page flows, MFA/TOTP, auth_indicator, --no-capture.
 
 **FORBIDDEN — extracts credential into shell:**
 ```bash
-PASS=$(jq -r '.password' ~/Secrets/.../file.json)   # NEVER
-USER=$(jq -r '.username' ~/Secrets/.../file.json)    # NEVER
+PASS=$(jq -r '.password' ~/Vaults/.../file.json)   # NEVER
+USER=$(jq -r '.username' ~/Vaults/.../file.json)    # NEVER
 ```
 
-**CORRECT — vault resolved inside Playwright by lib/repertoire_chiffre.py:**
+**CORRECT — credentials resolved inside Playwright by lib/repertoire_chiffre.py:**
 ```json
 {"type": "remplir_som", "id": 2, "valeur": "depuis_secrets", "secret_cle": "username"}
 {"type": "remplir_som", "id": 3, "valeur": "depuis_secrets", "secret_cle": "password"}
@@ -34,70 +35,70 @@ Also forbidden: using `curl`, `wget`, or any HTTP client for authentication.
 
 ---
 
-## Vault configuration — how it works
+## Credentials — how it works
 
-The vault is a JSON file inside a gocryptfs-encrypted directory, mounted by the operator.
+The credentials file is a JSON file inside an encrypted directory (a gocryptfs volume), mounted by the operator.
 `lib/repertoire_chiffre.py` reads the mounted file; it never exposes values in the shell.
 
-The active vault path is configured in `diwall.conf` (YAML, `secrets_defaut`).
-You never need to know the path — pass `--secrets` when you need a specific vault,
-otherwise the default vault in `diwall.conf` is used.
+The active credentials path is configured in `diwall.conf` (YAML, `secrets_defaut`).
+You never need to know the path — pass `--secrets` when you need a specific file,
+otherwise the default one in `diwall.conf` is used.
 
 `secret_cle` is the JSON key inside the decrypted file (e.g., `"username"`, `"password"`).
 
-**If the vault is closed** (gocryptfs not mounted): shot.py exits with `SecretsFermesError(42)`.
-Do not try to mount the vault yourself — ask the operator to run the mount script.
+**If the encrypted directory is closed** (gocryptfs not mounted): shot.py exits with `SecretsFermesError(42)`.
+Do not try to mount it yourself — ask the operator to run the mount script.
 
-**Unmounted vault and internal writes (fixed in v1.17.2):**
+**Unmounted directory and internal writes (fixed in v1.17.2):**
 Diwall's own operations journal (`operations.jsonl`) and mutative-run proof
-archiving (`preuves/`) now detect a closed vault before writing: if the
-configured path is inside the vault but the vault is not currently mounted,
+archiving (`preuves/`) now detect a closed directory before writing: if the
+configured path is inside it but it is not currently mounted,
 the journal entry is redirected to a local fallback
 (`/tmp/diwall/operations.fallback.jsonl`, permissions 700/600) instead of
 being written in clear text on the raw host directory, and proof archiving is
 skipped entirely rather than duplicating authenticated screenshots outside
-the vault. Note: the fallback location is not encrypted either — it is a
+the encrypted directory. Note: the fallback location is not encrypted either — it is a
 lesser evil (already the existing degraded-write behavior on any journal
-failure), not a substitute for a mounted vault.
+failure), not a substitute for a mounted encrypted directory.
 
 **Still your responsibility — writing new credential files:**
 The internal guard above only covers Diwall's own journal/proof writes. If
 you construct or update a *credential file* yourself (e.g., via a shell
 command or `evaluer` outside Diwall's `depuis_secrets` mechanism), the same
-risk applies and is not automatically caught: the vault directory, if
+risk applies and is not automatically caught: the encrypted directory, if
 unmounted, exists on disk but is empty and unencrypted. Before creating or
-updating a credential file, confirm the vault is mounted — the directory
+updating a credential file, confirm it is mounted — the directory
 must be non-empty. If in doubt, stop and ask the operator to verify — never
-write credentials assuming the vault is open.
+write credentials assuming it is open.
 
 ---
 
-## `--secrets` — specifying a non-default vault
+## `--secrets` — specifying a non-default credentials file
 
-When a scenario needs credentials from a vault different from the default:
+When a scenario needs credentials from a file other than the default:
 
 ```bash
 /opt/diwall/venv/bin/python3 /opt/diwall/shot.py \
   --url https://target.local/ \
   --scenario /opt/diwall/scenarios/my-scenario.json \
-  --secrets /opt/diwall/vaults/other-vault/creds.json
+  --secrets ~/Vaults/Diwall/other-project/creds.json
 ```
 
 ```bash
 /opt/diwall/venv/bin/python3 /opt/diwall/rpa.py \
   --scenario /opt/diwall/scenarios/my-scenario.json \
-  --secrets /opt/diwall/vaults/other-vault/creds.json
+  --secrets ~/Vaults/Diwall/other-project/creds.json
 ```
 
-**Multi-vault (v1.10.0):** one `--secrets FILE` per run — not repeatable on the
+**Multiple credentials files (v1.10.0):** one `--secrets FILE` per run — not repeatable on the
 same command line (`--secrets` is a single value; a second occurrence
-silently overrides the first, it does not accumulate). "Multi-vault" means
+silently overrides the first, it does not accumulate). "Multiple files" means
 across runs: an operator with several tenants/projects each keeps their own
-vault file, and each run picks the right one explicitly via `--secrets`,
+credentials file, and each run picks the right one explicitly via `--secrets`,
 instead of relying on automatic per-hostname resolution. **The filename is
 whatever the operator chose — never assume it matches the target's
 hostname** (e.g. a file named `client-a.json` can hold credentials for
-`app.client-a.example`); `ls` the vault directory or ask rather than guess.
+`app.client-a.example`); `ls` the credentials directory or ask rather than guess.
 
 ---
 
@@ -211,7 +212,7 @@ resume point.
   are skipped, the run continues from the saved session's URL.
 - On full success (remaining actions complete): the checkpoint file is
   deleted automatically — nothing left to resume.
-- On a failure with no recoverable progress (e.g. vault closed before any
+- On a failure with no recoverable progress (e.g. encrypted directory closed before any
   action ran): the checkpoint file is left untouched — retry is identical
   to before.
 - **Navigation cap reached (fixed in v1.17.2):** if the run stops because
@@ -348,7 +349,7 @@ notification system. This requires the ntfy integration to be configured.
 `id_som`: SoM ID of the OTP input field. `timeout`: max wait in seconds (default 120).
 
 The action polls the ntfy topic for a 6-digit code, then fills the input field
-and submits. It does NOT use the vault — the code is pushed live by the authenticator.
+and submits. It does NOT read the credentials file — the code is pushed live by the authenticator.
 
 **Manual TOTP fallback** (no ntfy):
 ```json
@@ -387,7 +388,7 @@ the beginning of every scenario that requires a logged-in session.
 | Session drift detected | Re-run login without `--reprendre-session` |
 | SPA navigation | Always add `attendre_url` after click |
 | Credential fill | `valeur: "depuis_secrets"` + `secret_cle` — never shell |
-| Non-default vault | `--secrets /path/to/creds.json` |
+| Non-default credentials file | `--secrets /path/to/creds.json` |
 | OTP in real-time | `attendre_mfa_ntfy` or manual `remplir_som` |
 
 ---
@@ -422,7 +423,7 @@ flag unless you have a specific, documented reason for a controlled LAN or dev e
 
 ## `--http-credentials` — HTTP Basic Auth (v1.21.0)
 
-Diwall's vault handles web **form** authentication (`remplir_som` +
+Diwall's credential resolution handles web **form** authentication (`remplir_som` +
 `depuis_secrets`). It does not, on its own, answer a browser-level HTTP Basic
 Auth challenge (RFC 7617) — the kind a reverse proxy (Caddy, nginx, Traefik)
 raises before any page renders. `--http-credentials` closes that specific
@@ -440,15 +441,15 @@ Or via `rpa.py` (propagated automatically), or as a scenario root property
 `"http_credentials": true` — combinable with the CLI flag, same pattern as
 `shadow_dom`.
 
-**Vault keys:** `http_username`/`http_password` tried first (needed only if
+**Credential keys:** `http_username`/`http_password` tried first (needed only if
 the same target also has a separate application-level login behind the
 Basic Auth wall, e.g. a reverse proxy in front of its own login form — two
 different credential pairs in the same file). If absent, Diwall falls back
 to the plain `username`/`password` keys — the common case, confirmed
-against a real Caddy-protected target (v1.21.0): most vault files already
+against a real Caddy-protected target (v1.21.0): most credentials files already
 have exactly this pair for a single-credential target, no renaming needed.
 Resolved from the same file already in scope for the run (`--secrets` if
-passed, otherwise the default vault by hostname). Never passed on the
+passed, otherwise the default file by hostname). Never passed on the
 command line.
 
 **Security — non-negotiable:** identifiers are scoped to the target's

@@ -173,7 +173,7 @@ bash ~/git/Diwall/Diwall/scripts/uninstall.sh --confirme
 
 Entfernt: `/opt/diwall/`, `/var/log/diwall/`, Systembenutzer `diwall`, Systemgruppe `diwall`, Gruppenmitgliedschaft des Operators, Git-Pre-Push-Hook.
 
-**Nicht verändert:** `~/Secrets/` (Anmeldedaten-Tresore), das Repository selbst, der Playwright-Browser-Cache.
+**Nicht verändert:** `~/Vaults/` (Anmeldedaten-Tresore), das Repository selbst, der Playwright-Browser-Cache.
 
 Wenn `/var/log/diwall/preuves/` Aufnahmen enthält, bleiben sie standardmässig erhalten. Fügen Sie `--purge-preuves` hinzu, um sie zu löschen.
 
@@ -219,7 +219,7 @@ Vollständige Referenz für Modelle: [`docs/GUIDE_LLM.md`](docs/GUIDE_LLM.md)
 Zugangsdaten werden in JSON-Dateien gespeichert, eine Datei pro Domain, **niemals im Code oder in Szenariodateien**:
 
 ```
-~/Secrets/Diwall/
+~/Vaults/Diwall/
 ├── my-app.local.json        → {"password": "...", "username": "admin"}
 └── other-service.com.json   → {"password": "...", "api_key": "..."}
 ```
@@ -228,7 +228,7 @@ In einem Szenario oder einer Aktion: `"valeur": "depuis_secrets", "secret_cle": 
 
 Der Pfad zum Vault ist über die Umgebungsvariable `/opt/diwall/diwall.conf` oder `DIWALL_SECRETS_DIR` konfigurierbar.
 
-Empfehlung: Schützen Sie `~/Secrets/Diwall/` mit `chmod 700` und verschlüsseln Sie es mit `gocryptfs` (siehe `~/git/Diwall/Diwall/scripts/configurer-repertoire-chiffre.sh --gocryptfs`). Verschlüsselte Vaults werden vollständig ab Version v1.5.0 unterstützt – wenn die Vault initialisiert, aber nicht gemountet ist, gibt Diwall einen strukturierten Fehler `SecretsFermesError` (Exit-Code 42) zurück, anstatt stillschweigend zu fehlschlagen.
+Empfehlung: Schützen Sie `~/Vaults/Diwall/` mit `chmod 700` und verschlüsseln Sie es mit `gocryptfs` (siehe `~/git/Diwall/Diwall/scripts/configurer-repertoire-chiffre.sh --gocryptfs`). Verschlüsselte Vaults werden vollständig ab Version v1.5.0 unterstützt – wenn die Vault initialisiert, aber nicht gemountet ist, gibt Diwall einen strukturierten Fehler `SecretsFermesError` (Exit-Code 42) zurück, anstatt stillschweigend zu fehlschlagen.
 
 ---
 
@@ -245,10 +245,10 @@ Wenn Diwall mit einem Cloud-basierten LLM (Claude API, OpenAI usw.) verwendet wi
 
 ### Verzeichnis für den Tresor
 
-Das Tresorverzeichnis (standardmässig `~/Secrets/Diwall/`) enthält im ungemounteten Zustand Zugangsdaten als Klartext-JSON. Schützen Sie es:
+Das Tresorverzeichnis (standardmässig `~/Vaults/Diwall/`) enthält im ungemounteten Zustand Zugangsdaten als Klartext-JSON. Schützen Sie es:
 
 ```bash
-chmod 700 ~/Secrets/Diwall/
+chmod 700 ~/Vaults/Diwall/
 ```
 
 Die Unterstützung für verschlüsselte Dateisysteme (`gocryptfs`) wird seit Version 1.5.0 vollständig unterstützt –

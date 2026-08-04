@@ -57,8 +57,8 @@ captures against it — pixel diff locally, or a description by a local vision
 model. Used for detecting visual regressions without a human looking.
 
 **diwall-monter-secrets**, **diwall-demonter-secrets**
-: Mount and unmount the gocryptfs-encrypted credential vault. Diwall refuses
-to resolve any credential while the vault is closed, exiting with status 42
+: Mount and unmount the gocryptfs-encrypted credentials directory. Diwall refuses
+to resolve any credential while it is closed, exiting with status 42
 rather than falling back to anything weaker.
 
 **diwall-monitor-verifier**
@@ -106,7 +106,7 @@ change the operator's IP address and does not forge an identity — the point
 is equal treatment, not disguise.
 
 **--secrets** *FILE*
-: Resolve credentials from an explicit JSON file inside a mounted vault,
+: Resolve credentials from an explicit JSON file inside a mounted directory,
 instead of the default host-based lookup.
 
 **--no-evaluer**
@@ -150,28 +150,28 @@ in the JSON, not as a failure of the command.
 : Incompatible arguments, rejected before any browser was started.
 
 **42**
-: The credential vault is closed. Mount it with **diwall-monter-secrets**.
+: The credentials directory is closed. Mount it with **diwall-monter-secrets**.
 
 **43**
-: A vault integrity checksum did not match.
+: A credentials integrity checksum did not match.
 
 # EXAMPLES
 
 Capture a page with numbered elements and the accessibility tree:
 
-    diwall-shot --url https://example.com --som --a11y --guide-version 4.1
+    diwall-shot --url https://example.com --som --a11y --guide-version 1.0
 
 Read only the state of a page, without producing an image:
 
-    diwall-shot --url https://example.com --mode fast --guide-version 4.1
+    diwall-shot --url https://example.com --mode fast --guide-version 1.0
 
 Reach an administration panel that refreshes statistics continuously:
 
     diwall-shot --url http://target.local/ --wait-until load --som
 
-Run a scenario with credentials from an explicit vault file:
+Run a scenario with credentials from an explicit file:
 
-    diwall-rpa --scenario ./login.json --secrets ~/Secrets/project/creds.json
+    diwall-rpa --scenario ./login.json --secrets ~/Vaults/project/creds.json
 
 Check that a page has not structurally regressed:
 

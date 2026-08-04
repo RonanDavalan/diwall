@@ -207,14 +207,14 @@ done
 SAMPLE="$DEST/diwall-sample.conf"
 sudo tee "$SAMPLE" > /dev/null << 'CONF_EOF'
 {
-  "secrets_dir": "~/Secrets/Diwall",
+  "secrets_dir": "~/Vaults/Diwall",
   "navigation": {
     "min_action_delay_ms": 800,
     "max_pages_par_run": 10,
     "max_actions_par_run": 30
   },
   "journal": {
-    "chemin": "~/Secrets/Diwall/operations.jsonl"
+    "chemin": "~/Vaults/Diwall/operations.jsonl"
   }
 }
 CONF_EOF
@@ -230,7 +230,7 @@ if [ ! -f "$CONF" ]; then
     echo "  │                                                                      │"
     echo "  │    sudo cp $SAMPLE $CONF      │"
     echo "  │    sudo nano $CONF                                                   │"
-    echo "  │    → {\"secrets_dir\": \"~/Secrets/<PROJET>/Diwall\"}                       │"
+    echo "  │    → {\"secrets_dir\": \"~/Vaults/<PROJET>/Diwall\"}                       │"
     echo "  └──────────────────────────────────────────────────────────────────────┘"
 else
     echo "  Préservé: diwall.conf (config machine existante)"

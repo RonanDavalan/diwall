@@ -65,11 +65,11 @@ grep "__version__" /opt/diwall/shot.py
 /opt/diwall/venv/bin/python3 -c "import playwright_stealth; print('stealth OK')"
 
 # Verifique que el almacén esté montado.
-ls ~/Secrets/__PROJET__/Diwall/
+ls ~/Vaults/__PROJET__/Diwall/
 # → debe mostrar archivos .json, no una lista vacía.
 ```
 
-Si `ls ~/Secrets/...` devuelve una lista vacía o un error:
+Si `ls ~/Vaults/...` devuelve una lista vacía o un error:
 → monta el cofre: `bash ~/git/Diwall/Diwall/scripts/monter-repertoire-chiffre.sh`
 
 ### 1a. Instalación desde el paquete de Debian: la opción más sencilla.
@@ -104,7 +104,7 @@ sudo usermod -aG diwall $USER
 ```
 
 `apt remove diwall` mantiene `/var/log/diwall/` (registro de operaciones, evidencia)
-intacto; `apt purge diwall` también lo elimina. `~/Secrets/` nunca es modificado por
+intacto; `apt purge diwall` también lo elimina. `~/Vaults/` nunca es modificado por
 ninguno de los dos, en ambos canales.
 
 **Página del manual (v1.22.0):** `man diwall` documenta los seis comandos en una
@@ -140,8 +140,8 @@ sudo /opt/diwall/venv/bin/playwright install chromium
 bash ~/git/Diwall/Diwall/scripts/deploy.sh
 
 # 6. Crea tu bóveda de credenciales.
-mkdir -p ~/Secrets/<your-project>/Diwall
-# Crea el archivo `~/Secrets/<tu-proyecto>/Diwall/<nombre_de_host>.json` con tus credenciales.
+mkdir -p ~/Vaults/<your-project>/Diwall
+# Crea el archivo `~/Vaults/<tu-proyecto>/Diwall/<nombre_de_host>.json` con tus credenciales.
 ```
 
 En este canal, la configuración es `/opt/diwall/diwall.conf`, no
@@ -296,7 +296,7 @@ Configurado en `/opt/diwall/diwall.conf`:
 
 ```json
 {
-  "secrets_dir": "~/Secrets/__PROJET__/Diwall",
+  "secrets_dir": "~/Vaults/__PROJET__/Diwall",
   "navigation": {
     "min_action_delay_ms": 800,
     "max_pages_par_run": 10,
@@ -408,7 +408,7 @@ La detección se basa en palabras clave y puede producir coincidencias incorrect
 Un "vault" es un directorio encriptado (gocryptfs) que contiene `.json` archivos por dominio.
 
 ```
-~/Secrets/__PROJET__/Diwall/
+~/Vaults/__PROJET__/Diwall/
   ├── app.example.com.json         ← credentials for https://app.example.com/
   ├── admin.example.com.json       ← credentials for https://admin.example.com/
   └── operations.jsonl             ← operation log (v1.15.0)
@@ -430,7 +430,7 @@ El nombre del archivo = `urlparse(url).hostname`. Para `https://app.example.com/
 **PELIGRO — expone la contraseña en el shell y `/proc`**:
 
 ```bash
-PASS=$(jq -r '.password' ~/Secrets/.../file.json)   # NEVER
+PASS=$(jq -r '.password' ~/Vaults/.../file.json)   # NEVER
 curl -d "password=$PASS" https://...                 # NEVER
 ```
 
@@ -519,7 +519,7 @@ SecretsFermesError: Le coffre Diwall est initialisé mais non monté.
 bash ~/git/Diwall/Diwall/scripts/monter-repertoire-chiffre.sh
 
 # Verifique el montaje.
-ls ~/Secrets/__PROJET__/Diwall/
+ls ~/Vaults/__PROJET__/Diwall/
 # → debe mostrar archivos JSON
 ```
 
@@ -531,7 +531,7 @@ un "firewall" que un proxy inverso como Caddy, nginx o Traefik presenta antes de
 ```bash
 /opt/diwall/venv/bin/python3 /opt/diwall/shot.py \
   --url https://internal.example/ \
-  --http-credentials --secrets ~/Secrets/__PROJET__/Diwall/internal_example.json
+  --http-credentials --secrets ~/Vaults/__PROJET__/Diwall/internal_example.json
 ```
 
 Archivo de bóveda: el par simple `username` / `password` ya utilizado para el caso común (un único conjunto de credenciales para el destino):
@@ -1144,7 +1144,7 @@ El registro es configurable en `diwall.conf` (v1.15.0):
 
 ```json
 "journal": {
-  "chemin": "~/Secrets/__PROJET__/Diwall/operations.jsonl"
+  "chemin": "~/Vaults/__PROJET__/Diwall/operations.jsonl"
 }
 ```
 
@@ -1152,7 +1152,7 @@ Si está ausente o el cofre no está montado, alternativa: variable de entorno `
 
 ```bash
 # Lee las últimas 10 entradas.
-tail -n 10 ~/Secrets/__PROJET__/Diwall/operations.jsonl | python3 -m json.tool
+tail -n 10 ~/Vaults/__PROJET__/Diwall/operations.jsonl | python3 -m json.tool
 
 # Filtra por objetivo (herramienta journal.py).
 /opt/diwall/venv/bin/python3 /opt/diwall/journal.py \
@@ -1368,7 +1368,7 @@ Claves condicionales (ausentes cuando está inactivo): `capture`, `capture_som`,
 | `/opt/diwall/docs/` | Documentación |
 | `/opt/diwall/references/` | Referencias visuales watch.py |
 | `/tmp/diwall/<operation_id>/` | Capturas temporales para una ejecución, aisladas por `operation_id` (v1.16.0, se borran al reiniciar) |
-| `~/Secrets/__PROJET__/Diwall/` | Almacén de credenciales + log (gocryptfs) |
+| `~/Vaults/__PROJET__/Diwall/` | Almacén de credenciales + log (gocryptfs) |
 | `~/git/Diwall/Diwall/` | Fuentes Git (modificar aquí, luego `deploy.sh`) |
 
 Desplegar después de modificar las fuentes:

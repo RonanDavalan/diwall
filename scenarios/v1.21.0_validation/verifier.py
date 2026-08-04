@@ -27,7 +27,7 @@ FIXTURE_SERVEUR = os.path.join(
     RACINE, "scenarios", "interoperabilite", "fixture", "serveur_basicauth.py"
 )
 PYTHON = sys.executable
-GUIDE_VERSION = "4.1"  # resynchronise v1.22.0 — voir docs/GUIDE_LLM.md notice-version
+GUIDE_VERSION = "1.0"  # compteur propre au guide — voir docs/GUIDE_LLM.md notice-version
 PORT = 8643
 URL_FIXTURE = f"http://127.0.0.1:{PORT}/"
 UTILISATEUR = "diwall_fixture"

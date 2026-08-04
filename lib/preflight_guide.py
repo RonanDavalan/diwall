@@ -10,7 +10,14 @@ technique correspondant.
 
 Jeton : GUIDE_VERSION_ATTENDUE doit toujours être synchronisé avec le
 commentaire <!-- notice-version: X.Y --> en tête de docs/GUIDE_LLM.md. Toute
-modification substantielle du guide bump les deux ensemble.
+modification substantielle du guide incrémente les deux ensemble.
+
+Le compteur est propre au guide et n'est pas celui de Diwall : il atteste la
+lecture du guide, pas l'état du logiciel. L'aligner sur la version du logiciel
+invaliderait les jetons de tous les agents à chaque version sans changement de
+guide, et laisserait passer inaperçue une correction du guide entre deux
+versions. Il n'est pas calendaire non plus : une date se cite sans avoir rien
+lu, un numéro de révision doit être allé chercher.
 
 Marqueur : ~/.config/diwall/guide_state.json, scope utilisateur OS — jamais
 sous le répertoire chiffré (dépendance absurde à un montage gocryptfs pour un accusé de
@@ -24,7 +31,7 @@ même de la fonctionnalité, pas un effet de bord à minimiser.
 import json
 import os
 
-GUIDE_VERSION_ATTENDUE = "4.1"
+GUIDE_VERSION_ATTENDUE = "1.0"
 
 _MARQUEUR_PATH = os.path.join(os.path.expanduser("~"), ".config", "diwall", "guide_state.json")
 

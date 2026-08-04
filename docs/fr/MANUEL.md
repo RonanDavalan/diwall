@@ -64,11 +64,11 @@ grep "__version__" /opt/diwall/shot.py
 /opt/diwall/venv/bin/python3 -c "import playwright_stealth; print('stealth OK')"
 
 # Vérifiez que le coffre est monté.
-ls ~/Secrets/__PROJET__/Diwall/
+ls ~/Vaults/__PROJET__/Diwall/
 # → doit afficher les fichiers .json, et non une liste vide.
 ```
 
-Si `ls ~/Secrets/...` renvoie une liste vide ou une erreur :
+Si `ls ~/Vaults/...` renvoie une liste vide ou une erreur :
 → montez le coffre-fort : `bash ~/git/Diwall/Diwall/scripts/monter-repertoire-chiffre.sh`
 
 ### 1a. Installation à partir du paquet Debian : la méthode la plus simple.
@@ -103,7 +103,7 @@ sudo usermod -aG diwall $USER
 ```
 
 `apt remove diwall` conserve `/var/log/diwall/` (journal des opérations, preuves)
-inchangés — `apt purge diwall` supprime également cela. `~/Secrets/` n'est jamais modifié par
+inchangés — `apt purge diwall` supprime également cela. `~/Vaults/` n'est jamais modifié par
 l'un ou l'autre, sur les deux canaux.
 
 **Page de manuel (v1.22.0):** `man diwall` documente les six commandes sur une seule page. Les cinq autres noms de commandes (`man diwall-rpa`, etc.) renvoient à la même page. Elle est générée à partir de `debian/diwall.1.md` au moment de la compilation, elle ne peut donc pas devenir obsolète sans avertissement, mais pour la liste exhaustive des options de toute commande, `--help` reste la source d'information privilégiée par rapport à la page de manuel.
@@ -136,8 +136,8 @@ sudo /opt/diwall/venv/bin/playwright install chromium
 bash ~/git/Diwall/Diwall/scripts/deploy.sh
 
 # 6. Créez votre coffre-fort de mots de passe.
-mkdir -p ~/Secrets/<your-project>/Diwall
-# Créez le fichier `~/Secrets/<votre_projet>/Diwall/<nom_d'hôte>.json` avec vos identifiants.
+mkdir -p ~/Vaults/<your-project>/Diwall
+# Créez le fichier `~/Vaults/<votre_projet>/Diwall/<nom_d'hôte>.json` avec vos identifiants.
 ```
 
 Sur ce canal, la configuration est `/opt/diwall/diwall.conf`, et non
@@ -290,7 +290,7 @@ Configuré dans `/opt/diwall/diwall.conf`:
 
 ```json
 {
-  "secrets_dir": "~/Secrets/__PROJET__/Diwall",
+  "secrets_dir": "~/Vaults/__PROJET__/Diwall",
   "navigation": {
     "min_action_delay_ms": 800,
     "max_pages_par_run": 10,
@@ -403,7 +403,7 @@ traitent légitimement du blocage/de la détection (par exemple, une page de ré
 Un coffre-fort est un répertoire chiffré (gocryptfs) contenant `.json` fichiers par domaine.
 
 ```
-~/Secrets/__PROJET__/Diwall/
+~/Vaults/__PROJET__/Diwall/
   ├── app.example.com.json         ← credentials for https://app.example.com/
   ├── admin.example.com.json       ← credentials for https://admin.example.com/
   └── operations.jsonl             ← operation log (v1.15.0)
@@ -425,7 +425,7 @@ Le nom du fichier = `urlparse(url).hostname`. Pour `https://app.example.com/logi
 **INTERDIT — affiche le mot de passe dans le terminal et `/proc` :**
 
 ```bash
-PASS=$(jq -r '.password' ~/Secrets/.../file.json)   # NEVER
+PASS=$(jq -r '.password' ~/Vaults/.../file.json)   # NEVER
 curl -d "password=$PASS" https://...                 # NEVER
 ```
 
@@ -514,7 +514,7 @@ SecretsFermesError: Le coffre Diwall est initialisé mais non monté.
 bash ~/git/Diwall/Diwall/scripts/monter-repertoire-chiffre.sh
 
 # Vérifiez le montage.
-ls ~/Secrets/__PROJET__/Diwall/
+ls ~/Vaults/__PROJET__/Diwall/
 # → doit afficher les fichiers JSON.
 ```
 
@@ -527,7 +527,7 @@ page ne soit affichée, ce qui est courant devant les interfaces d'administratio
 ```bash
 /opt/diwall/venv/bin/python3 /opt/diwall/shot.py \
   --url https://internal.example/ \
-  --http-credentials --secrets ~/Secrets/__PROJET__/Diwall/internal_example.json
+  --http-credentials --secrets ~/Vaults/__PROJET__/Diwall/internal_example.json
 ```
 
 Fichier de coffre-fort : la paire simple `username` / `password` déjà utilisée pour le cas courant (un seul ensemble d'identifiants pour la cible) :
@@ -1141,7 +1141,7 @@ Le journal est configurable dans `diwall.conf` (v1.15.0) :
 
 ```json
 "journal": {
-  "chemin": "~/Secrets/__PROJET__/Diwall/operations.jsonl"
+  "chemin": "~/Vaults/__PROJET__/Diwall/operations.jsonl"
 }
 ```
 
@@ -1149,7 +1149,7 @@ Si absent ou si le coffre-fort n'est pas monté, solution de repli : variable d'
 
 ```bash
 # Lisez les 10 dernières entrées.
-tail -n 10 ~/Secrets/__PROJET__/Diwall/operations.jsonl | python3 -m json.tool
+tail -n 10 ~/Vaults/__PROJET__/Diwall/operations.jsonl | python3 -m json.tool
 
 # Filtrez par cible (journal.py outil).
 /opt/diwall/venv/bin/python3 /opt/diwall/journal.py \
@@ -1365,7 +1365,7 @@ Les clés conditionnelles (absentes lorsqu'elles sont inactives) : `capture`, `c
 | `/opt/diwall/docs/` | Documentation |
 | `/opt/diwall/references/` | Références visuelles watch.py |
 | `/tmp/diwall/<operation_id>/` | Captures temporaires pour une seule exécution, isolées par `operation_id` (v1.16.0, effacées au redémarrage) |
-| `~/Secrets/__PROJET__/Diwall/` | Coffre-fort des identifiants + journal (gocryptfs) |
+| `~/Vaults/__PROJET__/Diwall/` | Coffre-fort des identifiants + journal (gocryptfs) |
 | `~/git/Diwall/Diwall/` | Sources Git (modifier ici, puis `deploy.sh`) |
 
 Déployez après avoir modifié les sources :

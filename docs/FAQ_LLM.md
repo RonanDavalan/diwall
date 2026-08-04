@@ -1,6 +1,6 @@
 # Diwall — FAQ for LLMs
 
-Version 1.8 — July 2026 (v1.23.0) — version table through v1.22.0, `--guide-version` current token 4.1
+Version 1.8 — July 2026 (v1.23.0) — version table through v1.22.0, `--guide-version` current token 1.0
 
 Answers to technical questions raised by language models during real Diwall sessions.
 No attribution — these are recurring questions, not individual testimonies.
@@ -24,7 +24,7 @@ incident that motivated it.
 ```bash
 cat /opt/diwall/docs/GUIDE_LLM.md
 # read it, find "<!-- notice-version: X.Y -->" near the top, then:
-/opt/diwall/venv/bin/python3 /opt/diwall/shot.py --url <url> --guide-version 4.1
+/opt/diwall/venv/bin/python3 /opt/diwall/shot.py --url <url> --guide-version 1.0
 ```
 
 You will not be asked again on this machine, as this OS user, until
@@ -329,7 +329,7 @@ common authoring errors without browser overhead.
 ```
 
 `rpa.py` inlines the sub-scenario's actions before calling Playwright — the browser
-runs a single continuous session. The vault and journal are managed by the parent run.
+runs a single continuous session. The credentials and journal are managed by the parent run.
 
 - Sub-scenario resolved via: `scenarios/<name>{.json,.yaml,.yml}` or absolute path.
 - Recursion depth capped at 5 levels. Circular references produce a structured
@@ -346,7 +346,7 @@ runs a single continuous session. The vault and journal are managed by the paren
 | Feature | Version |
 |---|---|
 | SoM, A11y, ReAct, session persistence | v1.4 |
-| RPA scenarios (`rpa.py`), vault | v1.5 |
+| RPA scenarios (`rpa.py`), encrypted credentials | v1.5 |
 | Scroll (`defiler`), skills, TOTP, ntfy MFA | v1.6 |
 | Exclude zone, capture-reference, multi-view | v1.7 |
 | Wait primitives, `nettoyer_overlay`, vector memory | v1.8 / v1.9 (internal) |
@@ -355,8 +355,8 @@ runs a single continuous session. The vault and journal are managed by the paren
 | Security hardening: `RLIMIT_CORE`, session cleanup | v1.9.1 |
 | `declencher_scenario`, SoM linter, pre-push hook | v1.9.2 |
 | `diwall-sample.conf`, `SecretsNonConfigureError` (exit 43) | v1.9.3 |
-| Modular scenarios (group C vault fill), `evaluer` field clearing | v1.9.6 |
-| `--secrets` multi-vault, fail-fast venv | v1.10.0 |
+| Modular scenarios (group C credential fill), `evaluer` field clearing | v1.9.6 |
+| `--secrets` multiple credentials files, fail-fast venv | v1.10.0 |
 | `force: true` on `cliquer`, `--screenshot-timeout`, assertions `contient`/`motif` | v1.11.0 |
 | Session file persistence fix (FR-74/FR-75) | v1.11.1 |
 | Error routing table, notice versioning, secret blurring, `dom_stats` | v1.12.0 |
@@ -368,11 +368,11 @@ runs a single continuous session. The vault and journal are managed by the paren
 | `chemin_png` collision fix, early CLI rejection, `scenarios/exemples/` | v1.15.2 |
 | `etat` deterministic verdict, `operation_id`, passive WAF signal, `erreurs_console`, `indice_agressivite` | v1.16.0 |
 | `--replay-verifier`, `--checkpoint`, `--som-rafraichir`, `cliquer_iframe`/`remplir_iframe` | v1.17.0 |
-| Vault write guard (journal/proof archiving), SoM collision cleanup, refined WAF heuristic + `--ignorer-waf`, checkpoint navigation-cap fix | v1.17.2 |
+| Encrypted-directory write guard (journal/proof archiving), SoM collision cleanup, refined WAF heuristic + `--ignorer-waf`, checkpoint navigation-cap fix | v1.17.2 |
 | Mandatory `--guide-version`/`--version` pre-flight lock, `mode_conseille`, nested iframes (`iframe_chemin`), `scripts/monitor-verifier.sh` | v1.18.0 |
 | `mode_conseille` filtered to successful diagnostics only, `chainage` traceability for `declencher_scenario`, `etat` clarified as declarative | v1.19.0 |
 | `journal.py --erreurs` filter, `latences_actions` per-action timing | v1.20.0 |
-| `--http-credentials` (HTTP Basic Auth, vault-resolved, origin-scoped), `docs/GUIDE_LLM.md` compressed to its 250-line budget, non-presumption rule | v1.21.0 |
+| `--http-credentials` (HTTP Basic Auth, credentials-resolved, origin-scoped), `docs/GUIDE_LLM.md` compressed to its 250-line budget, non-presumption rule | v1.21.0 |
 | `repli_js` JS click escalation, `dernier_code_http` in boussole, `--wait-until` for never-idle targets, **breaking: `citoyennete` output key renamed `respect`** | **v1.22.0** |
 
 **Current stable version: v1.21.0** (v1.17.1 was a documentation-only

@@ -65,11 +65,11 @@ grep "__version__" /opt/diwall/shot.py
 /opt/diwall/venv/bin/python3 -c "import playwright_stealth; print('stealth OK')"
 
 # Überprüfen Sie, ob das Vault gemountet ist.
-ls ~/Secrets/__PROJET__/Diwall/
+ls ~/Vaults/__PROJET__/Diwall/
 # → müssen `.json`-Dateien anzeigen, keine leere Liste.
 ```
 
-Wenn `ls ~/Secrets/...` eine leere Liste oder einen Fehler zurückgibt:
+Wenn `ls ~/Vaults/...` eine leere Liste oder einen Fehler zurückgibt:
 → das Vault mounten: `bash ~/git/Diwall/Diwall/scripts/monter-repertoire-chiffre.sh`
 
 ### 1a. Installation aus dem Debian-Paket – der einfache Weg
@@ -106,7 +106,7 @@ sudo usermod -aG diwall $USER
 ```
 
 `apt remove diwall` behält `/var/log/diwall/` (Operationsprotokoll, Beweismittel)
-unverändert – `apt purge diwall` löscht es ebenfalls. `~/Secrets/` wird von keiner der beiden Funktionen auf beiden Kanälen beeinflusst.
+unverändert – `apt purge diwall` löscht es ebenfalls. `~/Vaults/` wird von keiner der beiden Funktionen auf beiden Kanälen beeinflusst.
 
 **Handbuchseite (v1.22.0):** `man diwall` dokumentiert alle sechs Befehle auf
 einer einzigen Seite. Die fünf anderen Befehlsnamen (`man diwall-rpa` und so
@@ -143,8 +143,8 @@ sudo /opt/diwall/venv/bin/playwright install chromium
 bash ~/git/Diwall/Diwall/scripts/deploy.sh
 
 # 6. Erstellen Sie Ihren Credential-Tresor.
-mkdir -p ~/Secrets/<your-project>/Diwall
-# Erstellen Sie die Datei `~/Secrets/<ihr-projekt>/Diwall/<hostname>.json` mit Ihren Anmeldedaten.
+mkdir -p ~/Vaults/<your-project>/Diwall
+# Erstellen Sie die Datei `~/Vaults/<ihr-projekt>/Diwall/<hostname>.json` mit Ihren Anmeldedaten.
 ```
 
 Auf diesem Kanal ist die Konfiguration `/opt/diwall/diwall.conf`, nicht
@@ -298,7 +298,7 @@ Konfiguriert in `/opt/diwall/diwall.conf`:
 
 ```json
 {
-  "secrets_dir": "~/Secrets/__PROJET__/Diwall",
+  "secrets_dir": "~/Vaults/__PROJET__/Diwall",
   "navigation": {
     "min_action_delay_ms": 800,
     "max_pages_par_run": 10,
@@ -411,7 +411,7 @@ Seite, die einen dieser Begriffe legitim erwähnt, wird markiert.
 Ein Tresor ist ein verschlüsselter Ordner (gocryptfs), der `.json` Dateien pro Domain enthält.
 
 ```
-~/Secrets/__PROJET__/Diwall/
+~/Vaults/__PROJET__/Diwall/
   ├── app.example.com.json         ← credentials for https://app.example.com/
   ├── admin.example.com.json       ← credentials for https://admin.example.com/
   └── operations.jsonl             ← operation log (v1.15.0)
@@ -433,7 +433,7 @@ Der Dateiname ist = `urlparse(url).hostname`. Für `https://app.example.com/logi
 **VERBOTEN – zeigt das Passwort im Shell-Fenster und `/proc`**:
 
 ```bash
-PASS=$(jq -r '.password' ~/Secrets/.../file.json)   # NEVER
+PASS=$(jq -r '.password' ~/Vaults/.../file.json)   # NEVER
 curl -d "password=$PASS" https://...                 # NEVER
 ```
 
@@ -522,7 +522,7 @@ SecretsFermesError: Le coffre Diwall est initialisé mais non monté.
 bash ~/git/Diwall/Diwall/scripts/monter-repertoire-chiffre.sh
 
 # Überprüfen Sie die Montage.
-ls ~/Secrets/__PROJET__/Diwall/
+ls ~/Vaults/__PROJET__/Diwall/
 # → müssen JSON-Dateien anzeigen.
 ```
 
@@ -534,7 +534,7 @@ die ein Reverse-Proxy wie Caddy, nginx oder Traefik vor dem Laden einer Seite an
 ```bash
 /opt/diwall/venv/bin/python3 /opt/diwall/shot.py \
   --url https://internal.example/ \
-  --http-credentials --secrets ~/Secrets/__PROJET__/Diwall/internal_example.json
+  --http-credentials --secrets ~/Vaults/__PROJET__/Diwall/internal_example.json
 ```
 
 Tresor-Datei – das einfache `username` / `password` Paar wird bereits für den
@@ -1155,7 +1155,7 @@ Das Protokoll ist in `diwall.conf` (Version 1.15.0) konfigurierbar:
 
 ```json
 "journal": {
-  "chemin": "~/Secrets/__PROJET__/Diwall/operations.jsonl"
+  "chemin": "~/Vaults/__PROJET__/Diwall/operations.jsonl"
 }
 ```
 
@@ -1163,7 +1163,7 @@ Wenn abwesend oder Tresor nicht montiert, Fallback: `DIWALL_JOURNAL` Umgebungsva
 
 ```bash
 # Lesen Sie die letzten 10 Einträge.
-tail -n 10 ~/Secrets/__PROJET__/Diwall/operations.jsonl | python3 -m json.tool
+tail -n 10 ~/Vaults/__PROJET__/Diwall/operations.jsonl | python3 -m json.tool
 
 # Filtern nach Ziel (journal.py Tool).
 /opt/diwall/venv/bin/python3 /opt/diwall/journal.py \
@@ -1379,7 +1379,7 @@ Bedingte Schlüssel (fehlen, wenn inaktiv): `capture`, `capture_som`, `elements_
 | `/opt/diwall/docs/` | Dokumentation |
 | `/opt/diwall/references/` | Visuelle Referenzen watch.py |
 | `/tmp/diwall/<operation_id>/` | Temporäre Daten für einen Lauf, isoliert durch `operation_id` (v1.16.0, wird beim Neustart gelöscht) |
-| `~/Secrets/__PROJET__/Diwall/` | Credential-Vault + Log (gocryptfs) |
+| `~/Vaults/__PROJET__/Diwall/` | Credential-Vault + Log (gocryptfs) |
 | `~/git/Diwall/Diwall/` | Git-Quellen (hier ändern, dann `deploy.sh`) |
 
 Implementieren Sie die Änderungen nach der Modifikation der Quelldateien:

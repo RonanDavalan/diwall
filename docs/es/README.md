@@ -175,7 +175,7 @@ bash ~/git/Diwall/Diwall/scripts/uninstall.sh --confirme
 
 Elimina: `/opt/diwall/`, `/var/log/diwall/`, usuario del sistema `diwall`, grupo del sistema `diwall`, pertenencia al grupo de operadores, "git pre-push" hook.
 
-**Nunca modificados:** `~/Secrets/` (bóvedas de credenciales), el repositorio en sí mismo, la caché del navegador Playwright.
+**Nunca modificados:** `~/Vaults/` (bóvedas de credenciales), el repositorio en sí mismo, la caché del navegador Playwright.
 
 Si `/var/log/diwall/preuves/` contiene capturas, se conservan por omisión. Añada `--purge-preuves` para eliminarlas.
 
@@ -221,7 +221,7 @@ Referencia completa para los modelos: [`docs/GUIDE_LLM.md`](docs/GUIDE_LLM.md)
 Las credenciales se almacenan en archivos JSON, uno por dominio, **nunca en el código ni en los archivos de escenarios**:
 
 ```
-~/Secrets/Diwall/
+~/Vaults/Diwall/
 ├── my-app.local.json        → {"password": "...", "username": "admin"}
 └── other-service.com.json   → {"password": "...", "api_key": "..."}
 ```
@@ -230,7 +230,7 @@ En un escenario o acción: `"valeur": "depuis_secrets", "secret_cle": "password"
 
 La ruta del almacén de datos es configurable a través de la variable de entorno `/opt/diwall/diwall.conf` o `DIWALL_SECRETS_DIR`.
 
-**Recomendación:** proteja `~/Secrets/Diwall/` con `chmod 700` y encripte con `gocryptfs` (consulte `~/git/Diwall/Diwall/scripts/configurer-repertoire-chiffre.sh --gocryptfs`). El almacén encriptado está totalmente soportado desde la versión v1.5.0; si el almacén se inicializa pero no se monta, Diwall devuelve una estructura `SecretsFermesError` (código de salida 42) en lugar de fallar silenciosamente.
+**Recomendación:** proteja `~/Vaults/Diwall/` con `chmod 700` y encripte con `gocryptfs` (consulte `~/git/Diwall/Diwall/scripts/configurer-repertoire-chiffre.sh --gocryptfs`). El almacén encriptado está totalmente soportado desde la versión v1.5.0; si el almacén se inicializa pero no se monta, Diwall devuelve una estructura `SecretsFermesError` (código de salida 42) en lugar de fallar silenciosamente.
 
 ---
 
@@ -247,10 +247,10 @@ Cuando Diwall se utiliza con un LLM basado en la nube (API de Claude, OpenAI, et
 
 ### Directorio del almacén
 
-El directorio del almacén (por defecto, `~/Secrets/Diwall/`) contiene credenciales en texto plano JSON cuando está desmontado. Protéjalo:
+El directorio del almacén (por defecto, `~/Vaults/Diwall/`) contiene credenciales en texto plano JSON cuando está desmontado. Protéjalo:
 
 ```bash
-chmod 700 ~/Secrets/Diwall/
+chmod 700 ~/Vaults/Diwall/
 ```
 
 El soporte para sistemas de archivos encriptados (`gocryptfs`) ha sido compatible por completo desde la versión 1.5.0;

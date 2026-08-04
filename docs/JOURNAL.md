@@ -1016,7 +1016,7 @@ since the Debian packaging work below introduced that directory.
   `demonter-repertoire-chiffre.sh` themselves are untouched, the wrapper alone injects
   `--config /etc/diwall/diwall.conf`.
 - `postrm` distinguishes `remove` (code + venv + system user/group) from
-  `purge` (also removes `/var/log/diwall` and `/etc/diwall`). `~/Secrets/` is
+  `purge` (also removes `/var/log/diwall` and `/etc/diwall`). `~/Vaults/` is
   never touched by either — outside dpkg's purview by construction.
 - `scripts/preflight-publication.sh` scope extended to `debian/*` (no file
   extension on `control`/`postinst`/`postrm`/`rules` meant they were
@@ -1095,7 +1095,7 @@ full cold-reinstall test, fixed before running it. Commit `480b55e`.
 
 **Full cold-install validation:** `uninstall.sh --confirme` (complete removal:
 `/opt/diwall/`, `/var/log/diwall/`, system user/group, pre-push hook —
-`~/Secrets/`, git sources, and the Playwright cache confirmed preserved) then
+`~/Vaults/`, git sources, and the Playwright cache confirmed preserved) then
 `install.sh` from scratch (fresh user/group/venv/Chromium, 37 files deployed,
 permissions check, integrated smoke test) — passed on the first run with the
 fix in place. `scenarios/v1.18.0_validation/` 5/5 and all four regression
@@ -1860,7 +1860,7 @@ three architectural gaps identified by Claude Sillage during PHASE_VALIDATION C2
   must be created manually from this template — its absence shows a framed warning.
   Separate permissions: `lib/*.py` → 644, `scenarios/*` + `skills/*` + `diwall.conf` → 640.
 
-- `lib/repertoire_chiffre.py` — removal of silent fallback `~/Secrets/Diwall`.
+- `lib/repertoire_chiffre.py` — removal of silent fallback `~/Vaults/Diwall`.
   New exception `SecretsNonConfigureError` (exit 43) raised if `diwall.conf` absent
   during vault resolution. Structured message with correction instructions.
   Vault error set: 42 = vault closed, 43 = not configured.
@@ -2067,7 +2067,7 @@ Incomplete JSON schema (refs without definitions).
 
 - `lib/vector.py` (FR-53) — new optional ChromaDB interface. DB_PATH cascade:
   `DIWALL_VECTOR_DB` env → `diwall.conf.vector_db` → `_CADRE/MEMOIRE/`
-  (if sibling) → `~/Secrets/Diwall/chroma_db`. Lazy imports (chromadb, requests).
+  (if sibling) → `~/Vaults/Diwall/chroma_db`. Lazy imports (chromadb, requests).
 
 - `scenarios/schema.json` — 5 JSON Schema definitions added (AttendreUrl,
   AttendreSelecteurPresent, AttendreAbsence, AttendreReseauCalme, NettoyerOverlay),

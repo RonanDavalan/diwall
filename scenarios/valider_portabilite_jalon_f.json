@@ -1,7 +1,7 @@
 {
   "$schema": "https://raw.githubusercontent.com/RonanDavalan/diwall/main/scenarios/schema.json",
   "nom": "valider_portabilite_jalon_f",
-  "description": "Validation Jalon F UI complet — F1 (colonne Télécharger + href sécurisé), F2 (dialog purge + options TTL + annuler), F3 (dialog export), F4 (code appairage). Pré-condition opérateur : créer une archive factice dans /var/tmp/ avant le test. Credentials via vault.",
+  "description": "Validation Jalon F UI complet — F1 (colonne Télécharger + href sécurisé), F2 (dialog purge + options TTL + annuler), F3 (dialog export), F4 (code appairage). Pré-condition opérateur : créer une archive factice dans /var/tmp/ avant le test. Credentials via le répertoire chiffré.",
   "url": "https://__HOST_ADMIN__/?vue=login",
   "actions": [
 

@@ -190,7 +190,7 @@ documente le même schéma à l'échelle d'un panel (39 % de blocage immédiat).
 # → doit renvoyer {"succes": true, ...}
 
 # 2. Vérifiez que le coffre est monté (si vous utilisez gocryptfs).
-ls ~/Secrets/Diwall/
+ls ~/Vaults/Diwall/
 # → doit afficher les fichiers .json, et non le contenu chiffré.
 
 # 3. Vérifier les informations d'identification pour un domaine.
@@ -210,7 +210,7 @@ Chaque projet peut avoir son propre coffre-fort. Deux méthodes :
 **Méthode 1 : Variable d'environnement directe (exécution unique) :**
 
 ```bash
-DIWALL_SECRETS_DIR=~/Secrets/MyProject \
+DIWALL_SECRETS_DIR=~/Vaults/MyProject \
   /opt/diwall/venv/bin/python3 /opt/diwall/shot.py --url …
 ```
 
@@ -451,7 +451,7 @@ Qu'est-ce qui est supprimé :
 | Hook de pré-envoi Git | `core.hooksPath` désactivé dans le dépôt source |
 
 Ce qui n'est jamais modifié :
-- `~/Secrets/` — vos coffres-forts de données d'identification
+- `~/Vaults/` — vos coffres-forts de données d'identification
 - `~/git/Diwall/` — les sources Git
 - Le cache du navigateur Playwright (`~/.cache/ms-playwright/`)
 

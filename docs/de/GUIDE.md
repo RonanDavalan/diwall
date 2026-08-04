@@ -182,7 +182,7 @@ Muster auf Panel-Ebene (39 % sofortige Blockaderate).
 # → muss {"succes": true, ...} zurückgeben
 
 # 2. Überprüfen Sie, ob das Vault gemountet ist (falls gocryptfs verwendet wird).
-ls ~/Secrets/Diwall/
+ls ~/Vaults/Diwall/
 # → müssen `.json`-Dateien anzeigen, keine verschlüsselten Inhalte.
 
 # 3. Überprüfen Sie die Anmeldeinformationen für eine Domain.
@@ -202,7 +202,7 @@ Jedes Projekt kann seinen eigenen Tresor haben. Zwei Methoden:
 **Methode 1 – Direkte Umgebungsvariable (einmalige Ausführung):**
 
 ```bash
-DIWALL_SECRETS_DIR=~/Secrets/MyProject \
+DIWALL_SECRETS_DIR=~/Vaults/MyProject \
   /opt/diwall/venv/bin/python3 /opt/diwall/shot.py --url …
 ```
 
@@ -439,7 +439,7 @@ Was wird entfernt:
 | git pre-push hook | `core.hooksPath` deaktiviert im Quellrepository |
 
 **Was niemals verändert wird:**
-- `~/Secrets/` – Ihre Anmeldedaten-Tresore
+- `~/Vaults/` – Ihre Anmeldedaten-Tresore
 - `~/git/Diwall/` – Git-Quellen
 - Der Browser-Cache von Playwright (`~/.cache/ms-playwright/`)
 

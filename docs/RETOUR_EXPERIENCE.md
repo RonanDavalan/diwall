@@ -256,27 +256,27 @@ PNG dans `output-dir/`. Très utile pour le debug.
 
 ---
 
-## 12. `~/Secrets/Diwall` par défaut, pas `~/Secrets/<Projet>/Diwall`
+## 12. `~/Vaults/Diwall` par défaut, pas `~/Vaults/<Projet>/Diwall`
 
-Le vault par défaut est `~/Secrets/Diwall/<domaine>.json`. L'opérateur
-peut avoir historiquement rangé les credentials en `~/Secrets/<PROJET>/Diwall/...`.
+Le vault par défaut est `~/Vaults/Diwall/<domaine>.json`. L'opérateur
+peut avoir historiquement rangé les credentials en `~/Vaults/<PROJET>/Diwall/...`.
 La première tentative `remplir … "valeur":"depuis_secrets"` a échoué parce
-que Diwall cherchait `~/Secrets/Diwall/__HOST_ADMIN__.json` (absent).
+que Diwall cherchait `~/Vaults/Diwall/__HOST_ADMIN__.json` (absent).
 
 **Origine** : `lib/repertoire_chiffre.py` lit `DIWALL_SECRETS_DIR` (env var), sinon défaut
-`~/Secrets/Diwall`. La doc ne dit pas que la convention multi-projet
-`~/Secrets/<Projet>/Diwall/` est gérée à la main par l'utilisateur via env.
+`~/Vaults/Diwall`. La doc ne dit pas que la convention multi-projet
+`~/Vaults/<Projet>/Diwall/` est gérée à la main par l'utilisateur via env.
 
 **Friction ressentie** : « j'ai mis les credentials au bon endroit, pourquoi
 ça ne marche pas ? ». Cinq minutes de `find` pour réaliser que c'était une
 question de variable d'env.
 
-**Workaround** : `DIWALL_SECRETS_DIR=~/Secrets/<PROJET>/Diwall` devant
+**Workaround** : `DIWALL_SECRETS_DIR=~/Vaults/<PROJET>/Diwall` devant
 l'invocation, à chaque fois.
 
 **Suggestion Diwall** : (a) lire un fichier de config par projet
 (`.diwall.toml` à la racine du dépôt courant qui pointe le vault dir), ou
-(b) une convention « auto-détecter `~/Secrets/<basename-du-cwd>/Diwall/` ».
+(b) une convention « auto-détecter `~/Vaults/<basename-du-cwd>/Diwall/` ».
 
 ---
 
@@ -1166,7 +1166,7 @@ de la dialog ouverte plutôt que par le numéro SoM.
 # Session 13 — 8 juin 2026 — première connexion à un service cloud multi-ports
 
 Première connexion à `__HOST_SERVICE__` (service Pretix hébergé sur plateforme
-cloud). Vault configuré à `~/Secrets/Diwall/` avec des fichiers organisés en
+cloud). Vault configuré à `~/Vaults/Diwall/` avec des fichiers organisés en
 sous-répertoires par service. Trois frictions vault découvertes lors de la
 première tentative d'authentification via `depuis_secrets`.
 
@@ -1267,8 +1267,8 @@ fonctionnalités absentes de la version de référence déployée.
 
 **Contexte** : `diwall.conf` est stocké dans `/opt/diwall/diwall.conf` — un
 seul fichier pour toute la machine. La clé `secrets_dir` pointait sur le vault
-du projet en cours (`~/Secrets/<PROJET>/`). Pour un second projet, il a fallu
-contourner via la variable d'environnement `DIWALL_SECRETS_DIR=~/Secrets/Diwall`
+du projet en cours (`~/Vaults/<PROJET>/`). Pour un second projet, il a fallu
+contourner via la variable d'environnement `DIWALL_SECRETS_DIR=~/Vaults/Diwall`
 à chaque invocation.
 
 **Symptôme** : sans le contournement, `depuis_secrets` charge les credentials
@@ -1281,7 +1281,7 @@ Le contournement `DIWALL_SECRETS_DIR=` est fonctionnel mais doit être rappelé
 à chaque invocation ou scriptés — source d'oubli.
 
 **Workaround** : préfixer chaque invocation avec
-`DIWALL_SECRETS_DIR=~/Secrets/<Projet>` ou l'exporter en début de session shell.
+`DIWALL_SECRETS_DIR=~/Vaults/<Projet>` ou l'exporter en début de session shell.
 
 **Piste de correction** : résolution per-projet — lire un fichier
 `.diwall.conf` à la racine du répertoire courant (ou d'un répertoire parent)
@@ -1460,7 +1460,7 @@ son mécanisme sudo Django et ses conventions d'URL.
 ## Session 16 — 9 juin 2026 — Vault multi-projet
 
 **Contexte** : `diwall.conf` global contient un `secrets_dir` en dur
-(`~/Secrets/<PROJET>/`) — tous les projets utilisent le même coffre.
+(`~/Vaults/<PROJET>/`) — tous les projets utilisent le même coffre.
 Demande : chaque projet doit pouvoir utiliser son propre coffre.
 
 **Décision architecturale :** nouvelle cascade de configuration (planifiée avec
@@ -2252,7 +2252,7 @@ Conséquence : un LLM qui s'attend à de la concaténation (ex. champ pré-rempl
 
 La logistique (monter le vault, vérifier que le fichier existe) est invisible dans la commande `rpa.py` et génère des surprises à l'exécution.
 
-**Contournement recommandé :** maintenir un fichier JSON permanent par tenant dans le vault (ex. `~/Secrets/<PROJET>/Diwall/tenant_alpha.json`). Le format attendu :
+**Contournement recommandé :** maintenir un fichier JSON permanent par tenant dans le vault (ex. `~/Vaults/<PROJET>/Diwall/tenant_alpha.json`). Le format attendu :
 ```json
 {
   "username": "...",
@@ -2277,14 +2277,14 @@ Seules les clés référencées dans le scénario sont requises.
 any(chemin in ligne for ligne in /proc/mounts)
 ```
 Ce test cherche `chemin` comme sous-chaîne de chaque ligne de `/proc/mounts`. Cela fonctionne
-quand `secrets_dir` EST le point de montage exact (ex. `~/Secrets/<PROJET>`). Mais si le
+quand `secrets_dir` EST le point de montage exact (ex. `~/Vaults/<PROJET>`). Mais si le
 fichier credentials est dans un **sous-dossier** du coffre monté (ex.
-`~/Secrets/<PROJET>/Diwall/__TENANT__.json`), le répertoire parent est
-`~/Secrets/<PROJET>/Diwall` — absent de `/proc/mounts` (seul
-`~/Secrets/<PROJET>` y figure). Le test retourne `False` → `SecretsFermesError(42)`.
+`~/Vaults/<PROJET>/Diwall/__TENANT__.json`), le répertoire parent est
+`~/Vaults/<PROJET>/Diwall` — absent de `/proc/mounts` (seul
+`~/Vaults/<PROJET>` y figure). Le test retourne `False` → `SecretsFermesError(42)`.
 
 **Contournement de Sillage :** copier le fichier credentials à la racine du coffre
-(`~/Secrets/<PROJET>/__TENANT__.json`) pour que le répertoire parent soit
+(`~/Vaults/<PROJET>/__TENANT__.json`) pour que le répertoire parent soit
 exactement le point de montage.
 
 **Cause racine :** dérive sémantique — la vérification testait l'égalité exacte du chemin

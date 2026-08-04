@@ -21,7 +21,7 @@ No architectural descriptions. Commands that work.
 1. [Verify the installation](#1-verify-the-installation)
 2. [Capture a page](#2-capture-a-page)
 3. [Respectful navigation (v1.15.0)](#3-respectful-navigation-v1150)
-4. [Vault and credentials](#4-vault-and-credentials)
+4. [Encrypted directory and credentials](#4-encrypted-directory-and-credentials)
 5. [Write and run an RPA scenario](#5-write-and-run-an-rpa-scenario)
 6. [Actions — complete reference](#6-actions--complete-reference)
 7. [Handle common obstacles](#7-handle-common-obstacles)
@@ -44,7 +44,7 @@ No architectural descriptions. Commands that work.
 ```bash
 # Full test in one command (~3 s)
 /opt/diwall/venv/bin/python3 /opt/diwall/shot.py \
-  --url https://example.com --mode fast --guide-version 4.1
+  --url https://example.com --mode fast --guide-version 1.0
 ```
 
 Expected result: JSON on stdout with `"succes": true`.
@@ -71,13 +71,13 @@ grep "__version__" /opt/diwall/shot.py
 # Verify playwright-stealth is available (v1.15.0)
 /opt/diwall/venv/bin/python3 -c "import playwright_stealth; print('stealth OK')"
 
-# Verify the vault is mounted
-ls ~/Secrets/__PROJET__/Diwall/
+# Verify the encrypted directory is mounted
+ls ~/Vaults/__PROJET__/Diwall/
 # → must show .json files, not an empty list
 ```
 
-If `ls ~/Secrets/...` returns an empty list or an error:
-→ mount the vault: `bash ~/git/Diwall/Diwall/scripts/monter-repertoire-chiffre.sh`
+If `ls ~/Vaults/...` returns an empty list or an error:
+→ mount it: `bash ~/git/Diwall/Diwall/scripts/monter-repertoire-chiffre.sh`
 
 ### 1a. Installing from the Debian package — the simple path
 
@@ -116,7 +116,7 @@ sudo usermod -aG diwall $USER
 ```
 
 `apt remove diwall` keeps `/var/log/diwall/` (operations journal, evidence)
-intact — `apt purge diwall` also removes it. `~/Secrets/` is never touched by
+intact — `apt purge diwall` also removes it. `~/Vaults/` is never touched by
 either, on both channels.
 
 **Manual page (v1.22.0):** `man diwall` documents all six commands on a
@@ -151,9 +151,9 @@ sudo /opt/diwall/venv/bin/playwright install chromium
 # 5. Deploy
 bash ~/git/Diwall/Diwall/scripts/deploy.sh
 
-# 6. Create your credential vault
-mkdir -p ~/Secrets/<your-project>/Diwall
-# Create ~/Secrets/<your-project>/Diwall/<hostname>.json with your credentials
+# 6. Create your encrypted credentials directory
+mkdir -p ~/Vaults/<your-project>/Diwall
+# Create ~/Vaults/<your-project>/Diwall/<hostname>.json with your credentials
 ```
 
 On this channel the configuration is `/opt/diwall/diwall.conf`, not
@@ -315,7 +315,7 @@ Configured in `/opt/diwall/diwall.conf`:
 
 ```json
 {
-  "secrets_dir": "~/Secrets/__PROJET__/Diwall",
+  "secrets_dir": "~/Vaults/__PROJET__/Diwall",
   "navigation": {
     "min_action_delay_ms": 800,
     "max_pages_par_run": 10,
@@ -436,14 +436,14 @@ page) — treat it as a fast signal, not a certain verdict.
 
 ---
 
-## 4. Vault and credentials
+## 4. Encrypted directory and credentials
 
-### 4a. Vault structure
+### 4a. Structure
 
-A vault is an encrypted directory (gocryptfs) containing `.json` files per domain.
+The credentials live in an encrypted directory — a gocryptfs volume — containing one `.json` file per domain.
 
 ```
-~/Secrets/__PROJET__/Diwall/
+~/Vaults/__PROJET__/Diwall/
   ├── app.example.com.json         ← credentials for https://app.example.com/
   ├── admin.example.com.json       ← credentials for https://admin.example.com/
   └── operations.jsonl             ← operation log (v1.15.0)
@@ -463,11 +463,11 @@ The file name = `urlparse(url).hostname`. For `https://app.example.com/login/`, 
 
 **FORBIDDEN — exposes the password in the shell and `/proc`:**
 ```bash
-PASS=$(jq -r '.password' ~/Secrets/.../file.json)   # NEVER
+PASS=$(jq -r '.password' ~/Vaults/.../file.json)   # NEVER
 curl -d "password=$PASS" https://...                 # NEVER
 ```
 
-**CORRECT — vault resolved inside Playwright:**
+**CORRECT — credentials resolved inside Playwright:**
 ```json
 {"type": "remplir_som", "id": 2, "valeur": "depuis_secrets", "secret_cle": "username"},
 {"type": "remplir_som", "id": 3, "valeur": "depuis_secrets", "secret_cle": "password"}
@@ -475,25 +475,25 @@ curl -d "password=$PASS" https://...                 # NEVER
 
 Values never pass through the shell, bash history, process logs, or any file.
 
-### 4c. Choosing the vault for a run
+### 4c. Choosing the credentials file for a run
 
 ```bash
-# Default vault (defined in diwall.conf > secrets_dir)
+# Default credentials directory (defined in diwall.conf > secrets_dir)
 /opt/diwall/venv/bin/python3 /opt/diwall/shot.py --url https://target.local/ --som
 
-# Explicit vault for a specific file (--secrets)
+# Explicit credentials file (--secrets)
 /opt/diwall/venv/bin/python3 /opt/diwall/shot.py \
   --url https://target.local/ --som \
-  --secrets /path/to/mounted/vault/creds.json
+  --secrets /path/to/mounted/directory/creds.json
 
-# Per-project vault via .diwall.conf
+# Per-project credentials directory via .diwall.conf
 export DIWALL_CONF=~/git/MyProject/.diwall.conf
 /opt/diwall/venv/bin/python3 /opt/diwall/shot.py --url https://target.local/ --som
 ```
 
 Content of `~/git/MyProject/.diwall.conf`:
 ```json
-{"secrets_dir": "../MyProject-vault"}
+{"secrets_dir": "../MyProject-secrets"}
 ```
 
 The path is resolved relative to the location of `.diwall.conf`.
@@ -504,7 +504,7 @@ The path is resolved relative to the location of `.diwall.conf`.
 {"type": "remplir_som", "id": 6, "valeur": "depuis_secrets_totp"}
 ```
 
-Reads the `totp_cle` key (base32 seed) from the vault and generates the current TOTP code.
+Reads the `totp_cle` key (base32 seed) from the credentials file and generates the current TOTP code.
 
 To receive the code via ntfy (workflow without human intervention):
 ```json
@@ -513,19 +513,19 @@ To receive the code via ntfy (workflow without human intervention):
 
 ### 4e. Integrity checksum (opt-in, v1.15.0)
 
-To protect a vault file against silent FUSE corruption, add a `checksum` field:
+To protect a credentials file against silent FUSE corruption, add a `checksum` field:
 
 ```bash
 # Generate the checksum
 /opt/diwall/venv/bin/python3 -c "
 import json, hashlib
-vault = json.load(open('my_vault.json'))
-fields = {k: vault[k] for k in sorted(['username','password']) if k in vault}
+creds = json.load(open('my_credentials.json'))
+fields = {k: creds[k] for k in sorted(['username','password']) if k in creds}
 print('sha256:' + hashlib.sha256(json.dumps(fields, sort_keys=True).encode()).hexdigest())
 "
 ```
 
-Add the returned value to the vault file:
+Add the returned value to the credentials file:
 ```json
 {
   "username": "admin@example.com",
@@ -537,18 +537,18 @@ Add the returned value to the vault file:
 If the checksum does not match, `shot.py` raises `SecretsChecksumError` (exit 42) with an explicit message.
 Without the `checksum` key: behaviour unchanged (strict opt-in).
 
-### 4f. Vault closed — what to do
+### 4f. Encrypted directory closed — what to do
 
 ```
-SecretsFermesError: Le coffre Diwall est initialisé mais non monté.
+SecretsFermesError: Le répertoire chiffré Diwall est initialisé mais non monté.
 ```
 
 ```bash
-# Mount the vault
+# Mount the encrypted directory
 bash ~/git/Diwall/Diwall/scripts/monter-repertoire-chiffre.sh
 
 # Verify the mount
-ls ~/Secrets/__PROJET__/Diwall/
+ls ~/Vaults/__PROJET__/Diwall/
 # → must show JSON files
 ```
 
@@ -557,16 +557,16 @@ ls ~/Secrets/__PROJET__/Diwall/
 For targets behind a network-level HTTP Basic Auth challenge (RFC 7617) —
 the wall a reverse proxy like Caddy, nginx, or Traefik raises before any
 page renders, common in front of self-hosted admin interfaces. This is a
-different mechanism from the vault-based **form** authentication above
+different mechanism from the form-based authentication above
 (4a-4f), which remains fully supported and unaffected.
 
 ```bash
 /opt/diwall/venv/bin/python3 /opt/diwall/shot.py \
   --url https://internal.example/ \
-  --http-credentials --secrets ~/Secrets/__PROJET__/Diwall/internal_example.json
+  --http-credentials --secrets ~/Vaults/__PROJET__/Diwall/internal_example.json
 ```
 
-Vault file — the plain `username`/`password` pair already used for the
+Credentials file — the plain `username`/`password` pair already used for the
 common case (a single set of credentials for the target):
 ```json
 {"username": "admin", "password": "my-password"}
@@ -624,7 +624,7 @@ unresolved 401 distinctly from a WAF block.
 {
   "nom": "login_app",
   "url": "https://app.example.com/login/",
-  "intention": "Administrator login via vault",
+  "intention": "Administrator login with stored credentials",
   "actions": [
     {"type": "nettoyer_overlay", "selecteur": ".cookie-banner"},
     {"type": "remplir_som", "id": 1, "valeur": "depuis_secrets", "secret_cle": "username"},
@@ -864,7 +864,7 @@ iframe, keep using `iframe_selecteur` (section 5j).
 | `cliquer` | `selecteur` | `force` (bool), `repli_js` (bool) | `force: true` bypasses CSS-hidden elements or showModal. `repli_js: true` retries through JS if the native click still fails (v1.22.0) — needs `--no-evaluer` off |
 | `cliquer_som` | `id` | — | Click at element centre coordinates. No `force` needed |
 | `cliquer_visuel` | `description` | — | LLM vision (~32 s). Last resort for canvas or attribute-less elements |
-| `remplir` | `selecteur`, `valeur` | `secret_cle` | `valeur: "depuis_secrets"` activates the vault |
+| `remplir` | `selecteur`, `valeur` | `secret_cle` | `valeur: "depuis_secrets"` resolves the stored credential |
 | `remplir_som` | `id`, `valeur` | `secret_cle` | Clears the field before typing. `valeur: "depuis_secrets_totp"` for TOTP |
 | `capturer` | `nom` | `som` (bool) | Named intermediate PNG. `som: true` for an annotated capture |
 | `evaluer` | `script` | `attendu`, `contient`, `motif` | JS executed in the browser. Assertions for rpa.py only |
@@ -1052,11 +1052,11 @@ produces that silence, so no timeout value can ever be large enough.
 ```bash
 # shot.py — direct reconnaissance
 /opt/diwall/venv/bin/python3 /opt/diwall/shot.py \
-  --url http://target.local/ --wait-until load --som --a11y --guide-version 4.1
+  --url http://target.local/ --wait-until load --som --a11y --guide-version 1.0
 
 # rpa.py — propagated to shot.py, so scenarios reach the same targets
 /opt/diwall/venv/bin/python3 /opt/diwall/rpa.py \
-  --scenario ./admin_login.json --wait-until load --guide-version 4.1
+  --scenario ./admin_login.json --wait-until load --guide-version 1.0
 ```
 
 A scenario can carry it as a root property instead, staying self-contained:
@@ -1198,15 +1198,15 @@ The log is configurable in `diwall.conf` (v1.15.0):
 
 ```json
 "journal": {
-  "chemin": "~/Secrets/__PROJET__/Diwall/operations.jsonl"
+  "chemin": "~/Vaults/__PROJET__/Diwall/operations.jsonl"
 }
 ```
 
-If absent or vault not mounted, fallback: `DIWALL_JOURNAL` env var, then `/var/log/diwall/operations.jsonl`.
+If absent or the encrypted directory is not mounted, fallback: `DIWALL_JOURNAL` env var, then `/var/log/diwall/operations.jsonl`.
 
 ```bash
 # Read the last 10 entries
-tail -n 10 ~/Secrets/__PROJET__/Diwall/operations.jsonl | python3 -m json.tool
+tail -n 10 ~/Vaults/__PROJET__/Diwall/operations.jsonl | python3 -m json.tool
 
 # Filter by target (journal.py tool)
 /opt/diwall/venv/bin/python3 /opt/diwall/journal.py \
@@ -1273,7 +1273,7 @@ Fields in each entry:
 | `--interval-capture N` | 0 | Periodic captures every N seconds during `attendre`, `pause` |
 | `--som-rafraichir` | off | Stable SoM resolution by attribute instead of live re-indexing (v1.17.0, section 7j) |
 | `--ignorer-waf` | off | A detected WAF block degrades `niveau_confiance` but no longer forces `pret_a_agir: false` on its own (v1.17.2, section 3e) |
-| `--http-credentials` | off | Resolves HTTP Basic Auth credentials from the vault, scoped to the target's origin (v1.21.0, section 4g) |
+| `--http-credentials` | off | Resolves HTTP Basic Auth credentials from the credentials file, scoped to the target's origin (v1.21.0, section 4g) |
 
 ### rpa.py
 
@@ -1325,7 +1325,7 @@ Propagates all relevant shot.py flags, plus:
 | 1 | `guide_non_lu` — missing/wrong `--guide-version`, no valid marker (v1.18.0) | Fires before Playwright launches. Read `docs/GUIDE_LLM.md`, relaunch with `--guide-version X.Y` (section 1) |
 | 2 | `viewport_mismatch` (watch.py) | Re-capture reference at same viewport |
 | 3 | `playwright` module not found | Invoke via `/opt/diwall/venv/bin/python3` |
-| 42 | `SecretsFermesError` — vault not mounted or invalid checksum | Mount vault or verify credentials file |
+| 42 | `SecretsFermesError` — encrypted directory not mounted, or invalid checksum | Mount it, or verify the credentials file |
 | 43 | `SecretsNonConfigureError` — `diwall.conf` absent | `sudo cp /opt/diwall/diwall-sample.conf /opt/diwall/diwall.conf && sudo nano /opt/diwall/diwall.conf` |
 
 ### Output JSON structure
@@ -1402,7 +1402,7 @@ Conditional keys (absent when inactive): `capture`, `capture_som`, `elements_som
 {
   "succes": false,
   "erreur": "secrets_fermes",
-  "message": "Le coffre Diwall est initialisé mais non monté.",
+  "message": "Le répertoire chiffré Diwall est initialisé mais non monté.",
   "code_sortie_recommande": 42,
   "boussole": { "url_courante": "", "titre_page": "" }
 }
@@ -1416,13 +1416,13 @@ Conditional keys (absent when inactive): `capture`, `capture_som`, `elements_som
 |---|---|
 | `/opt/diwall/` | Production installation |
 | `/opt/diwall/venv/bin/python3` | Python to use for every invocation |
-| `/opt/diwall/diwall.conf` | Machine configuration (vault, navigation, log) |
+| `/opt/diwall/diwall.conf` | Machine configuration (credentials, navigation, log) |
 | `/opt/diwall/diwall-sample.conf` | Configuration template |
 | `/opt/diwall/scenarios/` | RPA scenarios |
 | `/opt/diwall/docs/` | Documentation |
 | `/opt/diwall/references/` | watch.py visual references |
 | `/tmp/diwall/<operation_id>/` | Temporary captures for one run, isolated by `operation_id` (v1.16.0, cleared on reboot) |
-| `~/Secrets/__PROJET__/Diwall/` | Credentials vault + log (gocryptfs) |
+| `~/Vaults/__PROJET__/Diwall/` | Credentials + log (gocryptfs volume) |
 | `~/git/Diwall/Diwall/` | Git sources (modify here, then `deploy.sh`) |
 
 Deploy after modifying sources:

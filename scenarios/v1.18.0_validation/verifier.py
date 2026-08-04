@@ -23,7 +23,7 @@ WATCH = os.path.join(RACINE, "watch.py")
 MONITOR = os.path.join(RACINE, "scripts", "monitor-verifier.sh")
 FIXTURE_DIR = os.path.join(RACINE, "scenarios", "interoperabilite", "fixture")
 PYTHON = sys.executable
-GUIDE_VERSION = "4.1"  # resynchronise v1.22.0 — voir docs/GUIDE_LLM.md notice-version
+GUIDE_VERSION = "1.0"  # compteur propre au guide — voir docs/GUIDE_LLM.md notice-version
 
 
 def _verdict(nom, conditions):

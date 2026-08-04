@@ -1,7 +1,9 @@
 # Diwall — Interactions guide (SoM, selectors, dialogs, assertions)
 
-<!-- notice-version: 1.10 -->
-Version 1.10 — July 2026 (v1.22.0) — `--wait-until` for never-idle targets; `citoyennete` renamed to `respect` (breaking). Prior (v1.22.0): `repli_js` second-level escalation on `cliquer`.
+<!-- notice-version: 1.0 -->
+Version 1.0 — August 2026. First published edition. This number counts
+revisions of this notice, not releases of Diwall. Notable in the current text:
+`--wait-until` for never-idle targets, and `repli_js` second-level escalation on `cliquer`.
 
 Load this notice when: timeout on `cliquer`, CSS/showModal dialog, SoM IDs, strict mode
 violation, nth-match error, evaluer assertions, DOM mutations.

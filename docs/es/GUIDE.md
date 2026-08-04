@@ -183,7 +183,7 @@ patrón a escala de panel (39 % de bloqueo inmediato).
 # → debe retornar {"éxito": verdadero, ...}
 
 # 2. Verificar que el volumen esté montado (si se utiliza gocryptfs).
-ls ~/Secrets/Diwall/
+ls ~/Vaults/Diwall/
 # → debe mostrar archivos .json, no contenido encriptado.
 
 # 3. Verificar las credenciales para un dominio.
@@ -203,7 +203,7 @@ Cada proyecto puede tener su propio almacén (vault). Dos métodos:
 **Método 1: Variable de entorno directa (única ejecución):**
 
 ```bash
-DIWALL_SECRETS_DIR=~/Secrets/MyProject \
+DIWALL_SECRETS_DIR=~/Vaults/MyProject \
   /opt/diwall/venv/bin/python3 /opt/diwall/shot.py --url …
 ```
 
@@ -447,7 +447,7 @@ bash ~/git/Diwall/Diwall/scripts/uninstall.sh --confirme && bash ~/git/Diwall/Di
 | Hook pre-push de git | `core.hooksPath` deshabilitado en el repositorio fuente |
 
 Lo que nunca se modifica:
-- `~/Secrets/` — sus bóvedas de credenciales
+- `~/Vaults/` — sus bóvedas de credenciales
 - `~/git/Diwall/` — fuentes de Git
 - Caché del navegador Playwright (`~/.cache/ms-playwright/`)
 

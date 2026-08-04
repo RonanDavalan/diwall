@@ -1,7 +1,9 @@
 # Diwall — Monitoring guide (watch.py, long ops, screenshot timeouts, journal)
 
-<!-- notice-version: 1.11 -->
-Version 1.11 — July 2026 (v1.22.0) — `citoyennete` renamed to `respect` (breaking). Prior (v1.20.0): `latences_actions` per-action timing, `journal.py --erreurs` filter documented
+<!-- notice-version: 1.0 -->
+Version 1.0 — August 2026. First published edition. This number counts
+revisions of this notice, not releases of Diwall. Notable in the current text:
+`latences_actions` per-action timing, and the `journal.py --erreurs` filter
 
 Load this notice when: watch.py, pixel diff, long-running operations, `--screenshot-timeout`,
 interval_capture, journal.py, FN7/FN8/FN9.
@@ -589,7 +591,7 @@ if [ $? -ne 0 ]; then
 fi
 ```
 
-**Never expose vault paths or credentials in cron commands.** Use `diwall.conf`
+**Never expose credentials paths or values in cron commands.** Use `diwall.conf`
 with `secrets_defaut` instead of `--secrets` in cron.
 
 ---

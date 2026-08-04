@@ -5,7 +5,7 @@ Résolution du chemin du répertoire chiffré (par ordre de priorité) :
   1. Variable d'environnement DIWALL_SECRETS_DIR
   2. Variable d'environnement DIWALL_CONF → fichier .diwall.conf → clé "secrets_dir"
   3. Clé "secrets_dir" dans /opt/diwall/diwall.conf (JSON)
-  4. Défaut : ~/Secrets/Diwall/
+  4. Défaut : ~/Vaults/Diwall/
 
 Algorithme de résolution du fichier de credentials dans secrets_dir :
   1. <hostname>_<port>.json  (racine, port-aware)
@@ -89,7 +89,7 @@ def _chemin_secrets() -> str:
         f"  Deux solutions possibles :\n"
         f"  1. Configuration globale — créez {conf_path_effectif} depuis le modèle :\n"
         f"       sudo cp /opt/diwall/diwall-sample.conf {conf_path_effectif}\n"
-        f"       sudo nano {conf_path_effectif}  # → {{\"secrets_dir\": \"~/Secrets/<PROJET>/Diwall\"}}\n"
+        f"       sudo nano {conf_path_effectif}  # → {{\"secrets_dir\": \"~/Vaults/<PROJET>/Diwall\"}}\n"
         f"  2. Configuration par projet — pointez DIWALL_CONF vers un fichier dédié, sans "
         f"toucher à la configuration globale :\n"
         f"       DIWALL_CONF=/chemin/vers/votre-projet/diwall.conf ...  # avant shot.py/rpa.py"
@@ -116,7 +116,7 @@ def _repertoire_est_monte(secrets_dir: str) -> bool:
     """Vérifie si secrets_dir est sous un point de montage FUSE actif via /proc/mounts.
 
     Accepte secrets_dir = point de montage exact OU sous-dossier d'un montage FUSE
-    (ex. ~/Secrets/<PROJET>/<NOM>/ est sous ~/Secrets/<PROJET> monté via gocryptfs).
+    (ex. ~/Vaults/<PROJET>/<NOM>/ est sous ~/Vaults/<PROJET> monté via gocryptfs).
     Restriction aux systèmes de fichiers FUSE pour ne pas ouvrir T1 aux disques
     persistants ordinaires (ext4, btrfs, etc.).
 

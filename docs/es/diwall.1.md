@@ -148,7 +148,7 @@ Acceda a un panel de administración que actualice las estadísticas continuamen
 
 Ejecuta un escenario con las credenciales de un archivo de bóveda específico:
 
-    diwall-rpa --scenario ./login.json --secrets ~/Secrets/project/creds.json
+    diwall-rpa --scenario ./login.json --secrets ~/Vaults/project/creds.json
 
 Verifica que una página no haya retrocedido estructuralmente:
 

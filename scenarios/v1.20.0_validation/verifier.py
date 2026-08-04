@@ -18,7 +18,7 @@ sys.path.insert(0, RACINE)
 SHOT = os.path.join(RACINE, "shot.py")
 JOURNAL_CLI = os.path.join(RACINE, "journal.py")
 PYTHON = sys.executable
-GUIDE_VERSION = "4.1"  # resynchronise v1.22.0 — voir docs/GUIDE_LLM.md notice-version
+GUIDE_VERSION = "1.0"  # compteur propre au guide — voir docs/GUIDE_LLM.md notice-version
 
 
 def _verdict(nom, conditions):

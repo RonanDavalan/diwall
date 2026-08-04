@@ -141,7 +141,7 @@ Erreichen Sie ein Administrationspanel, das Statistiken kontinuierlich aktualisi
 
 Führen Sie ein Szenario mit Anmeldeinformationen aus einer expliziten Vault-Datei durch:
 
-    diwall-rpa --scenario ./login.json --secrets ~/Secrets/project/creds.json
+    diwall-rpa --scenario ./login.json --secrets ~/Vaults/project/creds.json
 
 Überprüfen Sie, ob eine Seite keine strukturellen Rückschritte erfahren hat:
 

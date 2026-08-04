@@ -4,7 +4,7 @@
 # Supprime : /opt/diwall/, /var/log/diwall/, utilisateur système diwall,
 #            groupe diwall, appartenance $USER au groupe, hook git pre-push.
 #
-# Préservé en toutes circonstances : ~/Secrets/, ~/git/Diwall/, cache Playwright.
+# Préservé en toutes circonstances : ~/Vaults/, ~/git/Diwall/, cache Playwright.
 #
 # Options :
 #   --dry-run        Affiche les actions sans les exécuter
@@ -59,7 +59,7 @@ if [ "$DRY_RUN" = false ] && [ "$CONFIRME" = false ]; then
     echo "    hook git pre-push        (core.hooksPath)"
     echo ""
     echo "  Préservé en toutes circonstances :"
-    echo "    ~/Secrets/                (répertoire chiffrés de credentials)"
+    echo "    ~/Vaults/                (répertoire chiffrés de credentials)"
     echo "    ~/git/Diwall/            (sources git)"
     echo "    ~/.cache/ms-playwright/  (cache Playwright)"
     echo ""

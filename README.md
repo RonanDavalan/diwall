@@ -34,7 +34,7 @@ numbers we did:
 
 ```bash
 cd scenarios/interoperabilite/fixture && python3 -m http.server 8765 &
-diwall-shot --url http://127.0.0.1:8765/demo_som_en.html --som --guide-version 4.1
+diwall-shot --url http://127.0.0.1:8765/demo_som_en.html --som --guide-version 1.0
 ```
 
 `elements_som` comes back with `{"id": 7, "tag": "BUTTON", "texte": "Sign in"}`.
@@ -70,12 +70,12 @@ The language model decides what to do next.
 | **RPA scenarios** | Execute action sequences from JSON files |
 | **Visual monitoring** | Detect if a page changed since last reference |
 | **Pixel diff** | Quantitative, deterministic diff against a stored reference (v1.2) |
-| **Credential vault** | Secure credential injection — never in plaintext, never on the command line |
-| **Encrypted vault** | gocryptfs-backed vault — `SecretsFermesError` (exit 42) if vault not mounted (v1.5) |
+| **Credential resolution** | Secure credential injection — never in plaintext, never on the command line |
+| **Encrypted directory** | gocryptfs volume — `SecretsFermesError` (exit 42) if it is not mounted (v1.5) |
 | **Scroll** | `defiler` action — relative pixel scroll or `scrollIntoView` by CSS selector (v1.6) |
 | **Off-screen warning** | `som_hors_viewport` count in JSON when interactive elements exist below the fold (v1.6) |
 | **Procedural memory** | Successful runs stored as replayable skills via `journal.py --exporter-skill` (v1.6) |
-| **TOTP 2FA** | Google Authenticator / Authy codes generated at runtime from vault seed (v1.6) |
+| **TOTP 2FA** | Google Authenticator / Authy codes generated at runtime from a stored seed (v1.6) |
 | **Async MFA via ntfy** | SMS/email 2FA codes received asynchronously via ntfy push notification (v1.6) |
 | **Operator profile** | YAML profile to lift repetitive administrative confirmations (v1.3) |
 | **Model traceability** | Every run records which models were called, including Ollama digest (v1.3) |
@@ -95,7 +95,7 @@ The language model decides what to do next.
 | **Chained-scenario traceability** | `chainage` records the ordered call tree of scenarios chained via `declencher_scenario`, surfaced in the operations log (v1.19.0) |
 | **Per-action timing** | `latences_actions` reports dispatch latency for every action executed, always present (v1.20.0) |
 | **Error-only log view** | `journal.py --erreurs` filters the operations log to failed runs only (v1.20.0) |
-| **HTTP Basic Auth** | `--http-credentials` resolves network-level Basic Auth (RFC 7617) from the vault, scoped to the target's origin — distinct from and additional to form-based vault authentication (v1.21.0) |
+| **HTTP Basic Auth** | `--http-credentials` resolves network-level Basic Auth (RFC 7617) from the credentials file, scoped to the target's origin — distinct from and additional to form-based authentication (v1.21.0) |
 | **JS click escalation** | `repli_js` on `cliquer` retries a failed native click via JS, reported in the boussole only when it actually ran (v1.22.0) |
 | **Never-idle targets** | `--wait-until load\|domcontentloaded` reaches pages that poll continuously and never go network-silent, where no `--timeout` value would ever suffice (v1.22.0) |
 
@@ -180,7 +180,7 @@ bash ~/git/Diwall/Diwall/scripts/uninstall.sh --confirme
 
 Removes: `/opt/diwall/`, `/var/log/diwall/`, system user `diwall`, system group `diwall`, operator's group membership, git pre-push hook.
 
-**Never touched:** `~/Secrets/` (credential vaults), the repository itself, Playwright browser cache.
+**Never touched:** `~/Vaults/` (your credentials), the repository itself, Playwright browser cache.
 
 If `/var/log/diwall/preuves/` contains captures, they are preserved by default. Add `--purge-preuves` to remove them.
 
@@ -221,21 +221,21 @@ Full LLM reference: [`docs/GUIDE_LLM.md`](docs/GUIDE_LLM.md)
 
 ---
 
-## Credential vault
+## Credentials
 
 Credentials are stored in JSON files, one per domain, **never in code or scenario files**:
 
 ```
-~/Secrets/Diwall/
+~/Vaults/Diwall/
 ├── my-app.local.json        → {"password": "...", "username": "admin"}
 └── other-service.com.json   → {"password": "...", "api_key": "..."}
 ```
 
-In a scenario or action: `"valeur": "depuis_secrets", "secret_cle": "password"` — Diwall reads the credential at runtime from the vault directory.
+In a scenario or action: `"valeur": "depuis_secrets", "secret_cle": "password"` — Diwall reads the credential at runtime from the credentials directory.
 
-Vault path is configurable via `/opt/diwall/diwall.conf` or `DIWALL_SECRETS_DIR` environment variable.
+The path is configurable via `/opt/diwall/diwall.conf` or the `DIWALL_SECRETS_DIR` environment variable.
 
-**Recommendation:** protect `~/Secrets/Diwall/` with `chmod 700` and encrypt it with `gocryptfs` (see `~/git/Diwall/Diwall/scripts/configurer-repertoire-chiffre.sh --gocryptfs`). Encrypted vault is fully supported since v1.5.0 — if the vault is initialised but not mounted, Diwall returns a structured `SecretsFermesError` (exit code 42) instead of silently failing.
+**Recommendation:** protect `~/Vaults/Diwall/` with `chmod 700` and encrypt it with `gocryptfs` (see `~/git/Diwall/Diwall/scripts/configurer-repertoire-chiffre.sh --gocryptfs`). The encrypted directory is fully supported since v1.5.0 — if it is initialised but not mounted, Diwall returns a structured `SecretsFermesError` (exit code 42) instead of silently failing.
 
 ---
 
@@ -250,16 +250,16 @@ Do not change `--output-dir` to a shared location (`/tmp/`, `~/Desktop/`, etc.) 
 
 When Diwall is used with a cloud-based LLM (Claude API, OpenAI, etc.), PNG captures are transmitted to external servers. This is the user's responsibility. For interfaces containing private data (credentials, client information, private keys), use local Ollama models only.
 
-### Vault directory
+### Credentials directory
 
-The vault directory (`~/Secrets/Diwall/` by default) contains credentials in plaintext JSON when unmounted. Protect it:
+The credentials directory — wherever you pointed `secrets_dir`, for example `~/Vaults/Diwall/` — contains credentials in plaintext JSON when unmounted. Protect it:
 
 ```bash
-chmod 700 ~/Secrets/Diwall/
+chmod 700 ~/Vaults/Diwall/
 ```
 
 Encrypted filesystem support (`gocryptfs`) has been fully supported since v1.5.0 —
-see "Credential vault" above and `~/git/Diwall/Diwall/scripts/configurer-repertoire-chiffre.sh`.
+see "Credentials" above and `~/git/Diwall/Diwall/scripts/configurer-repertoire-chiffre.sh`.
 
 ---
 
@@ -293,7 +293,7 @@ machine that produces it is maintainer tooling.
 
 ## For LLMs discovering Diwall
 
-If you are a language model reading this README: see [`docs/GUIDE_LLM.md`](docs/GUIDE_LLM.md) for the complete technical reference — invocation patterns, SoM usage, vault integration, SPA navigation rules, and Ollama model specifications.
+If you are a language model reading this README: see [`docs/GUIDE_LLM.md`](docs/GUIDE_LLM.md) for the complete technical reference — invocation patterns, SoM usage, credential integration, SPA navigation rules, and Ollama model specifications.
 
 ---
 

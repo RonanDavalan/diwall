@@ -1,14 +1,14 @@
 # v1.17.2 validation — items 1-4
 
-Live and unit evidence for the vault-hardening and reliability items.
+Live and unit evidence for the credential-hardening and reliability items.
 
 ```bash
 /opt/diwall/venv/bin/python3 scenarios/v1.17.2_validation/verifier.py
 ```
 
-- **T-1** — vault write guard: with `DIWALL_SECRETS_DIR` pointing at a plain
+- **T-1** — write guard: with `DIWALL_SECRETS_DIR` pointing at a plain
   (non-FUSE) temp directory and `DIWALL_JOURNAL` inside it, a run still
-  succeeds but writes nothing in clear text under the fake vault — the entry
+  succeeds but writes nothing in clear text under the fake directory — the entry
   lands in the local fallback instead (item 1).
 - **T-2** — SoM cleanup: two SoM captures in the same page, where the element
   numbered `1` in the first capture is hidden and a new element takes over

@@ -36,7 +36,7 @@ full paths. First call on a machine needs `--guide-version X.Y`, read with
    │    ├─ Chromium (headless)    │
    │    ├─ SoM: numbers elements  │
    │    ├─ A11y: page structure   │
-   │    └─ vault: fills secrets   │   never in the shell, never in a log
+   │    └─ secrets: fills credentials│   never in the shell, never in a log
    └──────────────┬───────────────┘
                   │  PNG + JSON
                   ▼
@@ -115,7 +115,7 @@ or any log. `depuis_secrets_totp` does the same for a TOTP code.
 | Element below the fold | `defiler` first — check `boussole.som_hors_viewport` |
 | Page never finishes loading | `--wait-until load` |
 | Submit does nothing, no error | native HTML validation — submit the form via `evaluer` |
-| `exit 42` | vault not mounted: `diwall-monter-secrets` |
+| `exit 42` | encrypted directory not mounted: `diwall-monter-secrets` |
 | `exit 43` | no `diwall.conf` — copy the sample next to it |
 | `guide_non_lu` | pass `--guide-version` once |
 | 403 / 429 | read `respect.waf_bloquants` — a signal, not an exception |
@@ -125,5 +125,5 @@ or any log. `depuis_secrets_totp` does the same for a TOTP code.
 ## Exit codes
 
 `0` success · `1` Playwright error or failed assertion · `2` viewport mismatch
-(`watch.py`) · `3` wrong interpreter, use the venv · `42` vault closed or bad
+(`watch.py`) · `3` wrong interpreter, use the venv · `42` encrypted directory closed or bad
 checksum · `43` `diwall.conf` missing.

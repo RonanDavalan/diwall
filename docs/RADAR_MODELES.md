@@ -101,8 +101,9 @@ invoked from `~/git/Diwall/Diwall/` via CLI. Access: `__HOST_SERVICE__` (Pretix)
 
   Propositions d'optimisation
    1. Standardisation des Vaults : Comme tu l'as souligné, la confusion entre DIWALL_SECRETS_DIR
-      et DIWALL_CONF est un point de friction. Permettre à vault.py de supporter les deux
-      variables en fallback faciliterait la portabilité des scripts.
+      et DIWALL_CONF est un point de friction. Permettre à vault.py [aujourd'hui
+      lib/repertoire_chiffre.py] de supporter les deux variables en fallback
+      faciliterait la portabilité des scripts.
    2. Stratégie de "Sondage Atomique" : Pour des vérifications de routine (ex: nombre
       d'événements), on pourrait intégrer des scripts d'évaluation JS (type: evaluer) directement
       dans la chaîne d'actions pour extraire des chiffres sans avoir à analyser visuellement

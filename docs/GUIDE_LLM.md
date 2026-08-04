@@ -1,8 +1,8 @@
 # Diwall — LLM Guide (index)
 
-<!-- notice-version: 4.1 -->
-Version 4.1 — July 2026 (v1.22.0) — **breaking: the `citoyennete` output key is now `respect`** (sub-keys unchanged);
-`--wait-until` for never-idle targets; `repli_js` (JS click escalation), `dernier_code_http` in boussole.
+<!-- notice-version: 1.0 -->
+Version 1.0 — August 2026. First published edition. This number is the guide's
+own: it counts revisions of this text, not releases of Diwall.
 
 **You are a language model. This is the entry point. Read it fully, then load
 the notice that matches your task.**
@@ -28,7 +28,7 @@ see Security below.)
 (`<!-- notice-version: X.Y -->`), same convention as the three notices.
 
 ```bash
-/opt/diwall/venv/bin/python3 /opt/diwall/shot.py --url <url> --guide-version 4.1
+/opt/diwall/venv/bin/python3 /opt/diwall/shot.py --url <url> --guide-version 1.0
 ```
 
 Accepted once → a local marker (`~/.config/diwall/guide_state.json`) is
@@ -52,10 +52,10 @@ guarantee against lying about it.
 
 **FORBIDDEN — extracts credentials into the shell:**
 ```bash
-PASS=$(jq -r '.password' ~/Secrets/.../file.json)   # NEVER
+PASS=$(jq -r '.password' ~/Vaults/.../file.json)   # NEVER
 ```
 
-**CORRECT — vault resolved inside Playwright** (this is Diwall's core
+**CORRECT — credentials resolved inside Playwright** (this is Diwall's core
 authentication mechanism — form-filling with real credentials, always
 supported):
 ```json
@@ -104,7 +104,7 @@ bash ~/git/Diwall/Diwall/scripts/deploy.sh   # after source changes
 the same session. `--reprendre-session` reuses cookies only, never DOM state.
 
 **Mode RPA (`rpa.py`):** `--scenario FILE` → one JSON line on stdout.
-`--secrets FILE` for a non-default vault.
+`--secrets FILE` for a credentials file outside the default directory.
 
 **Shell escaping:** for `--action` with JS quotes, always use
 `--actions /tmp/file.json` — inline JSON is silently corrupted by the shell.
@@ -186,16 +186,16 @@ navigation cap, session drift) worth your attention, not a refusal. Read
 |---|---|
 | Timeout on click/fill, `showModal()`, strict mode, SoM mismatch, Shadow DOM, `evaluer` assertion | `GUIDE_LLM_INTERACTIONS.md` |
 | Initial navigation times out despite a generous `--timeout` (live-stats/polling target) → `--wait-until load` | `GUIDE_LLM_INTERACTIONS.md` |
-| `exit 42`/`43` (vault), `--secrets`, `--http-credentials`, `--reprendre-session`, SPA nav, auth expiry | `GUIDE_LLM_SESSIONS.md` |
+| `exit 42`/`43` (encrypted directory), `--secrets`, `--http-credentials`, `--reprendre-session`, SPA nav, auth expiry | `GUIDE_LLM_SESSIONS.md` |
 | Screenshot timeout, `watch.py` diff, long operations, `journal.py` | `GUIDE_LLM_MONITORING.md` |
 
 ## Notice index — load on demand
 
 | Notice | Load when | Version |
 |---|---|---|
-| `GUIDE_LLM_INTERACTIONS.md` | Interaction/DOM errors, `--wait-until`, Shadow DOM, iframes | v1.10 |
-| `GUIDE_LLM_SESSIONS.md` | Vault, `--secrets`, `--http-credentials`, sessions, SPA, MFA, `--checkpoint` | v1.10 |
-| `GUIDE_LLM_MONITORING.md` | `watch.py`, pixel diff, `--replay-verifier`, `mode_conseille`, journal | v1.11 |
+| `GUIDE_LLM_INTERACTIONS.md` | Interaction/DOM errors, `--wait-until`, Shadow DOM, iframes | v1.0 |
+| `GUIDE_LLM_SESSIONS.md` | Encrypted directory, `--secrets`, `--http-credentials`, sessions, SPA, MFA, `--checkpoint` | v1.0 |
+| `GUIDE_LLM_MONITORING.md` | `watch.py`, pixel diff, `--replay-verifier`, `mode_conseille`, journal | v1.0 |
 
 > Version column is canonical — reload a notice if your copy shows lower. If in doubt: load INTERACTIONS first (most frequent errors).
 

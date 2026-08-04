@@ -58,19 +58,19 @@ locale uniquement) : `diwall_fixture` / `diwall_fixture_password`.
 # 1. Lancer le serveur de fixture (tourne pendant toute la durée du test)
 python3 scenarios/interoperabilite/fixture/serveur_basicauth.py &
 
-# 2. Créer le fichier vault de la fixture (clés fixes http_username/http_password)
-#    DANS un point de montage FUSE actif (le coffre gocryptfs de l'opérateur) —
-#    /tmp est un tmpfs mais _coffre_est_monte() restreint T1 aux montages FUSE
+# 2. Créer le fichier d'identifiants de la fixture (clés fixes http_username/http_password)
+#    DANS un point de montage FUSE actif (le répertoire chiffré gocryptfs de l'opérateur) —
+#    /tmp est un tmpfs mais _repertoire_est_monte() restreint T1 aux montages FUSE
 #    uniquement (lib/repertoire_chiffre.py), tmpfs est donc refusé malgré la mention dans
 #    le message d'erreur (vérifié en conditions réelles, 15/07/2026).
-cat > ~/Secrets/<COFFRE_MONTE>/diwall_fixture_vault.json <<'EOF'
+cat > ~/Vaults/<REPERTOIRE_MONTE>/diwall_fixture_identifiants.json <<'EOF'
 {"http_username": "diwall_fixture", "http_password": "diwall_fixture_password"}
 EOF
 
 # 3. Lancer le scénario
 cd /opt/diwall
 venv/bin/python3 rpa.py --scenario scenarios/interoperabilite/scenario_basicauth.json \
-  --secrets ~/Secrets/<COFFRE_MONTE>/diwall_fixture_vault.json --guide-version 4.1
+  --secrets ~/Vaults/<REPERTOIRE_MONTE>/diwall_fixture_identifiants.json --guide-version 1.0
 
 # Vérifications attendues dans la sortie JSON :
 #   succes: true

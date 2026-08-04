@@ -80,7 +80,7 @@ After exploration, the procedure is locked into a scenario file.
 {
   "nom": "pretix_login",
   "url": "https://target.local/control/login/",
-  "intention": "Administrator login via vault",
+  "intention": "Administrator login with stored credentials",
   "actions": [
     {"type": "remplir_som", "id": 1, "valeur": "depuis_secrets", "secret_cle": "username"},
     {"type": "remplir_som", "id": 2, "valeur": "depuis_secrets", "secret_cle": "password"},
@@ -182,8 +182,8 @@ type: skill-rejoue
 derniere-validation: YYYY-MM-DD
 ---
 
-Administrator Pretix login via vault credentials.
-Prerequisites: vault mounted, `__HOST_SERVICE__.json` file present.
+Administrator Pretix login with stored credentials.
+Prerequisites: encrypted directory mounted, `__HOST_SERVICE__.json` file present.
 ```
 
 The file is indexed by the project's RAG. The agent finds the skill by
@@ -206,6 +206,6 @@ Before writing a scenario:
 - [ ] Blocking overlays spotted and their CSS selectors noted
 - [ ] SPA or full-HTTP behaviour determined (`boussole.url_courante` vs `a11y_tree` heading)
 - [ ] If auth_indicator needed: test `--auth-indicator <sel>` [+ `--auth-indicator-negative <sel>` if selector is ambiguous]
-- [ ] Credentials verified in vault for this domain (`urlparse(url).hostname`)
+- [ ] Credentials verified for this domain (`urlparse(url).hostname`)
 - [ ] JSON scenario written and saved in `scenarios/`
 - [ ] `SKILL_<name>.md` file created in the user project's `_CADRE/` (not in Diwall's `_CADRE/`)

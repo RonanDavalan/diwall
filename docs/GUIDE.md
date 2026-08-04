@@ -104,7 +104,7 @@ regression. Run it directly:
 ```bash
 /opt/diwall/venv/bin/python3 /opt/diwall/rpa.py \
   --scenario /opt/diwall/scenarios/exemples/depannage_local.json \
-  --guide-version 4.1
+  --guide-version 1.0
 ```
 
 ### Case 2 — comparing hardware components across shops
@@ -152,7 +152,7 @@ same way any other admin panel gets configured, rather than hand-editing
 files for steps the UI is meant to handle. This includes targets sitting
 behind a network-level HTTP Basic Auth challenge (`--http-credentials`,
 v1.21.0) — confirmed against a real Caddy-protected admin interface, not
-just a synthetic fixture: the vault-resolved credentials answered the
+just a synthetic fixture: the stored credentials answered the
 challenge on the first attempt.
 
 **Not shipped as a committed scenario** — the dashboard layout and data
@@ -236,8 +236,8 @@ FR-77 documents the same pattern at panel scale (39% immediate block rate).
   --url https://example.com --som --a11y
 # → must return {"succes": true, ...}
 
-# 2. Verify the vault is mounted (if gocryptfs)
-ls ~/Secrets/Diwall/
+# 2. Verify the encrypted directory is mounted (if gocryptfs)
+ls ~/Vaults/Diwall/
 # → must show .json files, not encrypted content
 
 # 3. Verify credentials for a domain
@@ -250,20 +250,20 @@ print('OK' if lire_credential('target.local', 'password') else 'EMPTY')
 
 ---
 
-## Vault configuration per project
+## Credentials configuration per project
 
-Each project can have its own vault. Two methods:
+Each project can have its own credentials directory. Two methods:
 
 **Method 1 — Direct environment variable (one-shot):**
 ```bash
-DIWALL_SECRETS_DIR=~/Secrets/MyProject \
+DIWALL_SECRETS_DIR=~/Vaults/MyProject \
   /opt/diwall/venv/bin/python3 /opt/diwall/shot.py --url …
 ```
 
 **Method 2 — Project `.diwall.conf` file (recommended for recurring projects):**
 ```bash
 # Create the file at the project root
-echo '{"secrets_dir": "../MyProject-vault"}' > ~/git/MyProject/.diwall.conf
+echo '{"secrets_dir": "../MyProject-secrets"}' > ~/git/MyProject/.diwall.conf
 
 # Then prefix each invocation (or export at the start of the shell session)
 export DIWALL_CONF=~/git/MyProject/.diwall.conf
@@ -301,9 +301,9 @@ relative to the location of the `.diwall.conf` file.
 
 ## Automating a login form
 
-**Step 1** — Prepare credentials in the vault.
+**Step 1** — Prepare the credentials file.
 
-The vault file is named `<hostname>.json` where `hostname` = result of
+The credentials file is named `<hostname>.json` where `hostname` = result of
 `urlparse(url).hostname`. For `https://app.example.com/`, the file is
 `app.example.com.json`.
 
@@ -451,8 +451,8 @@ which cannot reach `~/git/Diwall/Diwall/`):
 
 | Situation | What to do |
 |---|---|
-| `FileNotFoundError` on vault | Check that the JSON file is named with the full FQDN (`urlparse(url).hostname`) |
-| `SecretsFermesError` (exit 42) | Mount the vault: `bash ~/git/Diwall/Diwall/scripts/monter-repertoire-chiffre.sh` |
+| `FileNotFoundError` on the credentials file | Check that the JSON file is named with the full FQDN (`urlparse(url).hostname`) |
+| `SecretsFermesError` (exit 42) | Mount the encrypted directory: `bash ~/git/Diwall/Diwall/scripts/monter-repertoire-chiffre.sh` |
 | Invalid JSON in output | Use `2>/dev/null \| tail -1` to extract only the JSON line |
 | SoM IDs differ between sessions | Expected — SoM IDs are recalculated on each capture. Never reuse them cross-session |
 | Login followed by Django redirect to dashboard | Do not use `naviguer` in a resumed Django session — pass the URL via `--url` |
@@ -496,7 +496,7 @@ bash ~/git/Diwall/Diwall/scripts/uninstall.sh --confirme && bash ~/git/Diwall/Di
 | git pre-push hook | `core.hooksPath` disabled in the source repository |
 
 **What is never touched:**
-- `~/Secrets/` — your credential vaults
+- `~/Vaults/` — your credentials
 - `~/git/Diwall/` — git sources
 - Playwright browser cache (`~/.cache/ms-playwright/`)
 

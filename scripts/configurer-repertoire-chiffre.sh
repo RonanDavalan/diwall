@@ -30,12 +30,12 @@ if [ -f "$CONF" ]; then
     SECRETS_DIR=$(python3 -c "
 import json, os, sys
 conf = json.load(open('$CONF'))
-print(os.path.expanduser(conf.get('secrets_dir', '~/Secrets/Diwall')))
+print(os.path.expanduser(conf.get('secrets_dir', '~/Vaults/Diwall')))
 " 2>/dev/null || echo "$HOME/Secrets/Diwall")
     SECRETS_CRYPT_DIR=$(python3 -c "
 import json, os, sys
 conf = json.load(open('$CONF'))
-default = os.path.expanduser(conf.get('secrets_dir', '~/Secrets/Diwall')) + '.crypt'
+default = os.path.expanduser(conf.get('secrets_dir', '~/Vaults/Diwall')) + '.crypt'
 print(os.path.expanduser(conf.get('secrets_crypt_dir', default)))
 " 2>/dev/null || echo "${SECRETS_DIR}.crypt")
 else

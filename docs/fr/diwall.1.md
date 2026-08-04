@@ -147,7 +147,7 @@ Accédez à un panneau d'administration qui actualise les statistiques en contin
 
 Exécutez un scénario en utilisant les informations d'identification provenant d'un fichier de coffre-fort explicite :
 
-    diwall-rpa --scenario ./login.json --secrets ~/Secrets/project/creds.json
+    diwall-rpa --scenario ./login.json --secrets ~/Vaults/project/creds.json
 
 Vérifiez qu'une page n'a pas subi de régressions structurelles :
 

@@ -9,7 +9,7 @@ Résolution de DB_PATH (par ordre de priorité) :
   1. DIWALL_VECTOR_DB env var
   2. Clé "vector_db" dans /opt/diwall/diwall.conf
   3. _CADRE/MEMOIRE/chroma_db (si répertoire jumeau _CADRE/ présent)
-  4. ~/Secrets/Diwall/chroma_db (défaut universel)
+  4. ~/Vaults/Diwall/chroma_db (défaut universel)
 
 Dépendances optionnelles : chromadb, requests (non requises pour l'import).
 """
@@ -37,7 +37,7 @@ def _chemin_db() -> str:
     if os.path.isdir(_cadre_dir):
         return os.path.join(_cadre_dir, "MEMOIRE", "chroma_db")
 
-    return os.path.expanduser("~/Secrets/Diwall/chroma_db")
+    return os.path.expanduser("~/Vaults/Diwall/chroma_db")
 
 
 DB_PATH     = _chemin_db()

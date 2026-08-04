@@ -17,7 +17,7 @@ Format du scénario :
         ]
     }
 
-Le répertoire chiffré est résolu par lib/repertoire_chiffre.py (DIWALL_SECRETS_DIR > diwall.conf > ~/Secrets/Diwall/).
+Le répertoire chiffré est résolu par lib/repertoire_chiffre.py (DIWALL_SECRETS_DIR > diwall.conf > ~/Vaults/Diwall/).
 Jamais de mot de passe dans les fichiers de scénario.
 """
 __version__ = "1.23.0"
