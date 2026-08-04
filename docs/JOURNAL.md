@@ -4,6 +4,66 @@ History of decisions and discoveries by session, in reverse chronological order.
 
 ---
 
+## 2026-08-04 — What machine translation gets right, and the four things it gets wrong that no check catches
+
+The French, German and Spanish documentation was brought back in line with the
+English source after the credential vocabulary was renamed. 430 segments were
+retranslated in twenty minutes; the fingerprint cache reused the other 1,300
+untouched. That part is unremarkable and it worked.
+
+The interesting part is what came out of reading the result. Six mechanical
+checks run over every translation — tag integrity, options and paths, register,
+completeness, referenced images, and a cosine-similarity gate on meaning. All
+of them were green. Human review then found four families of defects, and none
+of the six could have caught any of them.
+
+**A heading stopped being a heading.** `## Why Diwall — what you actually
+delegate` came back in Spanish without its hashes, as ordinary prose. The
+document was one section short, and so was the generated PDF. The text was
+translated, the tags were intact, the register was right: every net passes a
+paragraph that used to be a title.
+
+**Literal option values were translated.** `--mode fast` became `--mode rapide`
+in French and `--mode schnell` in German, inside the manual page. The option
+name is protected and survived; its value is not, and does not exist. A reader
+copying that line gets an error. The options check compares option names
+between source and translation, so it saw `--mode` on both sides and said
+nothing.
+
+**Three sentences reversed their meaning.** "Capture storage" became "capture
+de stockage" and "captura de almacenamiento" — the two nouns swapped roles —
+and, in German, "Datensicherung", which means data backup. "High-level
+validation" became "hochwertige Validierung", high-quality validation.
+"Headless" became "sin cabeza". Each is fluent, plausible, and wrong; the
+similarity gate measures whether meaning drifted, and a confident mistranslation
+does not read as drift.
+
+**Sixty-three segments disagreed with each other.** "Informations
+d'identification" beside "identifiants", "Anmeldedaten" beside "Zugangsdaten",
+"encriptado" beside "cifrado" — all correct in isolation, all in the same
+document. Translating segment by segment carries no memory across a document,
+so terminology drifts by construction rather than by accident. This is the
+failure mode to expect from any incremental pipeline, and the one a glossary
+alone does not fix: the terms are enforced after the fact, not in the prompt,
+because listing them in the prompt dropped first-try acceptance from 20/30 to
+13/30.
+
+Three defects that predate the translation surfaced while checking it. The
+manual's illustration was missing from all four reference PDFs, English
+included — pandoc resolves an image path from its working directory, never from
+the file citing it, and only warns. The `MANUEL.md` table of contents was dead
+on all eleven entries in the three languages: an anchor is a URL, so it is
+protected from the translator, while the heading it points at is prose, so it
+is translated. And the compilation preface still announced three documents
+after the cheat sheet made them four.
+
+Manual page section names were taken from the pages installed on the machine
+rather than chosen: VOIR AUSSI appears on 1,164 of them against 8 for VOIR
+ÉGALEMENT, CODE DE RETOUR on 76 against 13, and RÜCKGABEWERT on 17 while
+EXIT-STATUS appears on none. A convention is measured, not picked.
+
+---
+
 ## 2026-08-04 — A published measurement did not add up, and the benchmark claimed a total it never had
 
 Two figures this project had been publishing for weeks do not survive being
