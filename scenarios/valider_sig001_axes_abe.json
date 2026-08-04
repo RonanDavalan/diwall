@@ -6,8 +6,8 @@
   "actions": [
 
     {"type": "capturer", "nom": "01_login"},
-    {"type": "remplir", "selecteur": "input[name=\"identifiant\"]", "valeur": "depuis_vault", "vault_cle": "username_maitre"},
-    {"type": "remplir", "selecteur": "input[name=\"password\"]",    "valeur": "depuis_vault", "vault_cle": "password_maitre"},
+    {"type": "remplir", "selecteur": "input[name=\"identifiant\"]", "valeur": "depuis_secrets", "secret_cle": "username_maitre"},
+    {"type": "remplir", "selecteur": "input[name=\"password\"]",    "valeur": "depuis_secrets", "secret_cle": "password_maitre"},
     {"type": "cliquer", "selecteur": "button.login-bouton"},
     {"type": "attendre_absence", "selecteur": "input[name=\"identifiant\"]", "delai_initial_ms": 500},
 

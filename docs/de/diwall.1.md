@@ -14,9 +14,9 @@ diwall - Toolkit für visuelle Wahrnehmung und Robotic Process Automation (RPA) 
 
 **diwall-watch** \[*Optionen*\]
 
-**diwall-mount-vault** \[*Optionen*\]
+**diwall-monter-secrets** \[*Optionen*\]
 
-**diwall-umount-vault** \[*Optionen*\]
+**diwall-demonter-secrets** \[*Optionen*\]
 
 **diwall-monitor-verifier** **--scenario** *DATEI* **--reference** *DATEI*
 
@@ -44,7 +44,7 @@ was wiederholbar ist, und der einzige, der Szenario-Assertions bewertet.
 **diwall-watch**
 : Visuelle Überwachung. Speichert ein Referenzbild einer Seite und vergleicht später erstellte Bilder damit – entweder durch einen lokalen Pixelvergleich oder durch eine Beschreibung eines lokalen Bilderkennungsmodells. Wird verwendet, um visuelle Fehler zu erkennen, ohne dass ein Mensch dies überprüfen muss.
 
-**diwall-mount-vault**, **diwall-umount-vault**
+**diwall-monter-secrets**, **diwall-demonter-secrets**
 : Das verschlüsselte Credential-Vault von gocryptfs mounten und aushängen. Diwall weigert sich,
 irgendeine Anmeldeinformation zu lösen, während das Vault geschlossen ist, und beendet den Vorgang mit dem Status 42, anstatt auf eine schwächere Methode zurückzugreifen.
 
@@ -120,7 +120,7 @@ Verzeichnis enthält die genauen Befehle mit vollständigen Pfaden.
 : Inkompatible Argumente, abgelehnt bevor ein Browser gestartet wurde.
 
 **42**
-: Der Credential-Tresor ist geschlossen. Montieren Sie ihn mit **diwall-mount-vault**.
+: Der Credential-Tresor ist geschlossen. Montieren Sie ihn mit **diwall-monter-secrets**.
 
 **43**
 : Eine Prüfsumme zur Integrität des Tresors stimmte nicht überein.
@@ -141,7 +141,7 @@ Erreichen Sie ein Administrationspanel, das Statistiken kontinuierlich aktualisi
 
 Führen Sie ein Szenario mit Anmeldeinformationen aus einer expliziten Vault-Datei durch:
 
-    diwall-rpa --scenario ./login.json --secrets ~/Vaults/project/creds.json
+    diwall-rpa --scenario ./login.json --secrets ~/Secrets/project/creds.json
 
 Überprüfen Sie, ob eine Seite keine strukturellen Rückschritte erfahren hat:
 

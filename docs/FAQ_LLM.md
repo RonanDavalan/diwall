@@ -196,12 +196,12 @@ not JS injection):
 
 ```json
 {"type": "cliquer_iframe", "iframe_selecteur": "iframe#paiement", "selecteur": "button.valider"},
-{"type": "remplir_iframe", "iframe_selecteur": "iframe#paiement", "selecteur": "input[name=cvv]", "valeur": "depuis_vault", "vault_cle": "cvv"}
+{"type": "remplir_iframe", "iframe_selecteur": "iframe#paiement", "selecteur": "input[name=cvv]", "valeur": "depuis_secrets", "secret_cle": "cvv"}
 ```
 
 **No SoM numbering inside a frame yet** — target by CSS selector, discovered via
 `evaluer` on the frame content if same-origin, or from the target application's
-own markup if cross-origin. `remplir_iframe` supports `depuis_vault` exactly like
+own markup if cross-origin. `remplir_iframe` supports `depuis_secrets` exactly like
 `remplir` — never a plaintext credential in the scenario.
 
 **Nested iframes (v1.18.0):** replace `iframe_selecteur` with `iframe_chemin`,
@@ -277,7 +277,7 @@ alongside `"auth_indicator"`. `rpa.py` propagates it to `shot.py` automatically.
 Both, and they are unrelated mechanisms — do not confuse one for a limit on
 the other. **Web form authentication** (a username/password `<input>` on a
 page) has always been supported, and is Diwall's core credential
-mechanism: `remplir_som` + `valeur: "depuis_vault"` (see the Security
+mechanism: `remplir_som` + `valeur: "depuis_secrets"` (see the Security
 section of `docs/GUIDE_LLM.md`). **HTTP Basic Auth** (RFC 7617, a browser-
 level challenge raised by a reverse proxy before any page renders — Caddy,
 nginx, Traefik) is a separate, network-layer mechanism: `--http-credentials`
@@ -308,7 +308,7 @@ checking — see the non-presumption rule in `docs/GUIDE_LLM.md`.
     "message": "Action #2 (cliquer_som) : 'id' doit être un entier positif, reçu : \"btn-submit\"."}
    ```
 
-A full dry-run (resolving `depuis_vault`, validating CSS selectors on a live DOM)
+A full dry-run (resolving `depuis_secrets`, validating CSS selectors on a live DOM)
 would require Playwright and is not yet implemented. The linter catches the most
 common authoring errors without browser overhead.
 
@@ -354,7 +354,7 @@ runs a single continuous session. The vault and journal are managed by the paren
 | `--no-capture` (S-2) | v1.9.0 |
 | Security hardening: `RLIMIT_CORE`, session cleanup | v1.9.1 |
 | `declencher_scenario`, SoM linter, pre-push hook | v1.9.2 |
-| `diwall-sample.conf`, `VaultNonConfigureError` (exit 43) | v1.9.3 |
+| `diwall-sample.conf`, `SecretsNonConfigureError` (exit 43) | v1.9.3 |
 | Modular scenarios (group C vault fill), `evaluer` field clearing | v1.9.6 |
 | `--secrets` multi-vault, fail-fast venv | v1.10.0 |
 | `force: true` on `cliquer`, `--screenshot-timeout`, assertions `contient`/`motif` | v1.11.0 |
@@ -362,8 +362,8 @@ runs a single continuous session. The vault and journal are managed by the paren
 | Error routing table, notice versioning, secret blurring, `dom_stats` | v1.12.0 |
 | Shadow DOM SoM traversal (`--shadow-dom`) | v1.13.0 |
 | Enriched `boussole` (`url_courante`, `titre_page`), `--auth-indicator-negative`, `--mode fast\|full` | v1.14.0 |
-| Scenario neutralisation doctrine, `password` fields require `depuis_vault` | v1.14.1 |
-| Respectful Navigation: `--stealth`, courtesy delays, navigation caps, `respect` metrics, `VaultChecksumError` | v1.15.0 |
+| Scenario neutralisation doctrine, `password` fields require `depuis_secrets` | v1.14.1 |
+| Respectful Navigation: `--stealth`, courtesy delays, navigation caps, `respect` metrics, `SecretsChecksumError` | v1.15.0 |
 | Security hardening: `--no-evaluer`, journal permissions, URL scheme validation, `--ignore-tls-errors` | v1.15.1 |
 | `chemin_png` collision fix, early CLI rejection, `scenarios/exemples/` | v1.15.2 |
 | `etat` deterministic verdict, `operation_id`, passive WAF signal, `erreurs_console`, `indice_agressivite` | v1.16.0 |

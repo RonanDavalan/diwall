@@ -19,7 +19,7 @@ CODE_FILES=(
     lib/ntfy.py
     lib/profil_operateur.py
     lib/vision.py
-    lib/vault.py
+    lib/repertoire_chiffre.py
     lib/vector.py
     lib/preflight_guide.py
 )
@@ -207,14 +207,14 @@ done
 SAMPLE="$DEST/diwall-sample.conf"
 sudo tee "$SAMPLE" > /dev/null << 'CONF_EOF'
 {
-  "vault_dir": "~/Vaults/Diwall",
+  "secrets_dir": "~/Secrets/Diwall",
   "navigation": {
     "min_action_delay_ms": 800,
     "max_pages_par_run": 10,
     "max_actions_par_run": 30
   },
   "journal": {
-    "chemin": "~/Vaults/Diwall/operations.jsonl"
+    "chemin": "~/Secrets/Diwall/operations.jsonl"
   }
 }
 CONF_EOF
@@ -224,13 +224,13 @@ echo "  Écrit   : diwall-sample.conf (modèle générique)"
 CONF="$DEST/diwall.conf"
 if [ ! -f "$CONF" ]; then
     echo ""
-    echo "  ┌─ DIWALL.CONF ABSENT — ÉTAPE MANUELLE REQUISE ──────────────────────────┐"
-    echo "  │  Aucune configuration vault active sur cette machine.                │"
-    echo "  │  Toute opération vault échouera jusqu'à la création de ce fichier.   │"
+    echo "  ┌─ DIWALL.CONF ABSENT — ÉTAPE MANUELLE REQUISE ────────────────────────┐"
+    echo "  │  Aucun répertoire chiffré configuré sur cette machine.               │"
+    echo "  │  Toute lecture d'identifiants échouera tant que ce fichier manque.   │"
     echo "  │                                                                      │"
     echo "  │    sudo cp $SAMPLE $CONF      │"
     echo "  │    sudo nano $CONF                                                   │"
-    echo "  │    → {\"vault_dir\": \"~/Vaults/<PROJET>/Diwall\"}                       │"
+    echo "  │    → {\"secrets_dir\": \"~/Secrets/<PROJET>/Diwall\"}                       │"
     echo "  └──────────────────────────────────────────────────────────────────────┘"
 else
     echo "  Préservé: diwall.conf (config machine existante)"
@@ -254,9 +254,9 @@ sudo chown -R root:"$GROUPE" "$DEST"/docs 2>/dev/null || true
 
 # lib/*.py : code public GitHub → 644 lisible par tous
 sudo chmod 644 "$DEST"/*.py "$DEST"/lib/*.py "$DEST"/diwall-sample.conf 2>/dev/null || true
-# diwall.conf : contient vault_dir (chemin sensible) → 640 groupe diwall uniquement
+# diwall.conf : contient secrets_dir (chemin sensible) → 640 groupe diwall uniquement
 sudo chmod 640 "$DEST"/diwall.conf 2>/dev/null || true
-# scenarios/ et skills/ : données d'instance (cibles, séquences vault) → 640
+# scenarios/ et skills/ : données d'instance (cibles, séquences d'identifiants) → 640
 sudo chmod 640 "$DEST"/scenarios/*.json "$DEST"/scenarios/*.yaml 2>/dev/null || true
 sudo chmod 640 "$DEST"/skills/*.json "$DEST"/skills/*.md 2>/dev/null || true
 sudo chmod 644 "$DEST"/docs/*.md 2>/dev/null || true

@@ -841,7 +841,7 @@ def parse_args():
                    help="Accepte les certificats TLS invalides (LAN dev/Step-CA uniquement). "
                         "Ajoute tls_errors_ignored:true dans la boussole. (v1.15.1)")
     p.add_argument("--http-credentials", dest="http_credentials", action="store_true",
-                   help="Résout http_username/http_password depuis le vault (clés fixes, "
+                   help="Résout http_username/http_password depuis le répertoire chiffré (clés fixes, "
                         "précédent ntfy_topic) et les injecte au contexte navigateur pour "
                         "répondre à un challenge HTTP Basic Auth (v1.21.0). Identifiants "
                         "scopés à l'origine de la cible (jamais envoyés à un tiers chargé "
@@ -891,14 +891,14 @@ def _capture_periodique(page, stream_dir, action_index, t_ms, screenshot_timeout
     return {"action_index": action_index, "t_ms": t_ms, "chemin": chemin}
 
 
-def _valider_actions_vault(actions):
-    """Vérifie que les actions remplir/remplir_som avec vault_cle utilisent depuis_vault."""
+def _valider_actions_secrets(actions):
+    """Vérifie que les actions remplir/remplir_som avec secret_cle utilisent depuis_secrets."""
     for i, a in enumerate(actions):
         if a.get("type") in {"remplir", "remplir_som"}:
-            if a.get("vault_cle") and a.get("valeur") not in {"depuis_vault", "depuis_vault_totp"}:
+            if a.get("secret_cle") and a.get("valeur") not in {"depuis_secrets", "depuis_secrets_totp"}:
                 raise ValueError(
-                    f"Action #{i} ({a['type']}) : vault_cle défini mais valeur n'est pas "
-                    f"'depuis_vault' ou 'depuis_vault_totp' — credential en clair interdit"
+                    f"Action #{i} ({a['type']}) : secret_cle défini mais valeur n'est pas "
+                    f"'depuis_secrets' ou 'depuis_secrets_totp' — credential en clair interdit"
                 )
 
 
@@ -916,7 +916,7 @@ def charger_actions(source):
         actions = data["actions"]
     else:
         actions = data
-    _valider_actions_vault(actions)
+    _valider_actions_secrets(actions)
     return actions
 
 
@@ -1096,22 +1096,22 @@ def executer_actions(page, actions, output_dir, timeout, mode_llm="local",
 
         elif t == "remplir":
             valeur = a.get("valeur", "")
-            if valeur == "depuis_vault":
-                cle = a.get("vault_cle")
+            if valeur == "depuis_secrets":
+                cle = a.get("secret_cle")
                 if not cle:
-                    raise ValueError("remplir depuis_vault : champ 'vault_cle' requis")
+                    raise ValueError("remplir depuis_secrets : champ 'secret_cle' requis")
                 if secrets_chemin:
-                    from lib.vault import lire_credential_fichier
+                    from lib.repertoire_chiffre import lire_credential_fichier
                     valeur = lire_credential_fichier(secrets_chemin, cle)
                 else:
-                    from lib.vault import lire_credential, domaine_depuis_url
+                    from lib.repertoire_chiffre import lire_credential, domaine_depuis_url
                     valeur = lire_credential(domaine_depuis_url(page.url), cle)
-            elif valeur == "depuis_vault_totp":
+            elif valeur == "depuis_secrets_totp":
                 if secrets_chemin:
-                    from lib.vault import lire_totp_fichier
+                    from lib.repertoire_chiffre import lire_totp_fichier
                     valeur = lire_totp_fichier(secrets_chemin)
                 else:
-                    from lib.vault import lire_totp, domaine_depuis_url
+                    from lib.repertoire_chiffre import lire_totp, domaine_depuis_url
                     valeur = lire_totp(domaine_depuis_url(page.url))
             page.locator(a["selecteur"]).fill(valeur, timeout=timeout)
 
@@ -1185,22 +1185,22 @@ def executer_actions(page, actions, output_dir, timeout, mode_llm="local",
             valeur = a.get("valeur", "")
             if som_id is None:
                 raise ValueError("remplir_som requiert un champ 'id'")
-            if valeur == "depuis_vault":
-                cle = a.get("vault_cle")
+            if valeur == "depuis_secrets":
+                cle = a.get("secret_cle")
                 if not cle:
-                    raise ValueError("remplir_som depuis_vault : champ 'vault_cle' requis")
+                    raise ValueError("remplir_som depuis_secrets : champ 'secret_cle' requis")
                 if secrets_chemin:
-                    from lib.vault import lire_credential_fichier
+                    from lib.repertoire_chiffre import lire_credential_fichier
                     valeur = lire_credential_fichier(secrets_chemin, cle)
                 else:
-                    from lib.vault import lire_credential, domaine_depuis_url
+                    from lib.repertoire_chiffre import lire_credential, domaine_depuis_url
                     valeur = lire_credential(domaine_depuis_url(page.url), cle)
-            elif valeur == "depuis_vault_totp":
+            elif valeur == "depuis_secrets_totp":
                 if secrets_chemin:
-                    from lib.vault import lire_totp_fichier
+                    from lib.repertoire_chiffre import lire_totp_fichier
                     valeur = lire_totp_fichier(secrets_chemin)
                 else:
-                    from lib.vault import lire_totp, domaine_depuis_url
+                    from lib.repertoire_chiffre import lire_totp, domaine_depuis_url
                     valeur = lire_totp(domaine_depuis_url(page.url))
             coord = page.evaluate(_som_trouver, som_id)
             if coord is None:
@@ -1313,22 +1313,22 @@ def executer_actions(page, actions, output_dir, timeout, mode_llm="local",
                 raise ValueError("remplir_iframe requiert un champ 'selecteur' (cible dans le frame)")
             frame_locator = _resoudre_frame_locator(page, a, "remplir_iframe")
             valeur = a.get("valeur", "")
-            if valeur == "depuis_vault":
-                cle = a.get("vault_cle")
+            if valeur == "depuis_secrets":
+                cle = a.get("secret_cle")
                 if not cle:
-                    raise ValueError("remplir_iframe depuis_vault : champ 'vault_cle' requis")
+                    raise ValueError("remplir_iframe depuis_secrets : champ 'secret_cle' requis")
                 if secrets_chemin:
-                    from lib.vault import lire_credential_fichier
+                    from lib.repertoire_chiffre import lire_credential_fichier
                     valeur = lire_credential_fichier(secrets_chemin, cle)
                 else:
-                    from lib.vault import lire_credential, domaine_depuis_url
+                    from lib.repertoire_chiffre import lire_credential, domaine_depuis_url
                     valeur = lire_credential(domaine_depuis_url(page.url), cle)
-            elif valeur == "depuis_vault_totp":
+            elif valeur == "depuis_secrets_totp":
                 if secrets_chemin:
-                    from lib.vault import lire_totp_fichier
+                    from lib.repertoire_chiffre import lire_totp_fichier
                     valeur = lire_totp_fichier(secrets_chemin)
                 else:
-                    from lib.vault import lire_totp, domaine_depuis_url
+                    from lib.repertoire_chiffre import lire_totp, domaine_depuis_url
                     valeur = lire_totp(domaine_depuis_url(page.url))
             frame_locator.locator(a["selecteur"]).fill(valeur, timeout=timeout)
 
@@ -1352,10 +1352,10 @@ def executer_actions(page, actions, output_dir, timeout, mode_llm="local",
             timeout_mfa = int(a.get("timeout", 120))
             from lib import ntfy as ntfy_lib
             if secrets_chemin:
-                from lib.vault import lire_credential_fichier
+                from lib.repertoire_chiffre import lire_credential_fichier
                 topic = lire_credential_fichier(secrets_chemin, "ntfy_topic")
             else:
-                from lib.vault import lire_credential, domaine_depuis_url
+                from lib.repertoire_chiffre import lire_credential, domaine_depuis_url
                 topic = lire_credential(domaine_depuis_url(page.url), "ntfy_topic")
             ntfy_lib.publier_attente(topic, page.url)
             code = ntfy_lib.attendre_code(topic, timeout_s=timeout_mfa)
@@ -1469,7 +1469,7 @@ def executer_actions(page, actions, output_dir, timeout, mode_llm="local",
 def _conf_navigation():
     """Lit les paramètres [navigation] depuis /opt/diwall/diwall.conf (JSON)."""
     try:
-        from lib.vault import _lire_conf
+        from lib.repertoire_chiffre import _lire_conf
         conf = _lire_conf()
         nav = conf.get("navigation", {})
         return {
@@ -1556,7 +1556,7 @@ def main():
                 parsed = json.loads(args.action)
                 # Accepte un objet unique {"type":...} OU un tableau [{...},{...}]
                 actions = parsed if isinstance(parsed, list) else [parsed]
-                _valider_actions_vault(actions)
+                _valider_actions_secrets(actions)
             elif args.actions:
                 # FR-54 : --actions (fichier) désormais supporté en Mode B
                 actions = charger_actions(args.actions)
@@ -1702,11 +1702,11 @@ def main():
                 # si la même cible a aussi un login applicatif distinct (Basic Auth
                 # réseau devant un formulaire web, ex. Caddy devant Grafana). Repli
                 # sur username/password (v1.21.0, trouvé en test réel contre une
-                # cible Basic Auth réelle) : la plupart des fichiers vault
+                # cible Basic Auth réelle) : la plupart des fichiers d'identifiants
                 # existants n'ont qu'une paire de clés, pas de raison de forcer un
                 # renommage pour le cas le plus courant.
                 if secrets_chemin:
-                    from lib.vault import lire_credential_fichier
+                    from lib.repertoire_chiffre import lire_credential_fichier
                     try:
                         http_username = lire_credential_fichier(secrets_chemin, "http_username")
                         http_password = lire_credential_fichier(secrets_chemin, "http_password")
@@ -1714,7 +1714,7 @@ def main():
                         http_username = lire_credential_fichier(secrets_chemin, "username")
                         http_password = lire_credential_fichier(secrets_chemin, "password")
                 else:
-                    from lib.vault import lire_credential, domaine_depuis_url
+                    from lib.repertoire_chiffre import lire_credential, domaine_depuis_url
                     _domaine = domaine_depuis_url(url_cible)
                     try:
                         http_username = lire_credential(_domaine, "http_username")
@@ -1999,15 +1999,15 @@ def main():
         )
 
     except Exception as e:
-        # Coffre fermé : erreur distincte, pas de tentative Playwright (inutile),
+        # Répertoire chiffré fermé : erreur distincte, pas de tentative Playwright (inutile),
         # code de sortie 42 par symétrie avec Phase 7bis.
-        from lib.vault import VaultFermeError
-        if isinstance(e, VaultFermeError):
+        from lib.repertoire_chiffre import SecretsFermesError
+        if isinstance(e, SecretsFermesError):
             result = {
                 "succes": False,
-                "erreur": "vault_ferme",
+                "erreur": "secrets_fermes",
                 "message": str(e),
-                "code_sortie_recommande": VaultFermeError.CODE_SORTIE,
+                "code_sortie_recommande": SecretsFermesError.CODE_SORTIE,
                 "http_status": http_status,
                 "duree_ms": int((time.time() - t0) * 1000),
                 "horodatage": horodatage,
@@ -2018,9 +2018,9 @@ def main():
             }
             print(json.dumps(result, ensure_ascii=False))
             _journaliser_run(result, actions, args.intention, url_cible, "echec",
-                             erreur=f"VaultFermeError: {e}", operation_id=operation_id,
+                             erreur=f"SecretsFermesError: {e}", operation_id=operation_id,
                              source_scenario=args.source_scenario, chainage=chainage)
-            sys.exit(VaultFermeError.CODE_SORTIE)
+            sys.exit(SecretsFermesError.CODE_SORTIE)
 
         capture_echec = None
         try:
@@ -2051,7 +2051,7 @@ def main():
             result["capture_echec"] = capture_echec
         # v1.17.0, item 2 — progression partielle pour les checkpoints rpa.py.
         # Absent si l'échec est survenu avant tout appel executer_actions()
-        # (ex. vault fermé, URL invalide) : progress reste vide dans ce cas.
+        # (ex. répertoire chiffré fermé, URL invalide) : progress reste vide dans ce cas.
         if progress.get("actions_executees") is not None:
             result["actions_executees_avant_echec"] = progress["actions_executees"]
             result["pages_visitees_avant_echec"] = progress.get("pages_visitees", 0)

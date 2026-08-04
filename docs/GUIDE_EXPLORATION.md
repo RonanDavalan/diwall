@@ -82,8 +82,8 @@ After exploration, the procedure is locked into a scenario file.
   "url": "https://target.local/control/login/",
   "intention": "Administrator login via vault",
   "actions": [
-    {"type": "remplir_som", "id": 1, "valeur": "depuis_vault", "vault_cle": "username"},
-    {"type": "remplir_som", "id": 2, "valeur": "depuis_vault", "vault_cle": "password"},
+    {"type": "remplir_som", "id": 1, "valeur": "depuis_secrets", "secret_cle": "username"},
+    {"type": "remplir_som", "id": 2, "valeur": "depuis_secrets", "secret_cle": "password"},
     {"type": "cliquer_som", "id": 3},
     {"type": "pause",        "ms": 2000},
     {"type": "capturer",     "nom": "post-login"}

@@ -19,14 +19,14 @@ multi-page flows, MFA/TOTP, auth_indicator, --no-capture.
 
 **FORBIDDEN — extracts credential into shell:**
 ```bash
-PASS=$(jq -r '.password' ~/Vaults/.../file.json)   # NEVER
-USER=$(jq -r '.username' ~/Vaults/.../file.json)    # NEVER
+PASS=$(jq -r '.password' ~/Secrets/.../file.json)   # NEVER
+USER=$(jq -r '.username' ~/Secrets/.../file.json)    # NEVER
 ```
 
-**CORRECT — vault resolved inside Playwright by lib/vault.py:**
+**CORRECT — vault resolved inside Playwright by lib/repertoire_chiffre.py:**
 ```json
-{"type": "remplir_som", "id": 2, "valeur": "depuis_vault", "vault_cle": "username"}
-{"type": "remplir_som", "id": 3, "valeur": "depuis_vault", "vault_cle": "password"}
+{"type": "remplir_som", "id": 2, "valeur": "depuis_secrets", "secret_cle": "username"}
+{"type": "remplir_som", "id": 3, "valeur": "depuis_secrets", "secret_cle": "password"}
 ```
 
 Values never appear in shell, bash history, process list, or any log.
@@ -37,15 +37,15 @@ Also forbidden: using `curl`, `wget`, or any HTTP client for authentication.
 ## Vault configuration — how it works
 
 The vault is a JSON file inside a gocryptfs-encrypted directory, mounted by the operator.
-`lib/vault.py` reads the mounted file; it never exposes values in the shell.
+`lib/repertoire_chiffre.py` reads the mounted file; it never exposes values in the shell.
 
 The active vault path is configured in `diwall.conf` (YAML, `secrets_defaut`).
 You never need to know the path — pass `--secrets` when you need a specific vault,
 otherwise the default vault in `diwall.conf` is used.
 
-`vault_cle` is the JSON key inside the decrypted file (e.g., `"username"`, `"password"`).
+`secret_cle` is the JSON key inside the decrypted file (e.g., `"username"`, `"password"`).
 
-**If the vault is closed** (gocryptfs not mounted): shot.py exits with `VaultFermeError(42)`.
+**If the vault is closed** (gocryptfs not mounted): shot.py exits with `SecretsFermesError(42)`.
 Do not try to mount the vault yourself — ask the operator to run the mount script.
 
 **Unmounted vault and internal writes (fixed in v1.17.2):**
@@ -63,7 +63,7 @@ failure), not a substitute for a mounted vault.
 **Still your responsibility — writing new credential files:**
 The internal guard above only covers Diwall's own journal/proof writes. If
 you construct or update a *credential file* yourself (e.g., via a shell
-command or `evaluer` outside Diwall's `depuis_vault` mechanism), the same
+command or `evaluer` outside Diwall's `depuis_secrets` mechanism), the same
 risk applies and is not automatically caught: the vault directory, if
 unmounted, exists on disk but is empty and unencrypted. Before creating or
 updating a credential file, confirm the vault is mounted — the directory
@@ -386,7 +386,7 @@ the beginning of every scenario that requires a logged-in session.
 | Persistent session | Add `--reprendre-session` to next calls |
 | Session drift detected | Re-run login without `--reprendre-session` |
 | SPA navigation | Always add `attendre_url` after click |
-| Credential fill | `valeur: "depuis_vault"` + `vault_cle` — never shell |
+| Credential fill | `valeur: "depuis_secrets"` + `secret_cle` — never shell |
 | Non-default vault | `--secrets /path/to/creds.json` |
 | OTP in real-time | `attendre_mfa_ntfy` or manual `remplir_som` |
 
@@ -423,7 +423,7 @@ flag unless you have a specific, documented reason for a controlled LAN or dev e
 ## `--http-credentials` — HTTP Basic Auth (v1.21.0)
 
 Diwall's vault handles web **form** authentication (`remplir_som` +
-`depuis_vault`). It does not, on its own, answer a browser-level HTTP Basic
+`depuis_secrets`). It does not, on its own, answer a browser-level HTTP Basic
 Auth challenge (RFC 7617) — the kind a reverse proxy (Caddy, nginx, Traefik)
 raises before any page renders. `--http-credentials` closes that specific
 gap. It does **not** mean form-based authentication is unsupported — the

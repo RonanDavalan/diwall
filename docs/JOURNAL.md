@@ -162,7 +162,7 @@ it does not.
 document in the pipeline that is not ordinary markdown prose, and three of its
 constructions had no protection: pandoc's metadata header, which carries the
 page name *and section*; the escaped brackets of the SYNOPSIS; and command
-names. `diwall-mount-vault` came back translated into a command that does not
+names. `diwall-monter-secrets` came back translated into a command that does not
 exist — inside a SYNOPSIS, with every mechanical check passing, because prose
 documents write command names as inline code, already masked, while manual
 pages write them in bold. Four patterns were added, and the first translation
@@ -177,8 +177,8 @@ distributed. They serve to maintain Diwall, not to use it.
 
 This is a cleanup, and it presents itself as one. Nine files are affected;
 the eight scripts a user actually needs stay exactly where they were:
-`install.sh`, `uninstall.sh`, `deploy.sh`, `setup-vault.sh`, `mount-vault.sh`,
-`umount-vault.sh`, `migrate-vault.sh`, `monitor-verifier.sh`. The test that
+`install.sh`, `uninstall.sh`, `deploy.sh`, `configurer-repertoire-chiffre.sh`, `monter-repertoire-chiffre.sh`,
+`demonter-repertoire-chiffre.sh`, `migrer-repertoire-chiffre.sh`, `monitor-verifier.sh`. The test that
 matters — "can this be rebuilt from zero with the Git repository alone?" —
 still passes, which is precisely why those eight are not going anywhere.
 
@@ -653,7 +653,7 @@ WAF detection (v1.16.0), no new capture plumbing. On a run with several
 navigations, reflects the last one only — documented as a known limit rather
 than a guarantee.
 
-**Clearer `VaultNonConfigureError` message (`lib/vault.py`):** the runtime
+**Clearer `SecretsNonConfigureError` message (`lib/repertoire_chiffre.py`):** the runtime
 error now cites both fixes for a missing vault configuration — creating
 `diwall.conf` from the sample file, or pointing `DIWALL_CONF` at a
 project-specific file — instead of only the first. The second path already
@@ -712,7 +712,7 @@ conversational claims about the tool.
 
 - Resolves `http_username`/`http_password` from the vault (fixed keys, same
   precedent as `ntfy_topic`) using the exact resolution idiom already used
-  three times in `shot.py` for `depuis_vault` fields — no new file mechanism.
+  three times in `shot.py` for `depuis_secrets` fields — no new file mechanism.
 - Injected at `browser.new_context()` as `http_credentials={"username",
   "password", "origin", "send": "unauthorized"}` — `origin` scoping is
   mandatory (verified against the installed Playwright 1.61.0), preventing
@@ -1004,19 +1004,19 @@ since the Debian packaging work below introduced that directory.
 - Configuration moves to `/etc/diwall/diwall.conf` on this channel (a native
   Debian conffile location), distinct from the git-clone channel's
   `/opt/diwall/diwall.conf` — both paths coexist, never conflated.
-- `lib/vault.py::_lire_conf()` now respects the `DIWALL_CONF` environment
+- `lib/repertoire_chiffre.py::_lire_conf()` now respects the `DIWALL_CONF` environment
   variable (previously only `_chemin_vault()` did) — fixes a latent
   inconsistency where `shot.py`'s Citizen Navigation caps
   (`_conf_navigation()`) silently ignored `DIWALL_CONF`, unlike vault
   resolution. Purely additive: unset `DIWALL_CONF` preserves the exact prior
   default (`/opt/diwall/diwall.conf`).
 - Six `/usr/bin/diwall-*` wrapper commands (`diwall-shot`, `diwall-rpa`,
-  `diwall-watch`, `diwall-mount-vault`, `diwall-umount-vault`,
-  `diwall-monitor-verifier`) — thin, non-invasive: `mount-vault.sh` /
-  `umount-vault.sh` themselves are untouched, the wrapper alone injects
+  `diwall-watch`, `diwall-monter-secrets`, `diwall-demonter-secrets`,
+  `diwall-monitor-verifier`) — thin, non-invasive: `monter-repertoire-chiffre.sh` /
+  `demonter-repertoire-chiffre.sh` themselves are untouched, the wrapper alone injects
   `--config /etc/diwall/diwall.conf`.
 - `postrm` distinguishes `remove` (code + venv + system user/group) from
-  `purge` (also removes `/var/log/diwall` and `/etc/diwall`). `~/Vaults/` is
+  `purge` (also removes `/var/log/diwall` and `/etc/diwall`). `~/Secrets/` is
   never touched by either — outside dpkg's purview by construction.
 - `scripts/preflight-publication.sh` scope extended to `debian/*` (no file
   extension on `control`/`postinst`/`postrm`/`rules` meant they were
@@ -1095,7 +1095,7 @@ full cold-reinstall test, fixed before running it. Commit `480b55e`.
 
 **Full cold-install validation:** `uninstall.sh --confirme` (complete removal:
 `/opt/diwall/`, `/var/log/diwall/`, system user/group, pre-push hook —
-`~/Vaults/`, git sources, and the Playwright cache confirmed preserved) then
+`~/Secrets/`, git sources, and the Playwright cache confirmed preserved) then
 `install.sh` from scratch (fresh user/group/venv/Chromium, 37 files deployed,
 permissions check, integrated smoke test) — passed on the first run with the
 fix in place. `scenarios/v1.18.0_validation/` 5/5 and all four regression
@@ -1154,7 +1154,7 @@ copies that directory to `/opt/diwall/`. `README.md`, `docs/GUIDE.md`, and
 `docs/MANUEL.md` referenced these scripts inconsistently: some as a bare
 relative path (correct only if already `cd`'d into the repo root, never
 stated), one (`docs/MANUEL.md`, vault mount instructions) as
-`/opt/diwall/scripts/mount-vault.sh` — a path that does not exist. All
+`/opt/diwall/scripts/monter-repertoire-chiffre.sh` — a path that does not exist. All
 occurrences now use the absolute path `~/git/Diwall/Diwall/scripts/<script>.sh`,
 consistent with the rest of the documentation.
 
@@ -1239,7 +1239,7 @@ only — no functional change to `shot.py`/`rpa.py` logic.
   bypasses that boundary via CDP. No SoM numbering inside the frame —
   selector-based targeting only, documented as a first unlock, not the full
   vision (same honesty pattern as the closed-Shadow-Root limit).
-  `remplir_iframe` supports `depuis_vault`/`depuis_vault_totp` like `remplir`.
+  `remplir_iframe` supports `depuis_secrets`/`depuis_secrets_totp` like `remplir`.
   Both actions added to `lib/journal.py`'s `ACTIONS_ECRITURE` — caught and
   fixed a real masking gap in the same commit: `_resumer_action()` and
   `_neutraliser_actions_raw()` did not yet know about `remplir_iframe`, so a
@@ -1357,9 +1357,9 @@ were modified), matching the per-file version bump discipline.
 Regression: `v1.3_validation` 8/8 green, `v1.4_validation` 2/3 green.
 
 **Finding — pre-existing stale test, not a regression:** `v1.4_validation` T3
-asserts `depuis_vault` and `vault_cle` are absent from the raw journal line.
+asserts `depuis_secrets` and `secret_cle` are absent from the raw journal line.
 Both now legitimately appear inside `actions_raw` (introduced in v1.6.0 for
-`--exporter-skill`) — by design, `depuis_vault` and `vault_cle` are key
+`--exporter-skill`) — by design, `depuis_secrets` and `secret_cle` are key
 *references*, never the resolved secret value (confirmed: the actual filled
 value `S3CR3T_RESOLU` stays absent). Reproduced identically on unmodified
 pre-session code via `git stash` — the test predates v1.6.0 and was never
@@ -1408,7 +1408,7 @@ when it functionally changes, not in lockstep on every release).
   `max_pages_par_run`, `max_actions_par_run`. Applied at start of `main()`.
 - `lib/journal.py`: `_journal_path()` reads path from `diwall.conf[journal][chemin]`.
   Fallback: `DIWALL_JOURNAL` env var, then `/var/log/diwall/operations.jsonl`.
-- `lib/vault.py`: opt-in SHA256 checksum via `VaultChecksumError` + `_verifier_checksum()`.
+- `lib/repertoire_chiffre.py`: opt-in SHA256 checksum via `SecretsChecksumError` + `_verifier_checksum()`.
   Covers fields `username`, `password`, `totp_cle`. Absent `checksum` key = no check (strict opt-in).
 - `scenarios/diagnostic_dom.json`: 3 new `evaluer` actions (React/Vue/Angular detection,
   shadow root count, data-attr inventory).
@@ -1432,9 +1432,9 @@ Preflight exit 0.
 
 - Inter-session anomaly audit: 5 untracked scenarios + plaintext credential in scenarios
   already committed since session 31.
-- Full neutralisation of 8 scenario files: credentials → `depuis_vault`,
+- Full neutralisation of 8 scenario files: credentials → `depuis_secrets`,
   internal hosts → `__HOST_ADMIN__`, named identifiers → vault keys.
-- `CLAUDE.md`: Rule n°6 added — every `password` field in a scenario must use `depuis_vault`.
+- `CLAUDE.md`: Rule n°6 added — every `password` field in a scenario must use `depuis_secrets`.
 - `scripts/preflight-publication.sh`: scope extended to `scenarios/*.json`, dummy credential pattern added.
 - `docs/GUIDE_LLM.md`: WAF note added — e-commerce sites protected by Cloudflare/CloudFront
   return 403 systematically; web landscape friction, not a Diwall constraint.
@@ -1618,14 +1618,14 @@ Frictions raised by Claude Sillage (8 items); additional analysis by Gemini (FR-
 - `rpa.py` — explicit hint in `_valider_schema` (FR-69): when `ValidationError`
   at root with `"is not of type"`, directs toward `{"actions": [...]}`.
 
-- `lib/vault.py` — two fixes:
+- `lib/repertoire_chiffre.py` — two fixes:
   - Distinct messages in `lire_credential_fichier` and `verifier_cles_fichier` (FR-71):
     "non-existent directory (vault not mounted?)" vs "existing directory not mounted
     (raw disk rejected)".
   - `_coffre_est_monte` (FR-72): parses column 2 of `/proc/mounts` and now accepts
     subdirectories of a FUSE vault (`path.startswith(mountpoint + "/")`). Restricted
     to FUSE fstypes to preserve T1. Semantic drift identified by Gemini: Sillage was
-    blocked with `VaultFermeError(42)` when storing credentials in a vault subdirectory.
+    blocked with `SecretsFermesError(42)` when storing credentials in a vault subdirectory.
 
 - `docs/GUIDE_LLM.md` v2.6 — 3 corrections: `tail -1` rule extended to `rpa.py`;
   `remplir_som`: "Clears the field before typing (v1.9.6+)" note; diagnostic rule
@@ -1644,7 +1644,7 @@ PHASE_EXECUTION v1.10.0 pending since session 33.
 
 Complete PHASE_EXECUTION, spec `V1_10_0_SECRETS_MULTICOFFRE.md` (Items A–D):
 
-- `lib/vault.py` — three new functions:
+- `lib/repertoire_chiffre.py` — three new functions:
   `lire_credential_fichier(path, key)` — reads from designated file with mount check T1;
   `verifier_cles_fichier(path, keys)` — fail-fast pre-validation of keys;
   `lire_totp_fichier(path)` — TOTP generation from designated file.
@@ -1652,7 +1652,7 @@ Complete PHASE_EXECUTION, spec `V1_10_0_SECRETS_MULTICOFFRE.md` (Items A–D):
 - `shot.py` — fail-fast venv (`find_spec("playwright")` absent → explicit message + exit 3);
   `--secrets <file>` argument in `parse_args()`;
   `secrets_chemin` parameter in `executer_actions()` with full T3 coverage:
-  `depuis_vault`, `depuis_vault_totp` (×2: remplir + remplir_som), `attendre_mfa_ntfy` (ntfy_topic).
+  `depuis_secrets`, `depuis_secrets_totp` (×2: remplir + remplir_som), `attendre_mfa_ntfy` (ntfy_topic).
 
 - `rpa.py` — `--secrets` argument; `verifier_cles_fichier` import; bifurcated pre-validation
   (`verifier_cles_fichier` if `--secrets`, `verifier_cles` otherwise); propagation to shot.py subprocess.
@@ -1665,7 +1665,7 @@ Complete PHASE_EXECUTION, spec `V1_10_0_SECRETS_MULTICOFFRE.md` (Items A–D):
 
 **Test results:**
 T-A1 green (read from mounted vault, correct value).
-T-A2 green (`VaultFermeError(42)` on non-mounted directory, exit 42).
+T-A2 green (`SecretsFermesError(42)` on non-mounted directory, exit 42).
 T-A3 green (`FileNotFoundError`, exit 1, explicit message).
 T-B1 green (fail-fast missing key before Playwright via rpa.py, 126ms).
 T-B2 green (TOTP read from designated file, 6-digit code).
@@ -1674,7 +1674,7 @@ T-C2 green (exit 3 cleanly relayed by rpa.py).
 T-D1 green (without `--secrets`: behaviour strictly identical to v1.9.8).
 Preflight exit 0. Smoke tests 3/3.
 
-**Note T-A2:** `/tmp` on the deployment machine is a mounted tmpfs — VaultFermeError does not trigger on `/tmp`.
+**Note T-A2:** `/tmp` on the deployment machine is a mounted tmpfs — SecretsFermesError does not trigger on `/tmp`.
 Consistent with honest limit T1 (tmpfs = active mount). Test uses an unmounted directory
 to validate rejection.
 
@@ -1755,7 +1755,7 @@ decision for a two-step fix — immediate documentary, non-urgent API.
 **Work done:**
 
 Discovery at session start: frictions #35 (recursive vault) and #37 (port-aware vault)
-already implemented in `lib/vault.py` during session 16 — without spec or marking.
+already implemented in `lib/repertoire_chiffre.py` during session 16 — without spec or marking.
 Retroactive spec `43_GROUPE_C_VAULT_FILL_PREUVES.md` created in `_CADRE/`.
 Frictions #35 and #37 marked resolved in `docs/RETOUR_EXPERIENCE.md`.
 
@@ -1860,8 +1860,8 @@ three architectural gaps identified by Claude Sillage during PHASE_VALIDATION C2
   must be created manually from this template — its absence shows a framed warning.
   Separate permissions: `lib/*.py` → 644, `scenarios/*` + `skills/*` + `diwall.conf` → 640.
 
-- `lib/vault.py` — removal of silent fallback `~/Vaults/Diwall`.
-  New exception `VaultNonConfigureError` (exit 43) raised if `diwall.conf` absent
+- `lib/repertoire_chiffre.py` — removal of silent fallback `~/Secrets/Diwall`.
+  New exception `SecretsNonConfigureError` (exit 43) raised if `diwall.conf` absent
   during vault resolution. Structured message with correction instructions.
   Vault error set: 42 = vault closed, 43 = not configured.
 
@@ -2020,7 +2020,7 @@ Same method as the 03 June 2026 campaign (SIGNAUX_V18.md).
 - `CLAUDE.md` created at root — automatic Claude Code pre-flight: 5 non-negotiable
   rules including credential-in-shell prohibition and mandatory `GUIDE_LLM.md` pre-read.
 - `docs/GUIDE_LLM.md` v1.8 — security block at top + 4 pitfalls
-  (FR-54, FR-55, FR-56, FR-58 DIWALL_VAULT_DIR vs DIWALL_CONF).
+  (FR-54, FR-55, FR-56, FR-58 DIWALL_SECRETS_DIR vs DIWALL_CONF).
 - `docs/RETOUR_EXPERIENCE.md` — frictions #52–#56, session 19 summary.
 - `docs/RADAR_MODELES.md` created — raw observation log on LLM behaviour with Diwall
   (2 entries: Claude Sonnet pre-fixes / Gemini Flash).
@@ -2029,14 +2029,14 @@ Same method as the 03 June 2026 campaign (SIGNAUX_V18.md).
 says silence on *promotion*, not on reality. False positives are included — they are the signal.
 
 **Gemini Flash benchmark:** same multi-target exercise, post-fixes. Results
-correct, `depuis_vault` used consistently, curl trap ignored. Single drift:
-FR-58 (DIWALL_VAULT_DIR), self-corrected. Validation of perception/action doctrine.
+correct, `depuis_secrets` used consistently, curl trap ignored. Single drift:
+FR-58 (DIWALL_SECRETS_DIR), self-corrected. Validation of perception/action doctrine.
 
 **Commits:**
 - `84100a1` — feat(v1.8): wait primitives, nettoyer_overlay, vault symlink fix, deploy docs
 - `6982639` — fix(v1.8): FR-54 --actions file in Mode B, FR-55 attendre_url attendre_changement
 - `7c84e01` — fix: neutralise client name in session 19 summary
-- `9ca4d85` — docs(v1.8): FR-58 DIWALL_VAULT_DIR vs DIWALL_CONF, fix obsolete mentions
+- `9ca4d85` — docs(v1.8): FR-58 DIWALL_SECRETS_DIR vs DIWALL_CONF, fix obsolete mentions
 
 **Release:** `v1.8.0` — tag created, pushed, GitHub release published in English.
 
@@ -2052,7 +2052,7 @@ Incomplete JSON schema (refs without definitions).
 
 **Work done:**
 
-- `lib/vault.py` (FR-47) — symlink security: `glob.glob` replaced by
+- `lib/repertoire_chiffre.py` (FR-47) — symlink security: `glob.glob` replaced by
   `os.walk(followlinks=False)`. All 4 T_CONF tests pass. Invariant: recursive
   traversal cannot escape the vault directory via a symbolic link.
 
@@ -2067,7 +2067,7 @@ Incomplete JSON schema (refs without definitions).
 
 - `lib/vector.py` (FR-53) — new optional ChromaDB interface. DB_PATH cascade:
   `DIWALL_VECTOR_DB` env → `diwall.conf.vector_db` → `_CADRE/MEMOIRE/`
-  (if sibling) → `~/Vaults/Diwall/chroma_db`. Lazy imports (chromadb, requests).
+  (if sibling) → `~/Secrets/Diwall/chroma_db`. Lazy imports (chromadb, requests).
 
 - `scenarios/schema.json` — 5 JSON Schema definitions added (AttendreUrl,
   AttendreSelecteurPresent, AttendreAbsence, AttendreReseauCalme, NettoyerOverlay),

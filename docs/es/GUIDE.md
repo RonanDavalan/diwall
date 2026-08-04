@@ -183,13 +183,13 @@ patrón a escala de panel (39 % de bloqueo inmediato).
 # → debe retornar {"éxito": verdadero, ...}
 
 # 2. Verificar que el volumen esté montado (si se utiliza gocryptfs).
-ls ~/Vaults/Diwall/
+ls ~/Secrets/Diwall/
 # → debe mostrar archivos .json, no contenido encriptado.
 
 # 3. Verificar las credenciales para un dominio.
 /opt/diwall/venv/bin/python3 -c "
 import sys; sys.path.insert(0, '/opt/diwall')
-from lib.vault import lire_credential
+from lib.repertoire_chiffre import lire_credential
 print('OK' if lire_credential('target.local', 'password') else 'EMPTY')
 "
 ```
@@ -203,7 +203,7 @@ Cada proyecto puede tener su propio almacén (vault). Dos métodos:
 **Método 1: Variable de entorno directa (única ejecución):**
 
 ```bash
-DIWALL_VAULT_DIR=~/Vaults/MyProject \
+DIWALL_SECRETS_DIR=~/Secrets/MyProject \
   /opt/diwall/venv/bin/python3 /opt/diwall/shot.py --url …
 ```
 
@@ -211,14 +211,14 @@ Método 2: Archivo de proyecto `.diwall.conf` (recomendado para proyectos recurr
 
 ```bash
 # Crea el archivo en la raíz del proyecto.
-echo '{"vault_dir": "../MyProject-vault"}' > ~/git/MyProject/.diwall.conf
+echo '{"secrets_dir": "../MyProject-vault"}' > ~/git/MyProject/.diwall.conf
 
 # Mantén el formato de Markdown exactamente como está. Responde solo con la traducción, sin preámbulos.  Luego, antepón cada invocación (o exporta al inicio de la sesión del shell).
 export DIWALL_CONF=~/git/MyProject/.diwall.conf
 /opt/diwall/venv/bin/python3 /opt/diwall/shot.py --url …
 ```
 
-El `vault_dir` en `.diwall.conf` puede ser una ruta relativa; se resuelve
+El `secrets_dir` en `.diwall.conf` puede ser una ruta relativa; se resuelve
 relativamente a la ubicación del archivo `.diwall.conf`.
 
 ---
@@ -276,8 +276,8 @@ cat > /tmp/login.json << 'EOF'
   "nom": "app_login",
   "url": "https://app.example.com/login/",
   "actions": [
-    {"type": "remplir_som", "id": 1, "valeur": "depuis_vault", "vault_cle": "username"},
-    {"type": "remplir_som", "id": 2, "valeur": "depuis_vault", "vault_cle": "password"},
+    {"type": "remplir_som", "id": 1, "valeur": "depuis_secrets", "secret_cle": "username"},
+    {"type": "remplir_som", "id": 2, "valeur": "depuis_secrets", "secret_cle": "password"},
     {"type": "cliquer_som", "id": 3},
     {"type": "pause",        "ms": 2000},
     {"type": "capturer",     "nom": "after-login"}
@@ -305,8 +305,8 @@ cat > /tmp/audit.json << 'EOF'
   "nom": "audit_pages",
   "url": "https://app.example.com/login/",
   "actions": [
-    {"type": "remplir_som", "id": 1, "valeur": "depuis_vault", "vault_cle": "username"},
-    {"type": "remplir_som", "id": 2, "valeur": "depuis_vault", "vault_cle": "password"},
+    {"type": "remplir_som", "id": 1, "valeur": "depuis_secrets", "secret_cle": "username"},
+    {"type": "remplir_som", "id": 2, "valeur": "depuis_secrets", "secret_cle": "password"},
     {"type": "cliquer_som", "id": 3},
     {"type": "pause",        "ms": 2000},
     {"type": "naviguer",     "url": "https://app.example.com/dashboard/"},
@@ -404,7 +404,7 @@ acceder a `~/git/Diwall/Diwall/`):
 | Situación | ¿Qué hacer |
 |---|---|
 | `FileNotFoundError` en el almacén (vault) | Verifique que el archivo JSON tenga el nombre completo del FQDN (`urlparse(url).hostname`) |
-| `VaultFermeError` (salida 42) | Monte el almacén: `bash ~/git/Diwall/Diwall/scripts/mount-vault.sh` |
+| `SecretsFermesError` (salida 42) | Monte el almacén: `bash ~/git/Diwall/Diwall/scripts/monter-repertoire-chiffre.sh` |
 | JSON inválido en la salida | Use `2>/dev/null \| tail -1` para extraer solo la línea JSON |
 | Los ID de SoM difieren entre sesiones | Esperado — los ID de SoM se recalculan en cada captura. No los reutilice entre sesiones |
 | Inicio de sesión seguido de una redirección de Django al panel | No use `naviguer` en una sesión de Django reanudada; pase la URL a través de `--url` |
@@ -447,7 +447,7 @@ bash ~/git/Diwall/Diwall/scripts/uninstall.sh --confirme && bash ~/git/Diwall/Di
 | Hook pre-push de git | `core.hooksPath` deshabilitado en el repositorio fuente |
 
 Lo que nunca se modifica:
-- `~/Vaults/` — sus bóvedas de credenciales
+- `~/Secrets/` — sus bóvedas de credenciales
 - `~/git/Diwall/` — fuentes de Git
 - Caché del navegador Playwright (`~/.cache/ms-playwright/`)
 

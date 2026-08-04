@@ -4,11 +4,11 @@
 Usage:
     /opt/diwall/venv/bin/python3 scenarios/v1.21.0_validation/verifier.py
 
-T-2 et T-3 nécessitent un coffre gocryptfs monté (vault_dir de diwall.conf,
-ou --secrets déduit dynamiquement) — _coffre_est_monte() (lib/vault.py)
+T-2 et T-3 nécessitent un répertoire chiffré gocryptfs monté (secrets_dir de diwall.conf,
+ou --secrets déduit dynamiquement) — _repertoire_est_monte() (lib/repertoire_chiffre.py)
 restreint T1 aux montages FUSE, tmpfs (/tmp) est refusé malgré la mention
 dans le message d'erreur (vérifié en conditions réelles, 15/07/2026).
-Si aucun coffre n'est monté, T-2 et T-3 sont signalés SKIP, pas KO.
+Si aucun répertoire chiffré n'est monté, T-2 et T-3 sont signalés SKIP, pas KO.
 """
 from __future__ import annotations
 
@@ -61,12 +61,12 @@ def _demarrer_fixture():
     raise RuntimeError("fixture Basic Auth n'a pas démarré à temps")
 
 
-def _coffre_monte_disponible():
-    """Détecte un coffre gocryptfs déjà monté, sans dépendre d'un chemin
+def _repertoire_monte_disponible():
+    """Détecte un répertoire chiffré gocryptfs déjà monté, sans dépendre d'un chemin
     personnel — parcourt /proc/mounts. Restriction à 'fuse.gocryptfs'
-    précisément (pas juste 'fuse' comme lib.vault._coffre_est_monte(),
+    précisément (pas juste 'fuse' comme lib.repertoire_chiffre._repertoire_est_monte(),
     qui accepterait à tort des pseudo-fs kernel type fusectl,
-    /sys/fs/fuse/connections — non écrivables, jamais un vrai vault)."""
+    /sys/fs/fuse/connections — non écrivables, jamais un vrai répertoire chiffré)."""
     try:
         with open("/proc/mounts", encoding="utf-8") as f:
             for ligne in f:
@@ -80,7 +80,7 @@ def _coffre_monte_disponible():
 
 def test_1_401_sans_flag():
     """Sans --http-credentials : 401 propre, signal distinct, jamais de
-    faux http_credentials_actif (portable — aucun vault requis)."""
+    faux http_credentials_actif (portable — aucun répertoire chiffré requis)."""
     r = subprocess.run(
         [PYTHON, SHOT, "--url", URL_FIXTURE, "--no-capture",
          "--guide-version", GUIDE_VERSION],
@@ -98,13 +98,13 @@ def test_1_401_sans_flag():
     ])
 
 
-def test_2_succes_avec_flag(vault_dir):
+def test_2_succes_avec_flag(secrets_dir):
     """Avec --http-credentials et les bons identifiants : challenge résolu,
     boussole.http_credentials_actif reflète un succès réel (pas juste le flag)."""
-    if vault_dir is None:
-        return None, ["[SKIP] T-2) succès avec --http-credentials — aucun coffre monté"]
+    if secrets_dir is None:
+        return None, ["[SKIP] T-2) succès avec --http-credentials — aucun répertoire chiffré monté"]
 
-    chemin = os.path.join(vault_dir, "_test_v1210_fixture_vault.json")
+    chemin = os.path.join(secrets_dir, "_test_v1210_fixture_secrets.json")
     with open(chemin, "w", encoding="utf-8") as f:
         json.dump({"http_username": UTILISATEUR, "http_password": MOT_DE_PASSE}, f)
     try:
@@ -127,13 +127,13 @@ def test_2_succes_avec_flag(vault_dir):
     ])
 
 
-def test_3_mauvais_identifiants(vault_dir):
+def test_3_mauvais_identifiants(secrets_dir):
     """Flag actif mais mauvais mot de passe : le challenge n'est PAS résolu —
     http_credentials_actif doit rester absent (précédent stealth_actif, v1.16.0)."""
-    if vault_dir is None:
-        return None, ["[SKIP] T-3) mauvais identifiants — aucun coffre monté"]
+    if secrets_dir is None:
+        return None, ["[SKIP] T-3) mauvais identifiants — aucun répertoire chiffré monté"]
 
-    chemin = os.path.join(vault_dir, "_test_v1210_fixture_vault_faux.json")
+    chemin = os.path.join(secrets_dir, "_test_v1210_fixture_secrets_faux.json")
     with open(chemin, "w", encoding="utf-8") as f:
         json.dump({"http_username": UTILISATEUR, "http_password": "mauvais_mot_de_passe"}, f)
     try:
@@ -158,11 +158,11 @@ def test_3_mauvais_identifiants(vault_dir):
 
 def main():
     proc = _demarrer_fixture()
-    vault_dir = _coffre_monte_disponible()
+    secrets_dir = _repertoire_monte_disponible()
     try:
         resultats = [test_1_401_sans_flag()]
         for fn in (test_2_succes_avec_flag, test_3_mauvais_identifiants):
-            resultats.append(fn(vault_dir))
+            resultats.append(fn(secrets_dir))
     finally:
         proc.terminate()
         proc.wait(timeout=5)

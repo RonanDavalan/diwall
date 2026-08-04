@@ -1,5 +1,5 @@
 #!/usr/bin/env python3
-"""Verifier — v1.22.0 (repli_js, dernier_code_http, VaultNonConfigureError, --wait-until).
+"""Verifier — v1.22.0 (repli_js, dernier_code_http, SecretsNonConfigureError, --wait-until).
 
 Usage:
     /opt/diwall/venv/bin/python3 scenarios/v1.22.0_validation/verifier.py

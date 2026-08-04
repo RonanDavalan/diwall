@@ -11,7 +11,7 @@ Configuration (par ordre de priorité) :
   3. Défaut : https://ntfy.sh
 
 Sécurité : le topic doit être un secret partagé opérateur-machine,
-jamais un nom prévisible. Le stocker dans le vault sous 'ntfy_topic'.
+jamais un nom prévisible. Le stocker dans le répertoire chiffré sous 'ntfy_topic'.
 """
 import json
 import os

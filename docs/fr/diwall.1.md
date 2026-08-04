@@ -14,9 +14,9 @@ diwall - outil de perception visuelle et de RPA pour les agents LLM.
 
 **diwall-watch** \[*options*\]
 
-**diwall-mount-vault** \[*options*\]
+**diwall-monter-secrets** \[*options*\]
 
-**diwall-umount-vault** \[*options*\]
+**diwall-demonter-secrets** \[*options*\]
 
 **diwall-monitor-verifier** **--scenario** *FICHIER* **--reference** *FICHIER*
 
@@ -44,7 +44,7 @@ répétable, et la seule qui évalue les assertions du scénario.
 **diwall-watch**
 : Surveillance visuelle. Enregistre une image de référence d'une page, puis compare les captures ultérieures à celle-ci — comparaison pixel par pixel localement, ou une description fournie par un modèle de vision locale. Utilisé pour détecter les régressions visuelles sans intervention humaine.
 
-**diwall-mount-vault**, **diwall-umount-vault**
+**diwall-monter-secrets**, **diwall-demonter-secrets**
 : Monter et démonter le coffre-fort de crédentiels chiffré par gocryptfs. Diwall refuse
 de résoudre toute information d'identification tant que le coffre-fort est fermé, se terminant avec le code 42 au lieu de revenir à une solution moins sécurisée.
 
@@ -126,7 +126,7 @@ répertoire contient les commandes exactes avec les chemins réels.
 : Arguments incompatibles, rejetés avant même que n'importe quel navigateur ne soit lancé.
 
 **42**
-: Le coffre de mots de passe est fermé. Montez-le avec **diwall-mount-vault**.
+: Le coffre de mots de passe est fermé. Montez-le avec **diwall-monter-secrets**.
 
 **43**
 : La somme de contrôle de l'intégrité du coffre-fort ne correspond pas.
@@ -147,7 +147,7 @@ Accédez à un panneau d'administration qui actualise les statistiques en contin
 
 Exécutez un scénario en utilisant les informations d'identification provenant d'un fichier de coffre-fort explicite :
 
-    diwall-rpa --scenario ./login.json --secrets ~/Vaults/project/creds.json
+    diwall-rpa --scenario ./login.json --secrets ~/Secrets/project/creds.json
 
 Vérifiez qu'une page n'a pas subi de régressions structurelles :
 

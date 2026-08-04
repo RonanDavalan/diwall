@@ -70,7 +70,7 @@ Le modèle de langage décide quoi faire ensuite.
 | **Surveillance visuelle** | Détecte si une page a changé depuis la dernière référence |
 | **Diff pixel** | Comparaison quantitative et déterministe contre une référence enregistrée (v1.2) |
 | **Coffre de credentials** | Injection sécurisée des identifiants — jamais en clair, jamais sur la ligne de commande |
-| **Coffre chiffré** | Coffre adossé à gocryptfs — `VaultFermeError` (exit 42) si le coffre n'est pas monté (v1.5) |
+| **Coffre chiffré** | Coffre adossé à gocryptfs — `SecretsFermesError` (exit 42) si le coffre n'est pas monté (v1.5) |
 | **Défilement** | Action `defiler` — défilement relatif en pixels ou `scrollIntoView` par sélecteur CSS (v1.6) |
 | **Alerte hors écran** | Compteur `som_hors_viewport` dans le JSON quand des éléments interactifs existent sous la ligne de flottaison (v1.6) |
 | **Mémoire procédurale** | Les exécutions réussies sont enregistrées comme compétences rejouables via `journal.py --exporter-skill` (v1.6) |
@@ -176,7 +176,7 @@ bash ~/git/Diwall/Diwall/scripts/uninstall.sh --confirme
 
 Supprime : `/opt/diwall/`, `/var/log/diwall/`, utilisateur système `diwall`, groupe système `diwall`, appartenance au groupe d'opérateurs, hook de pré-envoi Git.
 
-**Non modifiés :** `~/Vaults/` (coffres-forts de crédentielles), le référentiel lui-même, le cache du navigateur Playwright.
+**Non modifiés :** `~/Secrets/` (coffres-forts de crédentielles), le référentiel lui-même, le cache du navigateur Playwright.
 
 Si `/var/log/diwall/preuves/` contient des captures, elles sont conservées par défaut. Ajoutez `--purge-preuves` pour les supprimer.
 
@@ -222,16 +222,16 @@ Référence complète pour les modèles : [`docs/GUIDE_LLM.md`](docs/GUIDE_LLM.m
 Les informations d'identification sont stockées dans des fichiers JSON, un fichier par domaine, **jamais dans le code ou les fichiers de scénarios** :
 
 ```
-~/Vaults/Diwall/
+~/Secrets/Diwall/
 ├── my-app.local.json        → {"password": "...", "username": "admin"}
 └── other-service.com.json   → {"password": "...", "api_key": "..."}
 ```
 
-Dans un scénario ou une action : `"valeur": "depuis_vault", "vault_cle": "password"` — Diwall lit les informations d'identification au moment de l'exécution à partir du répertoire du coffre-fort.
+Dans un scénario ou une action : `"valeur": "depuis_secrets", "secret_cle": "password"` — Diwall lit les informations d'identification au moment de l'exécution à partir du répertoire du coffre-fort.
 
-Le chemin d'accès au coffre-fort est configurable via la variable d'environnement `/opt/diwall/diwall.conf` ou `DIWALL_VAULT_DIR`.
+Le chemin d'accès au coffre-fort est configurable via la variable d'environnement `/opt/diwall/diwall.conf` ou `DIWALL_SECRETS_DIR`.
 
-**Recommandation :** protégez `~/Vaults/Diwall/` avec `chmod 700` et cryptez-le avec `gocryptfs` (voir `~/git/Diwall/Diwall/scripts/setup-vault.sh --gocryptfs`). Le coffre-fort crypté est entièrement pris en charge depuis la version v1.5.0 — si le coffre-fort est initialisé mais non monté, Diwall renvoie une structure `VaultFermeError` (code de sortie 42) au lieu d'échouer silencieusement.
+**Recommandation :** protégez `~/Secrets/Diwall/` avec `chmod 700` et cryptez-le avec `gocryptfs` (voir `~/git/Diwall/Diwall/scripts/configurer-repertoire-chiffre.sh --gocryptfs`). Le coffre-fort crypté est entièrement pris en charge depuis la version v1.5.0 — si le coffre-fort est initialisé mais non monté, Diwall renvoie une structure `SecretsFermesError` (code de sortie 42) au lieu d'échouer silencieusement.
 
 ---
 
@@ -248,14 +248,14 @@ Lorsque Diwall est utilisé avec un LLM basé sur le cloud (API Claude, OpenAI, 
 
 ### Répertoire du coffre-fort
 
-Le répertoire du coffre-fort (par défaut, [`~/Vaults/Diwall/`] ) contient des informations d'identification en texte clair au format JSON lorsqu'il n'est pas monté. Protégez-le :
+Le répertoire du coffre-fort (par défaut, [`~/Secrets/Diwall/`] ) contient des informations d'identification en texte clair au format JSON lorsqu'il n'est pas monté. Protégez-le :
 
 ```bash
-chmod 700 ~/Vaults/Diwall/
+chmod 700 ~/Secrets/Diwall/
 ```
 
 Le support des systèmes de fichiers chiffrés (`gocryptfs`) est entièrement pris en charge depuis la version 1.5.0 ;
-voir "Coffre-fort d'informations d'identification" ci-dessus et `~/git/Diwall/Diwall/scripts/setup-vault.sh`.
+voir "Coffre-fort d'informations d'identification" ci-dessus et `~/git/Diwall/Diwall/scripts/configurer-repertoire-chiffre.sh`.
 
 ---
 

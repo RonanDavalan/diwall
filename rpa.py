@@ -12,12 +12,12 @@ Format du scénario :
         "nom": "example_login",
         "url": "https://your-app.local/",
         "actions": [
-            {"type": "remplir_som", "id": 1, "valeur": "depuis_vault", "vault_cle": "password"},
+            {"type": "remplir_som", "id": 1, "valeur": "depuis_secrets", "secret_cle": "password"},
             {"type": "cliquer_som", "id": 2}
         ]
     }
 
-Le vault est résolu par lib/vault.py (DIWALL_VAULT_DIR > diwall.conf > ~/Vaults/Diwall/).
+Le répertoire chiffré est résolu par lib/repertoire_chiffre.py (DIWALL_SECRETS_DIR > diwall.conf > ~/Secrets/Diwall/).
 Jamais de mot de passe dans les fichiers de scénario.
 """
 __version__ = "1.23.0"
@@ -43,7 +43,7 @@ def _boussole():
         "ip_locale": ip,
         "repertoire": os.getcwd(),
     }
-from lib.vault import domaine_depuis_url, verifier_cles, verifier_cles_fichier, VaultFermeError
+from lib.repertoire_chiffre import domaine_depuis_url, verifier_cles, verifier_cles_fichier, SecretsFermesError
 
 _SCHEMA_PATH = os.path.join(os.path.dirname(os.path.abspath(__file__)),
                             "scenarios", "schema.json")
@@ -142,7 +142,7 @@ def _aplatir_actions(actions, profondeur=0):
 
     Résolution récursive : chaque declencher_scenario est remplacé par les
     actions du sous-scénario correspondant. Profondeur max : 5 niveaux.
-    Le vault et le journal restent gérés par le run parent.
+    Le répertoire chiffré et le journal restent gérés par le run parent.
 
     Retourne `(resultat, chainage)` (v1.19.0) : `chainage` est la liste
     ordonnée des sous-scénarios rencontrés, chacun sous la forme
@@ -334,7 +334,7 @@ def main():
     p.add_argument("--ignore-tls-errors", dest="ignore_tls_errors", action="store_true",
                    help="Accepte les certificats TLS invalides (LAN dev/Step-CA). Propagé à shot.py. (v1.15.1)")
     p.add_argument("--http-credentials", dest="http_credentials", action="store_true",
-                   help="Résout http_username/http_password depuis le vault et les injecte "
+                   help="Résout http_username/http_password depuis le répertoire chiffré et les injecte "
                         "au niveau du contexte navigateur pour répondre à un challenge HTTP "
                         "Basic Auth (v1.21.0). Combinable avec la propriété racine "
                         "'http_credentials: true' du scénario (OR, précédent shadow_dom). "
@@ -467,20 +467,20 @@ def main():
             os.remove(args.checkpoint)
             sys.exit(0)
 
-    # Pré-validation du coffre (fail-fast) SANS résoudre les valeurs : on
-    # vérifie l'existence du coffre et des clés référencées, puis on passe
-    # les actions avec 'depuis_vault' INTACT à shot.py, qui résout lui-même
+    # Pré-validation du répertoire chiffré (fail-fast) SANS résoudre les valeurs : on
+    # vérifie l'existence du répertoire chiffré et des clés référencées, puis on passe
+    # les actions avec 'depuis_secrets' INTACT à shot.py, qui résout lui-même
     # au moment de remplir. Le credential ne transite jamais par la ligne
     # de commande (§6.1 spec 35_).
     try:
         cles = []
         for a in actions:
-            if a.get("valeur") == "depuis_vault":
-                cle = a.get("vault_cle")
+            if a.get("valeur") == "depuis_secrets":
+                cle = a.get("secret_cle")
                 if not cle:
                     raise ValueError(
-                        f"Action {a.get('type')!r} : 'vault_cle' requis "
-                        f"quand valeur='depuis_vault'"
+                        f"Action {a.get('type')!r} : 'secret_cle' requis "
+                        f"quand valeur='depuis_secrets'"
                     )
                 cles.append(cle)
         if cles:
@@ -497,24 +497,24 @@ def main():
                     verifier_cles_fichier(args.secrets, ["http_username", "http_password"])
                 else:
                     verifier_cles(domaine_depuis_url(url), ["http_username", "http_password"])
-            except (KeyError, VaultFermeError) as e:
-                if isinstance(e, VaultFermeError):
+            except (KeyError, SecretsFermesError) as e:
+                if isinstance(e, SecretsFermesError):
                     raise
                 if args.secrets:
                     verifier_cles_fichier(args.secrets, ["username", "password"])
                 else:
                     verifier_cles(domaine_depuis_url(url), ["username", "password"])
-    except VaultFermeError as e:
+    except SecretsFermesError as e:
         print(json.dumps({
-            "succes": False, "erreur": "vault_ferme",
+            "succes": False, "erreur": "secrets_fermes",
             "message": str(e),
-            "code_sortie_recommande": VaultFermeError.CODE_SORTIE,
+            "code_sortie_recommande": SecretsFermesError.CODE_SORTIE,
             "boussole": _boussole(),
         }))
-        sys.exit(VaultFermeError.CODE_SORTIE)
+        sys.exit(SecretsFermesError.CODE_SORTIE)
     except (FileNotFoundError, KeyError, ValueError) as e:
         print(json.dumps({
-            "succes": False, "erreur": "vault_erreur", "message": str(e),
+            "succes": False, "erreur": "secrets_erreur", "message": str(e),
             "boussole": _boussole(),
         }))
         sys.exit(1)
@@ -688,7 +688,7 @@ def main():
                     f"préservée(s) — relancer la même commande pour reprendre.",
                     file=sys.stderr,
                 )
-            # Sinon (échec avant tout executer_actions, ex. vault fermé) :
+            # Sinon (échec avant tout executer_actions, ex. répertoire chiffré fermé) :
             # le checkpoint existant reste inchangé, nouvelle tentative identique.
 
     # Replay verifier (v1.17.0, item 1) — uniquement si shot.py a réussi :

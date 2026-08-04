@@ -71,7 +71,7 @@ The language model decides what to do next.
 | **Visual monitoring** | Detect if a page changed since last reference |
 | **Pixel diff** | Quantitative, deterministic diff against a stored reference (v1.2) |
 | **Credential vault** | Secure credential injection — never in plaintext, never on the command line |
-| **Encrypted vault** | gocryptfs-backed vault — `VaultFermeError` (exit 42) if vault not mounted (v1.5) |
+| **Encrypted vault** | gocryptfs-backed vault — `SecretsFermesError` (exit 42) if vault not mounted (v1.5) |
 | **Scroll** | `defiler` action — relative pixel scroll or `scrollIntoView` by CSS selector (v1.6) |
 | **Off-screen warning** | `som_hors_viewport` count in JSON when interactive elements exist below the fold (v1.6) |
 | **Procedural memory** | Successful runs stored as replayable skills via `journal.py --exporter-skill` (v1.6) |
@@ -180,7 +180,7 @@ bash ~/git/Diwall/Diwall/scripts/uninstall.sh --confirme
 
 Removes: `/opt/diwall/`, `/var/log/diwall/`, system user `diwall`, system group `diwall`, operator's group membership, git pre-push hook.
 
-**Never touched:** `~/Vaults/` (credential vaults), the repository itself, Playwright browser cache.
+**Never touched:** `~/Secrets/` (credential vaults), the repository itself, Playwright browser cache.
 
 If `/var/log/diwall/preuves/` contains captures, they are preserved by default. Add `--purge-preuves` to remove them.
 
@@ -226,16 +226,16 @@ Full LLM reference: [`docs/GUIDE_LLM.md`](docs/GUIDE_LLM.md)
 Credentials are stored in JSON files, one per domain, **never in code or scenario files**:
 
 ```
-~/Vaults/Diwall/
+~/Secrets/Diwall/
 ├── my-app.local.json        → {"password": "...", "username": "admin"}
 └── other-service.com.json   → {"password": "...", "api_key": "..."}
 ```
 
-In a scenario or action: `"valeur": "depuis_vault", "vault_cle": "password"` — Diwall reads the credential at runtime from the vault directory.
+In a scenario or action: `"valeur": "depuis_secrets", "secret_cle": "password"` — Diwall reads the credential at runtime from the vault directory.
 
-Vault path is configurable via `/opt/diwall/diwall.conf` or `DIWALL_VAULT_DIR` environment variable.
+Vault path is configurable via `/opt/diwall/diwall.conf` or `DIWALL_SECRETS_DIR` environment variable.
 
-**Recommendation:** protect `~/Vaults/Diwall/` with `chmod 700` and encrypt it with `gocryptfs` (see `~/git/Diwall/Diwall/scripts/setup-vault.sh --gocryptfs`). Encrypted vault is fully supported since v1.5.0 — if the vault is initialised but not mounted, Diwall returns a structured `VaultFermeError` (exit code 42) instead of silently failing.
+**Recommendation:** protect `~/Secrets/Diwall/` with `chmod 700` and encrypt it with `gocryptfs` (see `~/git/Diwall/Diwall/scripts/configurer-repertoire-chiffre.sh --gocryptfs`). Encrypted vault is fully supported since v1.5.0 — if the vault is initialised but not mounted, Diwall returns a structured `SecretsFermesError` (exit code 42) instead of silently failing.
 
 ---
 
@@ -252,14 +252,14 @@ When Diwall is used with a cloud-based LLM (Claude API, OpenAI, etc.), PNG captu
 
 ### Vault directory
 
-The vault directory (`~/Vaults/Diwall/` by default) contains credentials in plaintext JSON when unmounted. Protect it:
+The vault directory (`~/Secrets/Diwall/` by default) contains credentials in plaintext JSON when unmounted. Protect it:
 
 ```bash
-chmod 700 ~/Vaults/Diwall/
+chmod 700 ~/Secrets/Diwall/
 ```
 
 Encrypted filesystem support (`gocryptfs`) has been fully supported since v1.5.0 —
-see "Credential vault" above and `~/git/Diwall/Diwall/scripts/setup-vault.sh`.
+see "Credential vault" above and `~/git/Diwall/Diwall/scripts/configurer-repertoire-chiffre.sh`.
 
 ---
 

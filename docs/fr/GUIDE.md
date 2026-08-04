@@ -190,13 +190,13 @@ documente le même schéma à l'échelle d'un panel (39 % de blocage immédiat).
 # → doit renvoyer {"succes": true, ...}
 
 # 2. Vérifiez que le coffre est monté (si vous utilisez gocryptfs).
-ls ~/Vaults/Diwall/
+ls ~/Secrets/Diwall/
 # → doit afficher les fichiers .json, et non le contenu chiffré.
 
 # 3. Vérifier les informations d'identification pour un domaine.
 /opt/diwall/venv/bin/python3 -c "
 import sys; sys.path.insert(0, '/opt/diwall')
-from lib.vault import lire_credential
+from lib.repertoire_chiffre import lire_credential
 print('OK' if lire_credential('target.local', 'password') else 'EMPTY')
 "
 ```
@@ -210,7 +210,7 @@ Chaque projet peut avoir son propre coffre-fort. Deux méthodes :
 **Méthode 1 : Variable d'environnement directe (exécution unique) :**
 
 ```bash
-DIWALL_VAULT_DIR=~/Vaults/MyProject \
+DIWALL_SECRETS_DIR=~/Secrets/MyProject \
   /opt/diwall/venv/bin/python3 /opt/diwall/shot.py --url …
 ```
 
@@ -218,14 +218,14 @@ DIWALL_VAULT_DIR=~/Vaults/MyProject \
 
 ```bash
 # Créez le fichier à la racine du projet.
-echo '{"vault_dir": "../MyProject-vault"}' > ~/git/MyProject/.diwall.conf
+echo '{"secrets_dir": "../MyProject-vault"}' > ~/git/MyProject/.diwall.conf
 
 # Puis préfixez chaque invocation (ou exportez en début de session shell)
 export DIWALL_CONF=~/git/MyProject/.diwall.conf
 /opt/diwall/venv/bin/python3 /opt/diwall/shot.py --url …
 ```
 
-Le `vault_dir` dans le fichier `.diwall.conf` peut être un chemin relatif ; il est résolu par rapport à l'emplacement du fichier `.diwall.conf`.
+Le `secrets_dir` dans le fichier `.diwall.conf` peut être un chemin relatif ; il est résolu par rapport à l'emplacement du fichier `.diwall.conf`.
 
 ---
 
@@ -282,8 +282,8 @@ cat > /tmp/login.json << 'EOF'
   "nom": "app_login",
   "url": "https://app.example.com/login/",
   "actions": [
-    {"type": "remplir_som", "id": 1, "valeur": "depuis_vault", "vault_cle": "username"},
-    {"type": "remplir_som", "id": 2, "valeur": "depuis_vault", "vault_cle": "password"},
+    {"type": "remplir_som", "id": 1, "valeur": "depuis_secrets", "secret_cle": "username"},
+    {"type": "remplir_som", "id": 2, "valeur": "depuis_secrets", "secret_cle": "password"},
     {"type": "cliquer_som", "id": 3},
     {"type": "pause",        "ms": 2000},
     {"type": "capturer",     "nom": "after-login"}
@@ -311,8 +311,8 @@ cat > /tmp/audit.json << 'EOF'
   "nom": "audit_pages",
   "url": "https://app.example.com/login/",
   "actions": [
-    {"type": "remplir_som", "id": 1, "valeur": "depuis_vault", "vault_cle": "username"},
-    {"type": "remplir_som", "id": 2, "valeur": "depuis_vault", "vault_cle": "password"},
+    {"type": "remplir_som", "id": 1, "valeur": "depuis_secrets", "secret_cle": "username"},
+    {"type": "remplir_som", "id": 2, "valeur": "depuis_secrets", "secret_cle": "password"},
     {"type": "cliquer_som", "id": 3},
     {"type": "pause",        "ms": 2000},
     {"type": "naviguer",     "url": "https://app.example.com/dashboard/"},
@@ -408,7 +408,7 @@ qui ne peut pas accéder à `~/git/Diwall/Diwall/` :
 | Situation | Ce qu'il faut faire |
 |---|---|
 | `FileNotFoundError` sur le coffre-fort | Vérifiez que le fichier JSON est nommé avec le FQDN complet (`urlparse(url).hostname`) |
-| `VaultFermeError` (sortie 42) | Montez le coffre-fort : `bash ~/git/Diwall/Diwall/scripts/mount-vault.sh` |
+| `SecretsFermesError` (sortie 42) | Montez le coffre-fort : `bash ~/git/Diwall/Diwall/scripts/monter-repertoire-chiffre.sh` |
 | JSON invalide dans la sortie | Utilisez `2>/dev/null \| tail -1` pour extraire uniquement la ligne JSON |
 | Les ID SoM diffèrent entre les sessions | Comportement attendu — les ID SoM sont recalculés à chaque capture. Ne les réutilisez jamais entre les sessions |
 | Connexion suivie d'une redirection Django vers le tableau de bord | N'utilisez pas `naviguer` dans une session Django reprise — transmettez l'URL via `--url` |
@@ -451,7 +451,7 @@ Qu'est-ce qui est supprimé :
 | Hook de pré-envoi Git | `core.hooksPath` désactivé dans le dépôt source |
 
 Ce qui n'est jamais modifié :
-- `~/Vaults/` — vos coffres-forts de données d'identification
+- `~/Secrets/` — vos coffres-forts de données d'identification
 - `~/git/Diwall/` — les sources Git
 - Le cache du navigateur Playwright (`~/.cache/ms-playwright/`)
 

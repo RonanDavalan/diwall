@@ -26,6 +26,6 @@ Starts and stops its own fixture server (`scenarios/interoperabilite/fixture/ser
 
 T-2 and T-3 require a mounted gocryptfs vault (any project's, auto-detected
 via `/proc/mounts`, fstype `fuse.gocryptfs`) — `/tmp` does not qualify:
-`lib.vault._coffre_est_monte()` restricts T1 to FUSE mounts specifically,
+`lib.repertoire_chiffre._coffre_est_monte()` restricts T1 to FUSE mounts specifically,
 tmpfs is rejected despite being mentioned in the error message (found while
 writing this suite, 15/07/2026).

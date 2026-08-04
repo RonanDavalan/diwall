@@ -11,8 +11,8 @@
 
     {"type": "capturer", "nom": "01_page_login"},
 
-    {"type": "remplir", "selecteur": "input[name=\"identifiant\"]", "valeur": "depuis_vault", "vault_cle": "username"},
-    {"type": "remplir", "selecteur": "input[name=\"password\"]",    "valeur": "depuis_vault", "vault_cle": "password"},
+    {"type": "remplir", "selecteur": "input[name=\"identifiant\"]", "valeur": "depuis_secrets", "secret_cle": "username"},
+    {"type": "remplir", "selecteur": "input[name=\"password\"]",    "valeur": "depuis_secrets", "secret_cle": "password"},
     {"type": "cliquer", "selecteur": "button.login-bouton"},
     {"type": "attendre_selecteur_present", "selecteur": "footer"},
 

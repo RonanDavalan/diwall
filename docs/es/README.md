@@ -71,7 +71,7 @@ El modelo de lenguaje decide qué hacer a continuación.
 | **Supervisión visual** | Detecta si una página ha cambiado desde la última referencia |
 | **Diff de píxeles** | Comparación cuantitativa y determinista contra una referencia guardada (v1.2) |
 | **Cofre de credenciales** | Inyección segura de credenciales: nunca en claro, nunca en la línea de órdenes |
-| **Cofre cifrado** | Cofre respaldado por gocryptfs — `VaultFermeError` (exit 42) si el cofre no está montado (v1.5) |
+| **Cofre cifrado** | Cofre respaldado por gocryptfs — `SecretsFermesError` (exit 42) si el cofre no está montado (v1.5) |
 | **Desplazamiento** | Acción `defiler` — desplazamiento relativo en píxeles o `scrollIntoView` por selector CSS (v1.6) |
 | **Aviso fuera de pantalla** | Contador `som_hors_viewport` en el JSON cuando hay elementos interactivos por debajo del pliegue (v1.6) |
 | **Memoria procedimental** | Las ejecuciones exitosas se guardan como habilidades reproducibles mediante `journal.py --exporter-skill` (v1.6) |
@@ -175,7 +175,7 @@ bash ~/git/Diwall/Diwall/scripts/uninstall.sh --confirme
 
 Elimina: `/opt/diwall/`, `/var/log/diwall/`, usuario del sistema `diwall`, grupo del sistema `diwall`, pertenencia al grupo de operadores, "git pre-push" hook.
 
-**Nunca modificados:** `~/Vaults/` (bóvedas de credenciales), el repositorio en sí mismo, la caché del navegador Playwright.
+**Nunca modificados:** `~/Secrets/` (bóvedas de credenciales), el repositorio en sí mismo, la caché del navegador Playwright.
 
 Si `/var/log/diwall/preuves/` contiene capturas, se conservan por omisión. Añada `--purge-preuves` para eliminarlas.
 
@@ -221,16 +221,16 @@ Referencia completa para los modelos: [`docs/GUIDE_LLM.md`](docs/GUIDE_LLM.md)
 Las credenciales se almacenan en archivos JSON, uno por dominio, **nunca en el código ni en los archivos de escenarios**:
 
 ```
-~/Vaults/Diwall/
+~/Secrets/Diwall/
 ├── my-app.local.json        → {"password": "...", "username": "admin"}
 └── other-service.com.json   → {"password": "...", "api_key": "..."}
 ```
 
-En un escenario o acción: `"valeur": "depuis_vault", "vault_cle": "password"` — Diwall lee la credencial en tiempo de ejecución desde el directorio del almacén.
+En un escenario o acción: `"valeur": "depuis_secrets", "secret_cle": "password"` — Diwall lee la credencial en tiempo de ejecución desde el directorio del almacén.
 
-La ruta del almacén de datos es configurable a través de la variable de entorno `/opt/diwall/diwall.conf` o `DIWALL_VAULT_DIR`.
+La ruta del almacén de datos es configurable a través de la variable de entorno `/opt/diwall/diwall.conf` o `DIWALL_SECRETS_DIR`.
 
-**Recomendación:** proteja `~/Vaults/Diwall/` con `chmod 700` y encripte con `gocryptfs` (consulte `~/git/Diwall/Diwall/scripts/setup-vault.sh --gocryptfs`). El almacén encriptado está totalmente soportado desde la versión v1.5.0; si el almacén se inicializa pero no se monta, Diwall devuelve una estructura `VaultFermeError` (código de salida 42) en lugar de fallar silenciosamente.
+**Recomendación:** proteja `~/Secrets/Diwall/` con `chmod 700` y encripte con `gocryptfs` (consulte `~/git/Diwall/Diwall/scripts/configurer-repertoire-chiffre.sh --gocryptfs`). El almacén encriptado está totalmente soportado desde la versión v1.5.0; si el almacén se inicializa pero no se monta, Diwall devuelve una estructura `SecretsFermesError` (código de salida 42) en lugar de fallar silenciosamente.
 
 ---
 
@@ -247,14 +247,14 @@ Cuando Diwall se utiliza con un LLM basado en la nube (API de Claude, OpenAI, et
 
 ### Directorio del almacén
 
-El directorio del almacén (por defecto, `~/Vaults/Diwall/`) contiene credenciales en texto plano JSON cuando está desmontado. Protéjalo:
+El directorio del almacén (por defecto, `~/Secrets/Diwall/`) contiene credenciales en texto plano JSON cuando está desmontado. Protéjalo:
 
 ```bash
-chmod 700 ~/Vaults/Diwall/
+chmod 700 ~/Secrets/Diwall/
 ```
 
 El soporte para sistemas de archivos encriptados (`gocryptfs`) ha sido compatible por completo desde la versión 1.5.0;
-consulte "Bóveda de credenciales" arriba y `~/git/Diwall/Diwall/scripts/setup-vault.sh`.
+consulte "Bóveda de credenciales" arriba y `~/git/Diwall/Diwall/scripts/configurer-repertoire-chiffre.sh`.
 
 ---
 

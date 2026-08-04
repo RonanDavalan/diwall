@@ -65,12 +65,12 @@ grep "__version__" /opt/diwall/shot.py
 /opt/diwall/venv/bin/python3 -c "import playwright_stealth; print('stealth OK')"
 
 # Verifique que el almacén esté montado.
-ls ~/Vaults/__PROJET__/Diwall/
+ls ~/Secrets/__PROJET__/Diwall/
 # → debe mostrar archivos .json, no una lista vacía.
 ```
 
-Si `ls ~/Vaults/...` devuelve una lista vacía o un error:
-→ monta el cofre: `bash ~/git/Diwall/Diwall/scripts/mount-vault.sh`
+Si `ls ~/Secrets/...` devuelve una lista vacía o un error:
+→ monta el cofre: `bash ~/git/Diwall/Diwall/scripts/monter-repertoire-chiffre.sh`
 
 ### 1a. Instalación desde el paquete de Debian: la opción más sencilla.
 
@@ -89,8 +89,8 @@ La instalación de `.deb` requiere acceso a la red (la instalación de dependenc
 | `diwall-shot` | `shot.py` |
 | `diwall-rpa` | `rpa.py` |
 | `diwall-watch` | `watch.py` |
-| `diwall-mount-vault` | `scripts/mount-vault.sh` |
-| `diwall-umount-vault` | `scripts/umount-vault.sh` |
+| `diwall-monter-secrets` | `scripts/monter-repertoire-chiffre.sh` |
+| `diwall-demonter-secrets` | `scripts/demonter-repertoire-chiffre.sh` |
 | `diwall-monitor-verifier` | `scripts/monitor-verifier.sh` |
 
 La configuración se encuentra en una ruta diferente en este canal:
@@ -104,7 +104,7 @@ sudo usermod -aG diwall $USER
 ```
 
 `apt remove diwall` mantiene `/var/log/diwall/` (registro de operaciones, evidencia)
-intacto; `apt purge diwall` también lo elimina. `~/Vaults/` nunca es modificado por
+intacto; `apt purge diwall` también lo elimina. `~/Secrets/` nunca es modificado por
 ninguno de los dos, en ambos canales.
 
 **Página del manual (v1.22.0):** `man diwall` documenta los seis comandos en una
@@ -140,8 +140,8 @@ sudo /opt/diwall/venv/bin/playwright install chromium
 bash ~/git/Diwall/Diwall/scripts/deploy.sh
 
 # 6. Crea tu bóveda de credenciales.
-mkdir -p ~/Vaults/<your-project>/Diwall
-# Crea el archivo `~/Vaults/<tu-proyecto>/Diwall/<nombre_de_host>.json` con tus credenciales.
+mkdir -p ~/Secrets/<your-project>/Diwall
+# Crea el archivo `~/Secrets/<tu-proyecto>/Diwall/<nombre_de_host>.json` con tus credenciales.
 ```
 
 En este canal, la configuración es `/opt/diwall/diwall.conf`, no
@@ -296,7 +296,7 @@ Configurado en `/opt/diwall/diwall.conf`:
 
 ```json
 {
-  "vault_dir": "~/Vaults/__PROJET__/Diwall",
+  "secrets_dir": "~/Secrets/__PROJET__/Diwall",
   "navigation": {
     "min_action_delay_ms": 800,
     "max_pages_par_run": 10,
@@ -408,7 +408,7 @@ La detección se basa en palabras clave y puede producir coincidencias incorrect
 Un "vault" es un directorio encriptado (gocryptfs) que contiene `.json` archivos por dominio.
 
 ```
-~/Vaults/__PROJET__/Diwall/
+~/Secrets/__PROJET__/Diwall/
   ├── app.example.com.json         ← credentials for https://app.example.com/
   ├── admin.example.com.json       ← credentials for https://admin.example.com/
   └── operations.jsonl             ← operation log (v1.15.0)
@@ -430,15 +430,15 @@ El nombre del archivo = `urlparse(url).hostname`. Para `https://app.example.com/
 **PELIGRO — expone la contraseña en el shell y `/proc`**:
 
 ```bash
-PASS=$(jq -r '.password' ~/Vaults/.../file.json)   # NEVER
+PASS=$(jq -r '.password' ~/Secrets/.../file.json)   # NEVER
 curl -d "password=$PASS" https://...                 # NEVER
 ```
 
 **CORRECTO: el almacén de contraseñas se resuelve dentro de Playwright:**
 
 ```json
-{"type": "remplir_som", "id": 2, "valeur": "depuis_vault", "vault_cle": "username"},
-{"type": "remplir_som", "id": 3, "valeur": "depuis_vault", "vault_cle": "password"}
+{"type": "remplir_som", "id": 2, "valeur": "depuis_secrets", "secret_cle": "username"},
+{"type": "remplir_som", "id": 3, "valeur": "depuis_secrets", "secret_cle": "password"}
 ```
 
 Los valores nunca pasan por la línea de comandos, el historial de Bash, los registros de procesos ni ningún archivo.
@@ -446,7 +446,7 @@ Los valores nunca pasan por la línea de comandos, el historial de Bash, los reg
 ### 4c. Elegir la bóveda para una ejecución.
 
 ```bash
-# Bóveda predeterminada (definida en diwall.conf > vault_dir).
+# Bóveda predeterminada (definida en diwall.conf > secrets_dir).
 /opt/diwall/venv/bin/python3 /opt/diwall/shot.py --url https://target.local/ --som
 
 # Bóveda explícita para un archivo específico (--secrets).
@@ -462,7 +462,7 @@ export DIWALL_CONF=~/git/MyProject/.diwall.conf
 Contenido de `~/git/MyProject/.diwall.conf`:
 
 ```json
-{"vault_dir": "../MyProject-vault"}
+{"secrets_dir": "../MyProject-vault"}
 ```
 
 La ruta se resuelve en relación con la ubicación de `.diwall.conf`.
@@ -470,7 +470,7 @@ La ruta se resuelve en relación con la ubicación de `.diwall.conf`.
 ### 4d. TOTP / Autenticación Multifactorial
 
 ```json
-{"type": "remplir_som", "id": 6, "valeur": "depuis_vault_totp"}
+{"type": "remplir_som", "id": 6, "valeur": "depuis_secrets_totp"}
 ```
 
 Lee la clave `totp_cle` (semilla base32) del almacén y genera el código TOTP actual.
@@ -505,21 +505,21 @@ Agrega el valor devuelto al archivo de configuración:
 }
 ```
 
-Si la suma de control no coincide, `shot.py` lanza `VaultChecksumError` (exit 42) con un mensaje explícito.
+Si la suma de control no coincide, `shot.py` lanza `SecretsChecksumError` (exit 42) con un mensaje explícito.
 Sin la clave `checksum`: comportamiento sin cambios (opt-in estricto).
 
 ### 4f. La bóveda está cerrada: ¿qué hacer?
 
 ```
-VaultFermeError: Le coffre Diwall est initialisé mais non monté.
+SecretsFermesError: Le coffre Diwall est initialisé mais non monté.
 ```
 
 ```bash
 # Monta la bóveda.
-bash ~/git/Diwall/Diwall/scripts/mount-vault.sh
+bash ~/git/Diwall/Diwall/scripts/monter-repertoire-chiffre.sh
 
 # Verifique el montaje.
-ls ~/Vaults/__PROJET__/Diwall/
+ls ~/Secrets/__PROJET__/Diwall/
 # → debe mostrar archivos JSON
 ```
 
@@ -531,7 +531,7 @@ un "firewall" que un proxy inverso como Caddy, nginx o Traefik presenta antes de
 ```bash
 /opt/diwall/venv/bin/python3 /opt/diwall/shot.py \
   --url https://internal.example/ \
-  --http-credentials --secrets ~/Vaults/__PROJET__/Diwall/internal_example.json
+  --http-credentials --secrets ~/Secrets/__PROJET__/Diwall/internal_example.json
 ```
 
 Archivo de bóveda: el par simple `username` / `password` ya utilizado para el caso común (un único conjunto de credenciales para el destino):
@@ -590,8 +590,8 @@ se haya pasado la bandera; `boussole.http_auth_requise: true` distingue claramen
   "intention": "Administrator login via vault",
   "actions": [
     {"type": "nettoyer_overlay", "selecteur": ".cookie-banner"},
-    {"type": "remplir_som", "id": 1, "valeur": "depuis_vault", "vault_cle": "username"},
-    {"type": "remplir_som", "id": 2, "valeur": "depuis_vault", "vault_cle": "password"},
+    {"type": "remplir_som", "id": 1, "valeur": "depuis_secrets", "secret_cle": "username"},
+    {"type": "remplir_som", "id": 2, "valeur": "depuis_secrets", "secret_cle": "password"},
     {"type": "cliquer_som", "id": 3},
     {"type": "attendre_selecteur_present", "selecteur": ".user-avatar"},
     {"type": "capturer", "nom": "after-login"}
@@ -614,8 +614,8 @@ se haya pasado la bandera; `boussole.http_auth_requise: true` distingue claramen
   "url": "https://app.example.com/login/",
   "intention": "Visual audit after deployment",
   "actions": [
-    {"type": "remplir_som", "id": 1, "valeur": "depuis_vault", "vault_cle": "username"},
-    {"type": "remplir_som", "id": 2, "valeur": "depuis_vault", "vault_cle": "password"},
+    {"type": "remplir_som", "id": 1, "valeur": "depuis_secrets", "secret_cle": "username"},
+    {"type": "remplir_som", "id": 2, "valeur": "depuis_secrets", "secret_cle": "password"},
     {"type": "cliquer_som", "id": 3},
     {"type": "attendre_selecteur_present", "selecteur": ".dashboard-main"},
     {"type": "capturer", "nom": "dashboard"},
@@ -680,8 +680,8 @@ Define un inicio de sesión como un subescenario reutilizable:
   "nom": "login_app",
   "url": "https://app.example.com/login/",
   "actions": [
-    {"type": "remplir_som", "id": 1, "valeur": "depuis_vault", "vault_cle": "username"},
-    {"type": "remplir_som", "id": 2, "valeur": "depuis_vault", "vault_cle": "password"},
+    {"type": "remplir_som", "id": 1, "valeur": "depuis_secrets", "secret_cle": "username"},
+    {"type": "remplir_som", "id": 2, "valeur": "depuis_secrets", "secret_cle": "password"},
     {"type": "cliquer_som", "id": 3},
     {"type": "attendre_selecteur_present", "selecteur": ".user-avatar"}
   ]
@@ -787,10 +787,10 @@ No se aplica numeración de "Set-of-Mark" dentro de un `<iframe>` (ya sea del mi
 
 ```json
 {"type": "cliquer_iframe", "iframe_selecteur": "iframe#paiement", "selecteur": "button.valider"},
-{"type": "remplir_iframe", "iframe_selecteur": "iframe#paiement", "selecteur": "input[name=cvv]", "valeur": "depuis_vault", "vault_cle": "cvv"}
+{"type": "remplir_iframe", "iframe_selecteur": "iframe#paiement", "selecteur": "input[name=cvv]", "valeur": "depuis_secrets", "secret_cle": "cvv"}
 ```
 
-`remplir_iframe` soporta `valeur: "depuis_vault"` exactamente como `remplir`.
+`remplir_iframe` soporta `valeur: "depuis_secrets"` exactamente como `remplir`.
 (sección 4b) — nunca se utiliza una credencial en texto plano en este escenario. Si el elemento de destino rechaza la interacción (por ejemplo, un área `contenteditable` en estado de solo lectura), agregue `"force": true` a `cliquer_iframe` — con la misma semántica que `cliquer`.
 (sección 7e).
 
@@ -802,7 +802,7 @@ Un iframe dentro de otro iframe: reemplazar `iframe_selecteur` con `iframe_chemi
 
 ```json
 {"type": "cliquer_iframe", "iframe_chemin": ["iframe#wrapper", "iframe#paiement"], "selecteur": "button.valider"},
-{"type": "remplir_iframe", "iframe_chemin": ["iframe#wrapper", "iframe#paiement"], "selecteur": "input[name=cvv]", "valeur": "depuis_vault", "vault_cle": "cvv"}
+{"type": "remplir_iframe", "iframe_chemin": ["iframe#wrapper", "iframe#paiement"], "selecteur": "input[name=cvv]", "valeur": "depuis_secrets", "secret_cle": "cvv"}
 ```
 
 `iframe_selecteur` (marco único) y `iframe_chemin` (descenso anidado) son
@@ -818,8 +818,8 @@ mutuamente excluyentes; se requiere exactamente uno por acción. Para un iframe 
 | `cliquer` | `selecteur` | `force` (bool), `repli_js` (bool) | `force: true` omite elementos ocultos por CSS o muestra un modal. `repli_js: true` reintenta a través de JS si el clic nativo aún falla (v1.22.0) — requiere que `--no-evaluer` esté desactivado |
 | `cliquer_som` | `id` | — | Clic en las coordenadas centrales del elemento. No se necesita `force` |
 | `cliquer_visuel` | `description` | — | Visión de LLM (~32 s). Último recurso para canvas o elementos sin atributos |
-| `remplir` | `selecteur`, `valeur` | `vault_cle` | `valeur: "depuis_vault"` activa la bóveda |
-| `remplir_som` | `id`, `valeur` | `vault_cle` | Limpia el campo antes de escribir. `valeur: "depuis_vault_totp"` para TOTP |
+| `remplir` | `selecteur`, `valeur` | `secret_cle` | `valeur: "depuis_secrets"` activa la bóveda |
+| `remplir_som` | `id`, `valeur` | `secret_cle` | Limpia el campo antes de escribir. `valeur: "depuis_secrets_totp"` para TOTP |
 | `capturer` | `nom` | `som` (bool) | PNG intermedio con nombre. `som: true` para una captura anotada |
 | `evaluer` | `script` | `attendu`, `contient`, `motif` | JS ejecutado en el navegador. Asertos solo para rpa.py |
 | `defiler` | `px` or `selecteur` | — | Desplazamiento vertical en píxeles (`px`) o desplazamiento al elemento (`selecteur`) |
@@ -834,7 +834,7 @@ mutuamente excluyentes; se requiere exactamente uno por acción. Para un iframe 
 | `nettoyer_overlay` | `selecteur` | — | Oculta las superposiciones que bloquean (banner de cookies, modal). Usar antes de SoM |
 | `declencher_scenario` | `scenario` | — | Incluye las acciones de un sub-escenario. Profundidad máxima: 5 |
 | `cliquer_iframe` | `iframe_selecteur` \| `iframe_chemin`, `selecteur` | `force` (bool) | Clic dentro de un iframe (v1.17.0). `iframe_chemin` para iframes anidados (v1.18.0, sección 5k). No se permite SoM dentro de frames |
-| `remplir_iframe` | `iframe_selecteur` \| `iframe_chemin`, `selecteur`, `valeur` | `vault_cle` | Rellena dentro de un iframe (v1.17.0). `iframe_chemin` para iframes anidados (v1.18.0). `valeur: "depuis_vault"` soportado |
+| `remplir_iframe` | `iframe_selecteur` \| `iframe_chemin`, `selecteur`, `valeur` | `secret_cle` | Rellena dentro de un iframe (v1.17.0). `iframe_chemin` para iframes anidados (v1.18.0). `valeur: "depuis_secrets"` soportado |
 
 ---
 
@@ -860,7 +860,7 @@ SoM advierte cuando un elemento interactivo está fuera de la pantalla:
 
 ```json
 {"type": "defiler", "selecteur": "#the-button"},
-{"type": "remplir_som", "id": 7, "valeur": "depuis_vault", "vault_cle": "username"}
+{"type": "remplir_som", "id": 7, "valeur": "depuis_secrets", "secret_cle": "username"}
 ```
 
 ### 7c. Componentes web: Shadow DOM
@@ -1144,7 +1144,7 @@ El registro es configurable en `diwall.conf` (v1.15.0):
 
 ```json
 "journal": {
-  "chemin": "~/Vaults/__PROJET__/Diwall/operations.jsonl"
+  "chemin": "~/Secrets/__PROJET__/Diwall/operations.jsonl"
 }
 ```
 
@@ -1152,7 +1152,7 @@ Si está ausente o el cofre no está montado, alternativa: variable de entorno `
 
 ```bash
 # Lee las últimas 10 entradas.
-tail -n 10 ~/Vaults/__PROJET__/Diwall/operations.jsonl | python3 -m json.tool
+tail -n 10 ~/Secrets/__PROJET__/Diwall/operations.jsonl | python3 -m json.tool
 
 # Filtra por objetivo (herramienta journal.py).
 /opt/diwall/venv/bin/python3 /opt/diwall/journal.py \
@@ -1271,8 +1271,8 @@ Propaga todas las banderas relevantes de shot.py, además de:
 | 1 | `guide_non_lu` — `--guide-version` ausente o incorrecto, sin marcador válido (v1.18.0) | Se dispara antes de arrancar Playwright. Leer `docs/GUIDE_LLM.md` y relanzar con `--guide-version X.Y` (sección 1) |
 | 2 | `viewport_mismatch` (watch.py) | Volver a capturar la referencia con el mismo viewport |
 | 3 | Módulo `playwright` no encontrado | Invocar mediante `/opt/diwall/venv/bin/python3` |
-| 42 | `VaultFermeError` — cofre no montado o suma de control inválida | Montar el cofre o verificar el archivo de credenciales |
-| 43 | `VaultNonConfigureError` — falta `diwall.conf` | `sudo cp /opt/diwall/diwall-sample.conf /opt/diwall/diwall.conf && sudo nano /opt/diwall/diwall.conf` |
+| 42 | `SecretsFermesError` — cofre no montado o suma de control inválida | Montar el cofre o verificar el archivo de credenciales |
+| 43 | `SecretsNonConfigureError` — falta `diwall.conf` | `sudo cp /opt/diwall/diwall-sample.conf /opt/diwall/diwall.conf && sudo nano /opt/diwall/diwall.conf` |
 
 ### Estructura del JSON de salida
 
@@ -1347,7 +1347,7 @@ Claves condicionales (ausentes cuando está inactivo): `capture`, `capture_som`,
 ```json
 {
   "succes": false,
-  "erreur": "vault_ferme",
+  "erreur": "secrets_fermes",
   "message": "Le coffre Diwall est initialisé mais non monté.",
   "code_sortie_recommande": 42,
   "boussole": { "url_courante": "", "titre_page": "" }
@@ -1368,7 +1368,7 @@ Claves condicionales (ausentes cuando está inactivo): `capture`, `capture_som`,
 | `/opt/diwall/docs/` | Documentación |
 | `/opt/diwall/references/` | Referencias visuales watch.py |
 | `/tmp/diwall/<operation_id>/` | Capturas temporales para una ejecución, aisladas por `operation_id` (v1.16.0, se borran al reiniciar) |
-| `~/Vaults/__PROJET__/Diwall/` | Almacén de credenciales + log (gocryptfs) |
+| `~/Secrets/__PROJET__/Diwall/` | Almacén de credenciales + log (gocryptfs) |
 | `~/git/Diwall/Diwall/` | Fuentes Git (modificar aquí, luego `deploy.sh`) |
 
 Desplegar después de modificar las fuentes:

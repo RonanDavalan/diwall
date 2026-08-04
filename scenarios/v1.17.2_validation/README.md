@@ -6,7 +6,7 @@ Live and unit evidence for the vault-hardening and reliability items.
 /opt/diwall/venv/bin/python3 scenarios/v1.17.2_validation/verifier.py
 ```
 
-- **T-1** — vault write guard: with `DIWALL_VAULT_DIR` pointing at a plain
+- **T-1** — vault write guard: with `DIWALL_SECRETS_DIR` pointing at a plain
   (non-FUSE) temp directory and `DIWALL_JOURNAL` inside it, a run still
   succeeds but writes nothing in clear text under the fake vault — the entry
   lands in the local fallback instead (item 1).

@@ -75,9 +75,9 @@ If `boussole` does not match your expectation, stop before any mutating action.
 | `cliquer_som` | `id` | — |
 | `cliquer_visuel` | `description` | — |
 | `cliquer_iframe` | `iframe_selecteur` \| `iframe_chemin`, `selecteur` | `force` |
-| `remplir` | `selecteur`, `valeur` | `vault_cle` |
-| `remplir_som` | `id`, `valeur` | `vault_cle` |
-| `remplir_iframe` | `iframe_selecteur` \| `iframe_chemin`, `selecteur`, `valeur` | `vault_cle` |
+| `remplir` | `selecteur`, `valeur` | `secret_cle` |
+| `remplir_som` | `id`, `valeur` | `secret_cle` |
+| `remplir_iframe` | `iframe_selecteur` \| `iframe_chemin`, `selecteur`, `valeur` | `secret_cle` |
 | `capturer` | `nom` | `som` |
 | `evaluer` | `script` | `attendu` \| `contient` \| `motif` |
 | `defiler` | `px` \| `selecteur` | — |
@@ -97,12 +97,12 @@ If `boussole` does not match your expectation, stop before any mutating action.
 ## Credentials — the only correct form
 
 ```json
-{"type": "remplir_som", "id": 3, "valeur": "depuis_vault", "vault_cle": "password"}
+{"type": "remplir_som", "id": 3, "valeur": "depuis_secrets", "secret_cle": "password"}
 ```
 
-Never extract a secret into the shell. `lib/vault.py` resolves it inside the
+Never extract a secret into the shell. `lib/repertoire_chiffre.py` resolves it inside the
 Playwright process; the value never reaches your command line, your history,
-or any log. `depuis_vault_totp` does the same for a TOTP code.
+or any log. `depuis_secrets_totp` does the same for a TOTP code.
 
 ---
 
@@ -115,7 +115,7 @@ or any log. `depuis_vault_totp` does the same for a TOTP code.
 | Element below the fold | `defiler` first — check `boussole.som_hors_viewport` |
 | Page never finishes loading | `--wait-until load` |
 | Submit does nothing, no error | native HTML validation — submit the form via `evaluer` |
-| `exit 42` | vault not mounted: `diwall-mount-vault` |
+| `exit 42` | vault not mounted: `diwall-monter-secrets` |
 | `exit 43` | no `diwall.conf` — copy the sample next to it |
 | `guide_non_lu` | pass `--guide-version` once |
 | 403 / 429 | read `respect.waf_bloquants` — a signal, not an exception |

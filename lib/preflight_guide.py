@@ -13,7 +13,7 @@ commentaire <!-- notice-version: X.Y --> en tête de docs/GUIDE_LLM.md. Toute
 modification substantielle du guide bump les deux ensemble.
 
 Marqueur : ~/.config/diwall/guide_state.json, scope utilisateur OS — jamais
-sous le vault (dépendance absurde à un montage gocryptfs pour un accusé de
+sous le répertoire chiffré (dépendance absurde à un montage gocryptfs pour un accusé de
 lecture) ni sous /opt/diwall/ (permissions restreintes, mauvais propriétaire
 pour un appelant hors groupe diwall).
 

@@ -237,13 +237,13 @@ FR-77 documents the same pattern at panel scale (39% immediate block rate).
 # → must return {"succes": true, ...}
 
 # 2. Verify the vault is mounted (if gocryptfs)
-ls ~/Vaults/Diwall/
+ls ~/Secrets/Diwall/
 # → must show .json files, not encrypted content
 
 # 3. Verify credentials for a domain
 /opt/diwall/venv/bin/python3 -c "
 import sys; sys.path.insert(0, '/opt/diwall')
-from lib.vault import lire_credential
+from lib.repertoire_chiffre import lire_credential
 print('OK' if lire_credential('target.local', 'password') else 'EMPTY')
 "
 ```
@@ -256,21 +256,21 @@ Each project can have its own vault. Two methods:
 
 **Method 1 — Direct environment variable (one-shot):**
 ```bash
-DIWALL_VAULT_DIR=~/Vaults/MyProject \
+DIWALL_SECRETS_DIR=~/Secrets/MyProject \
   /opt/diwall/venv/bin/python3 /opt/diwall/shot.py --url …
 ```
 
 **Method 2 — Project `.diwall.conf` file (recommended for recurring projects):**
 ```bash
 # Create the file at the project root
-echo '{"vault_dir": "../MyProject-vault"}' > ~/git/MyProject/.diwall.conf
+echo '{"secrets_dir": "../MyProject-vault"}' > ~/git/MyProject/.diwall.conf
 
 # Then prefix each invocation (or export at the start of the shell session)
 export DIWALL_CONF=~/git/MyProject/.diwall.conf
 /opt/diwall/venv/bin/python3 /opt/diwall/shot.py --url …
 ```
 
-The `vault_dir` in `.diwall.conf` can be a relative path — it is resolved
+The `secrets_dir` in `.diwall.conf` can be a relative path — it is resolved
 relative to the location of the `.diwall.conf` file.
 
 ---
@@ -325,8 +325,8 @@ cat > /tmp/login.json << 'EOF'
   "nom": "app_login",
   "url": "https://app.example.com/login/",
   "actions": [
-    {"type": "remplir_som", "id": 1, "valeur": "depuis_vault", "vault_cle": "username"},
-    {"type": "remplir_som", "id": 2, "valeur": "depuis_vault", "vault_cle": "password"},
+    {"type": "remplir_som", "id": 1, "valeur": "depuis_secrets", "secret_cle": "username"},
+    {"type": "remplir_som", "id": 2, "valeur": "depuis_secrets", "secret_cle": "password"},
     {"type": "cliquer_som", "id": 3},
     {"type": "pause",        "ms": 2000},
     {"type": "capturer",     "nom": "after-login"}
@@ -353,8 +353,8 @@ cat > /tmp/audit.json << 'EOF'
   "nom": "audit_pages",
   "url": "https://app.example.com/login/",
   "actions": [
-    {"type": "remplir_som", "id": 1, "valeur": "depuis_vault", "vault_cle": "username"},
-    {"type": "remplir_som", "id": 2, "valeur": "depuis_vault", "vault_cle": "password"},
+    {"type": "remplir_som", "id": 1, "valeur": "depuis_secrets", "secret_cle": "username"},
+    {"type": "remplir_som", "id": 2, "valeur": "depuis_secrets", "secret_cle": "password"},
     {"type": "cliquer_som", "id": 3},
     {"type": "pause",        "ms": 2000},
     {"type": "naviguer",     "url": "https://app.example.com/dashboard/"},
@@ -452,7 +452,7 @@ which cannot reach `~/git/Diwall/Diwall/`):
 | Situation | What to do |
 |---|---|
 | `FileNotFoundError` on vault | Check that the JSON file is named with the full FQDN (`urlparse(url).hostname`) |
-| `VaultFermeError` (exit 42) | Mount the vault: `bash ~/git/Diwall/Diwall/scripts/mount-vault.sh` |
+| `SecretsFermesError` (exit 42) | Mount the vault: `bash ~/git/Diwall/Diwall/scripts/monter-repertoire-chiffre.sh` |
 | Invalid JSON in output | Use `2>/dev/null \| tail -1` to extract only the JSON line |
 | SoM IDs differ between sessions | Expected — SoM IDs are recalculated on each capture. Never reuse them cross-session |
 | Login followed by Django redirect to dashboard | Do not use `naviguer` in a resumed Django session — pass the URL via `--url` |
@@ -496,7 +496,7 @@ bash ~/git/Diwall/Diwall/scripts/uninstall.sh --confirme && bash ~/git/Diwall/Di
 | git pre-push hook | `core.hooksPath` disabled in the source repository |
 
 **What is never touched:**
-- `~/Vaults/` — your credential vaults
+- `~/Secrets/` — your credential vaults
 - `~/git/Diwall/` — git sources
 - Playwright browser cache (`~/.cache/ms-playwright/`)
 

@@ -182,13 +182,13 @@ Muster auf Panel-Ebene (39 % sofortige Blockaderate).
 # → muss {"succes": true, ...} zurückgeben
 
 # 2. Überprüfen Sie, ob das Vault gemountet ist (falls gocryptfs verwendet wird).
-ls ~/Vaults/Diwall/
+ls ~/Secrets/Diwall/
 # → müssen `.json`-Dateien anzeigen, keine verschlüsselten Inhalte.
 
 # 3. Überprüfen Sie die Anmeldeinformationen für eine Domain.
 /opt/diwall/venv/bin/python3 -c "
 import sys; sys.path.insert(0, '/opt/diwall')
-from lib.vault import lire_credential
+from lib.repertoire_chiffre import lire_credential
 print('OK' if lire_credential('target.local', 'password') else 'EMPTY')
 "
 ```
@@ -202,7 +202,7 @@ Jedes Projekt kann seinen eigenen Tresor haben. Zwei Methoden:
 **Methode 1 – Direkte Umgebungsvariable (einmalige Ausführung):**
 
 ```bash
-DIWALL_VAULT_DIR=~/Vaults/MyProject \
+DIWALL_SECRETS_DIR=~/Secrets/MyProject \
   /opt/diwall/venv/bin/python3 /opt/diwall/shot.py --url …
 ```
 
@@ -210,14 +210,14 @@ Methode 2 – Projektdatei `.diwall.conf` (empfohlen für wiederkehrende Projekt
 
 ```bash
 # Erstelle die Datei im Projektstammverzeichnis.
-echo '{"vault_dir": "../MyProject-vault"}' > ~/git/MyProject/.diwall.conf
+echo '{"secrets_dir": "../MyProject-vault"}' > ~/git/MyProject/.diwall.conf
 
 # Danach jedem Aufruf voranstellen (oder zu Sitzungsbeginn exportieren)
 export DIWALL_CONF=~/git/MyProject/.diwall.conf
 /opt/diwall/venv/bin/python3 /opt/diwall/shot.py --url …
 ```
 
-Der `vault_dir` in `.diwall.conf` kann ein relativer Pfad sein – er wird relativ zum Speicherort der `.diwall.conf` Datei aufgelöst.
+Der `secrets_dir` in `.diwall.conf` kann ein relativer Pfad sein – er wird relativ zum Speicherort der `.diwall.conf` Datei aufgelöst.
 
 ---
 
@@ -272,8 +272,8 @@ cat > /tmp/login.json << 'EOF'
   "nom": "app_login",
   "url": "https://app.example.com/login/",
   "actions": [
-    {"type": "remplir_som", "id": 1, "valeur": "depuis_vault", "vault_cle": "username"},
-    {"type": "remplir_som", "id": 2, "valeur": "depuis_vault", "vault_cle": "password"},
+    {"type": "remplir_som", "id": 1, "valeur": "depuis_secrets", "secret_cle": "username"},
+    {"type": "remplir_som", "id": 2, "valeur": "depuis_secrets", "secret_cle": "password"},
     {"type": "cliquer_som", "id": 3},
     {"type": "pause",        "ms": 2000},
     {"type": "capturer",     "nom": "after-login"}
@@ -301,8 +301,8 @@ cat > /tmp/audit.json << 'EOF'
   "nom": "audit_pages",
   "url": "https://app.example.com/login/",
   "actions": [
-    {"type": "remplir_som", "id": 1, "valeur": "depuis_vault", "vault_cle": "username"},
-    {"type": "remplir_som", "id": 2, "valeur": "depuis_vault", "vault_cle": "password"},
+    {"type": "remplir_som", "id": 1, "valeur": "depuis_secrets", "secret_cle": "username"},
+    {"type": "remplir_som", "id": 2, "valeur": "depuis_secrets", "secret_cle": "password"},
     {"type": "cliquer_som", "id": 3},
     {"type": "pause",        "ms": 2000},
     {"type": "naviguer",     "url": "https://app.example.com/dashboard/"},
@@ -396,7 +396,7 @@ Stumm, wenn stabil; ein `ntfy` Push, wenn eine Regression erkannt wird. Planen S
 | Situation | Was zu tun ist |
 |---|---|
 | `FileNotFoundError` im Tresor | Überprüfen Sie, ob die JSON-Datei mit dem vollständigen FQDN (`urlparse(url).hostname`) benannt ist. |
-| `VaultFermeError` (Exit 42) | Mounten Sie den Tresor: `bash ~/git/Diwall/Diwall/scripts/mount-vault.sh` |
+| `SecretsFermesError` (Exit 42) | Mounten Sie den Tresor: `bash ~/git/Diwall/Diwall/scripts/monter-repertoire-chiffre.sh` |
 | Ungültiges JSON in der Ausgabe | Verwenden Sie `2>/dev/null \| tail -1`, um nur die JSON-Zeile zu extrahieren. |
 | SoM-IDs unterscheiden sich zwischen Sitzungen | Erwartet — SoM-IDs werden bei jeder Aufnahme neu berechnet. Verwenden Sie sie nicht wiederholt über mehrere Sitzungen hinweg. |
 | Anmeldung gefolgt von einer Django-Weiterleitung zum Dashboard | Verwenden Sie `naviguer` nicht in einer fortgesetzten Django-Sitzung — übergeben Sie die URL über `--url`. |
@@ -439,7 +439,7 @@ Was wird entfernt:
 | git pre-push hook | `core.hooksPath` deaktiviert im Quellrepository |
 
 **Was niemals verändert wird:**
-- `~/Vaults/` – Ihre Anmeldedaten-Tresore
+- `~/Secrets/` – Ihre Anmeldedaten-Tresore
 - `~/git/Diwall/` – Git-Quellen
 - Der Browser-Cache von Playwright (`~/.cache/ms-playwright/`)
 

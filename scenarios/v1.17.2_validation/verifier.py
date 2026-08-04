@@ -1,5 +1,5 @@
 #!/usr/bin/env python3
-"""Verifier — v1.17.2 items 1-4 (garde-fou vault, nettoyage SoM, WAF affiné +
+"""Verifier — v1.17.2 items 1-4 (garde-fou de montage, nettoyage SoM, WAF affiné +
 overrule, correctif checkpoint FR-80).
 
 Usage:
@@ -31,14 +31,14 @@ def _verdict(nom, conditions):
     return ok, [f"[{'OK' if ok else 'KO'}] {nom}", *lignes]
 
 
-def test_1_garde_fou_vault():
+def test_1_garde_fou_secrets():
     with tempfile.TemporaryDirectory() as tmp:
-        faux_vault = os.path.join(tmp, "faux_vault")
-        os.makedirs(faux_vault)
-        journal_path = os.path.join(faux_vault, "operations.jsonl")
+        faux_secrets = os.path.join(tmp, "faux_secrets")
+        os.makedirs(faux_secrets)
+        journal_path = os.path.join(faux_secrets, "operations.jsonl")
         fallback_path = os.path.join(tmp, "fallback.jsonl")
         env = os.environ.copy()
-        env["DIWALL_VAULT_DIR"] = faux_vault
+        env["DIWALL_SECRETS_DIR"] = faux_secrets
         env["DIWALL_JOURNAL"] = journal_path
         env["DIWALL_JOURNAL_FALLBACK"] = fallback_path
         result = subprocess.run(
@@ -48,9 +48,9 @@ def test_1_garde_fou_vault():
         journal_ecrit_en_clair = os.path.isfile(journal_path)
         fallback_ecrit = os.path.isfile(fallback_path)
 
-    return _verdict("T-1) garde-fou vault — coffre fermé redirige vers le fallback", [
-        ("run réussit malgré le coffre fermé (best-effort)", result.returncode == 0),
-        ("aucune écriture en clair dans le faux vault", not journal_ecrit_en_clair),
+    return _verdict("T-1) garde-fou de montage — répertoire chiffré fermé redirige vers le fallback", [
+        ("run réussit malgré le répertoire chiffré fermé (best-effort)", result.returncode == 0),
+        ("aucune écriture en clair dans le faux répertoire", not journal_ecrit_en_clair),
         ("entrée présente dans le fallback local", fallback_ecrit),
     ])
 
@@ -162,7 +162,7 @@ def test_4_checkpoint_plafond():
 
 def main():
     tests = (
-        test_1_garde_fou_vault,
+        test_1_garde_fou_secrets,
         test_2_som_nettoyage,
         test_3_waf,
         test_4_checkpoint_plafond,

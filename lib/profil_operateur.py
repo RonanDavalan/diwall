@@ -20,7 +20,7 @@ import yaml
 
 LISTE_BLANCHE_AUTO_CONFIRMER = frozenset({
     "ecriture_capture_tmp",
-    "montage_coffre_visuel",
+    "montage_repertoire_visuel",
     "lecture_reference_chiffree",
     "ecriture_journal_diwall",
     "invocation_ollama_locale",
@@ -30,7 +30,7 @@ LISTE_ROUGE_INVIOLABLE = frozenset({
     "git_push",
     "ecrasement_reference_pixel",
     "rotation_credential",
-    "suppression_projet_coffre",
+    "suppression_projet_repertoire",
     "lecture_credential_en_clair_dans_journal",
 })
 

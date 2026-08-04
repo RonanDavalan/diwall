@@ -1,7 +1,7 @@
 {
   "$schema": "https://raw.githubusercontent.com/RonanDavalan/diwall/main/scenarios/schema.json",
   "nom": "valider_incarnation_l1_l2",
-  "description": "Validation SIG-001 axe C — bouton Accéder sur page_tenant, flux incarnation L1→L2, bannière mode incarnation, bouton Quitter. Credentials via vault (username_maitre = tenant L1, client_sanctuarise = tenant L2). Note : les assertions sur textContent vérifient les valeurs affichées par l'instance — les remplacer par les identifiants réels lors de l'exécution.",
+  "description": "Validation SIG-001 axe C — bouton Accéder sur page_tenant, flux incarnation L1→L2, bannière mode incarnation, bouton Quitter. Credentials via le répertoire chiffré (username_maitre = tenant L1, client_sanctuarise = tenant L2). Note : les assertions sur textContent vérifient les valeurs affichées par l'instance — les remplacer par les identifiants réels lors de l'exécution.",
   "url": "https://__HOST_ADMIN__/?vue=login",
   "actions": [
 
@@ -11,8 +11,8 @@
 
     {"type": "capturer", "nom": "01_page_login"},
 
-    {"type": "remplir", "selecteur": "input[name=\"identifiant\"]", "valeur": "depuis_vault", "vault_cle": "username_maitre"},
-    {"type": "remplir", "selecteur": "input[name=\"password\"]", "valeur": "depuis_vault", "vault_cle": "password_maitre"},
+    {"type": "remplir", "selecteur": "input[name=\"identifiant\"]", "valeur": "depuis_secrets", "secret_cle": "username_maitre"},
+    {"type": "remplir", "selecteur": "input[name=\"password\"]", "valeur": "depuis_secrets", "secret_cle": "password_maitre"},
     {"type": "cliquer", "selecteur": "button.login-bouton"},
     {"type": "attendre_absence", "selecteur": "input[name=\"identifiant\"]", "delai_initial_ms": 500},
 

@@ -14,9 +14,9 @@ diwall - visual perception and RPA toolkit for LLM agents
 
 **diwall-watch** \[*options*\]
 
-**diwall-mount-vault** \[*options*\]
+**diwall-monter-secrets** \[*options*\]
 
-**diwall-umount-vault** \[*options*\]
+**diwall-demonter-secrets** \[*options*\]
 
 **diwall-monitor-verifier** **--scenario** *FILE* **--reference** *FILE*
 
@@ -56,7 +56,7 @@ repeatable, and the only one that evaluates scenario assertions.
 captures against it — pixel diff locally, or a description by a local vision
 model. Used for detecting visual regressions without a human looking.
 
-**diwall-mount-vault**, **diwall-umount-vault**
+**diwall-monter-secrets**, **diwall-demonter-secrets**
 : Mount and unmount the gocryptfs-encrypted credential vault. Diwall refuses
 to resolve any credential while the vault is closed, exiting with status 42
 rather than falling back to anything weaker.
@@ -150,7 +150,7 @@ in the JSON, not as a failure of the command.
 : Incompatible arguments, rejected before any browser was started.
 
 **42**
-: The credential vault is closed. Mount it with **diwall-mount-vault**.
+: The credential vault is closed. Mount it with **diwall-monter-secrets**.
 
 **43**
 : A vault integrity checksum did not match.
@@ -171,7 +171,7 @@ Reach an administration panel that refreshes statistics continuously:
 
 Run a scenario with credentials from an explicit vault file:
 
-    diwall-rpa --scenario ./login.json --secrets ~/Vaults/project/creds.json
+    diwall-rpa --scenario ./login.json --secrets ~/Secrets/project/creds.json
 
 Check that a page has not structurally regressed:
 

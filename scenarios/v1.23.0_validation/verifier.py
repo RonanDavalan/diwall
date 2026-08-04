@@ -203,7 +203,7 @@ def test_5_integrite_des_balises():
 
 def test_6_segment_non_traduit_rejete():
     """La porte de similarité est aveugle à ce cas : il note 1.0."""
-    texte = "The vault is never read outside Playwright."
+    texte = "The encrypted directory is never read outside Playwright."
     return _verdict(
         "T-6 contre-épreuve — segment renvoyé inchangé rejeté mécaniquement",
         [
@@ -213,7 +213,7 @@ def test_6_segment_non_traduit_rejete():
              lib.verifier_traduction_effective(texte, f"  {texte}\n") is not None),
             ("vraie traduction acceptée",
              lib.verifier_traduction_effective(
-                 texte, "Le coffre n'est jamais lu hors de Playwright.") is None),
+                 texte, "Le répertoire chiffré n'est jamais lu hors de Playwright.") is None),
             # Régression réelle : le modèle a traduit la consigne et l'a
             # préfixée à sa réponse (89 segments en fr et es). Les balises
             # étaient intactes, la longueur ne bougeait pas assez sur les
@@ -233,7 +233,7 @@ def test_6_segment_non_traduit_rejete():
              lib.verifier_longueur("a" * 300, "court") is not None),
             ("écart de longueur normal accepté",
              lib.verifier_longueur(
-                 "The vault is never read outside Playwright.",
+                 "The encrypted directory is never read outside Playwright.",
                  "Der Tresor wird niemals ausserhalb von Playwright gelesen.") is None),
         ],
     )

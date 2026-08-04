@@ -76,9 +76,9 @@ Wenn `boussole` nicht Ihren Erwartungen entspricht, stoppen Sie vor jeglicher ve
 | `cliquer_som` | `id` | — |
 | `cliquer_visuel` | `description` | — |
 | `cliquer_iframe` | `iframe_selecteur` \| `iframe_chemin`, `selecteur` | `force` |
-| `remplir` | `selecteur`, `valeur` | `vault_cle` |
-| `remplir_som` | `id`, `valeur` | `vault_cle` |
-| `remplir_iframe` | `iframe_selecteur` \| `iframe_chemin`, `selecteur`, `valeur` | `vault_cle` |
+| `remplir` | `selecteur`, `valeur` | `secret_cle` |
+| `remplir_som` | `id`, `valeur` | `secret_cle` |
+| `remplir_iframe` | `iframe_selecteur` \| `iframe_chemin`, `selecteur`, `valeur` | `secret_cle` |
 | `capturer` | `nom` | `som` |
 | `evaluer` | `script` | `attendu` \| `contient` \| `motif` |
 | `defiler` | `px` \| `selecteur` | — |
@@ -98,13 +98,13 @@ Wenn `boussole` nicht Ihren Erwartungen entspricht, stoppen Sie vor jeglicher ve
 ## Anmeldedaten – die einzige korrekte Formularausgabe
 
 ```json
-{"type": "remplir_som", "id": 3, "valeur": "depuis_vault", "vault_cle": "password"}
+{"type": "remplir_som", "id": 3, "valeur": "depuis_secrets", "secret_cle": "password"}
 ```
 
-Extrahieren Sie ein Geheimnis niemals in die Shell. `lib/vault.py` löst es
+Extrahieren Sie ein Geheimnis niemals in die Shell. `lib/repertoire_chiffre.py` löst es
 innerhalb des Playwright-Prozesses auf; der Wert erreicht weder Ihre
 Befehlszeile noch Ihren Verlauf noch irgendein Protokoll.
-`depuis_vault_totp` tut dasselbe für einen TOTP-Code.
+`depuis_secrets_totp` tut dasselbe für einen TOTP-Code.
 
 ---
 
@@ -117,7 +117,7 @@ Befehlszeile noch Ihren Verlauf noch irgendein Protokoll.
 | Element befindet sich unterhalb des sichtbaren Bereichs | `defiler` zuerst — prüfen Sie `boussole.som_hors_viewport` |
 | Seite lädt nie vollständig | `--wait-until load` |
 | Absenden-Button tut nichts, keine Fehlermeldung | native HTML-Validierung — Formular über `evaluer` absenden |
-| `exit 42` | Vault nicht gemountet: `diwall-mount-vault` |
+| `exit 42` | Vault nicht gemountet: `diwall-monter-secrets` |
 | `exit 43` | kein `diwall.conf` — Beispiel daneben kopieren |
 | `guide_non_lu` | einmal `--guide-version` ausführen |
 | 403 / 429 | lesen Sie `respect.waf_bloquants` — ein Signal, keine Ausnahme |

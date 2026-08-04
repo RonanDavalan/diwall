@@ -14,9 +14,9 @@ diwall: conjunto de herramientas para la percepción visual y la automatización
 
 **diwall-watch** \[*opciones*\]
 
-**diwall-mount-vault** \[*opciones*\]
+**diwall-monter-secrets** \[*opciones*\]
 
-**diwall-umount-vault** \[*opciones*\]
+**diwall-demonter-secrets** \[*opciones*\]
 
 **diwall-monitor-verifier** **--scenario** *FILE* **--reference** *FILE*
 
@@ -41,7 +41,7 @@ operación repetible, y es el único que evalúa las aserciones del escenario.
 **diwall-watch**
 : Monitoreo visual. Guarda una imagen de referencia de una página y luego compara capturas posteriores con ella: diferencia de píxeles localmente o una descripción proporcionada por un modelo de visión local. Se utiliza para detectar regresiones visuales sin la intervención humana.
 
-**diwall-mount-vault**, **diwall-umount-vault**
+**diwall-monter-secrets**, **diwall-demonter-secrets**
 : Montea y desmonta el almacén de credenciales encriptado con gocryptfs. Diwall se niega
 a resolver cualquier credencial mientras el almacén está cerrado, saliendo con el código de estado 42
 en lugar de recurrir a una alternativa menos segura.
@@ -127,7 +127,7 @@ en el formato JSON, no como una falla del comando.
 : Argumentos incompatibles, rechazados antes de que se iniciara cualquier navegador.
 
 **42**
-: El almacén de credenciales está cerrado. Móntele con **diwall-mount-vault**.
+: El almacén de credenciales está cerrado. Móntele con **diwall-monter-secrets**.
 
 **43**
 : No se pudo verificar la integridad del almacén; el valor de verificación (checksum) no coincide.
@@ -148,7 +148,7 @@ Acceda a un panel de administración que actualice las estadísticas continuamen
 
 Ejecuta un escenario con las credenciales de un archivo de bóveda específico:
 
-    diwall-rpa --scenario ./login.json --secrets ~/Vaults/project/creds.json
+    diwall-rpa --scenario ./login.json --secrets ~/Secrets/project/creds.json
 
 Verifica que una página no haya retrocedido estructuralmente:
 

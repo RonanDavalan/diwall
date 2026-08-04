@@ -75,9 +75,9 @@ Si `boussole` ne correspond pas à vos attentes, arrêtez-vous avant toute actio
 | `cliquer_som` | `id` | — |
 | `cliquer_visuel` | `description` | — |
 | `cliquer_iframe` | `iframe_selecteur` \| `iframe_chemin`, `selecteur` | `force` |
-| `remplir` | `selecteur`, `valeur` | `vault_cle` |
-| `remplir_som` | `id`, `valeur` | `vault_cle` |
-| `remplir_iframe` | `iframe_selecteur` \| `iframe_chemin`, `selecteur`, `valeur` | `vault_cle` |
+| `remplir` | `selecteur`, `valeur` | `secret_cle` |
+| `remplir_som` | `id`, `valeur` | `secret_cle` |
+| `remplir_iframe` | `iframe_selecteur` \| `iframe_chemin`, `selecteur`, `valeur` | `secret_cle` |
 | `capturer` | `nom` | `som` |
 | `evaluer` | `script` | `attendu` \| `contient` \| `motif` |
 | `defiler` | `px` \| `selecteur` | — |
@@ -97,12 +97,12 @@ Si `boussole` ne correspond pas à vos attentes, arrêtez-vous avant toute actio
 ## Identifiants — la seule forme correcte.
 
 ```json
-{"type": "remplir_som", "id": 3, "valeur": "depuis_vault", "vault_cle": "password"}
+{"type": "remplir_som", "id": 3, "valeur": "depuis_secrets", "secret_cle": "password"}
 ```
 
-N'extrayez jamais un secret dans le shell. `lib/vault.py` le résout à
+N'extrayez jamais un secret dans le shell. `lib/repertoire_chiffre.py` le résout à
 l'intérieur du processus Playwright ; la valeur n'atteint jamais votre ligne
-de commande, votre historique, ni aucun journal. `depuis_vault_totp` fait de
+de commande, votre historique, ni aucun journal. `depuis_secrets_totp` fait de
 même pour un code TOTP.
 
 ---
@@ -116,7 +116,7 @@ même pour un code TOTP.
 | Élément situé en dessous du "fold" | `defiler` d'abord — vérifiez `boussole.som_hors_viewport` |
 | La page ne se charge jamais complètement | `--wait-until load` |
 | Le bouton de soumission ne fait rien, aucune erreur | validation HTML native — soumettez le formulaire via `evaluer` |
-| `exit 42` | coffre non monté : `diwall-mount-vault` |
+| `exit 42` | coffre non monté : `diwall-monter-secrets` |
 | `exit 43` | pas de `diwall.conf` — copiez l'exemple à côté |
 | `guide_non_lu` | passer `--guide-version` une fois |
 | 403 / 429 | lire `respect.waf_bloquants` — un signal, et non une exception |

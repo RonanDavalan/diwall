@@ -560,10 +560,10 @@ through two scoped actions:
 
 ```json
 {"type": "cliquer_iframe", "iframe_selecteur": "iframe#paiement", "selecteur": "button.valider"}
-{"type": "remplir_iframe", "iframe_selecteur": "iframe#paiement", "selecteur": "input[name=cvv]", "valeur": "depuis_vault", "vault_cle": "cvv"}
+{"type": "remplir_iframe", "iframe_selecteur": "iframe#paiement", "selecteur": "input[name=cvv]", "valeur": "depuis_secrets", "secret_cle": "cvv"}
 ```
 
-`remplir_iframe` supports `depuis_vault`/`depuis_vault_totp` exactly like
+`remplir_iframe` supports `depuis_secrets`/`depuis_secrets_totp` exactly like
 `remplir` — never a plaintext credential in a scenario.
 
 **No SoM numbering inside the frame (cadrage assumé) :** you must know or
@@ -585,7 +585,7 @@ instead: an ordered array of CSS selectors, one per nesting level.
 
 ```json
 {"type": "cliquer_iframe", "iframe_chemin": ["iframe#wrapper", "iframe#paiement"], "selecteur": "button.valider"}
-{"type": "remplir_iframe", "iframe_chemin": ["iframe#wrapper", "iframe#paiement"], "selecteur": "input[name=cvv]", "valeur": "depuis_vault", "vault_cle": "cvv"}
+{"type": "remplir_iframe", "iframe_chemin": ["iframe#wrapper", "iframe#paiement"], "selecteur": "input[name=cvv]", "valeur": "depuis_secrets", "secret_cle": "cvv"}
 ```
 
 Internally, this chains Playwright's `frame_locator()` once per element of the

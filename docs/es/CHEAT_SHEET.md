@@ -76,9 +76,9 @@ Si `boussole` no coincide con lo esperado, deténgase antes de cualquier acción
 | `cliquer_som` | `id` | — |
 | `cliquer_visuel` | `description` | — |
 | `cliquer_iframe` | `iframe_selecteur` \| `iframe_chemin`, `selecteur` | `force` |
-| `remplir` | `selecteur`, `valeur` | `vault_cle` |
-| `remplir_som` | `id`, `valeur` | `vault_cle` |
-| `remplir_iframe` | `iframe_selecteur` \| `iframe_chemin`, `selecteur`, `valeur` | `vault_cle` |
+| `remplir` | `selecteur`, `valeur` | `secret_cle` |
+| `remplir_som` | `id`, `valeur` | `secret_cle` |
+| `remplir_iframe` | `iframe_selecteur` \| `iframe_chemin`, `selecteur`, `valeur` | `secret_cle` |
 | `capturer` | `nom` | `som` |
 | `evaluer` | `script` | `attendu` \| `contient` \| `motif` |
 | `defiler` | `px` \| `selecteur` | — |
@@ -98,12 +98,12 @@ Si `boussole` no coincide con lo esperado, deténgase antes de cualquier acción
 ## Credenciales: la única forma correcta.
 
 ```json
-{"type": "remplir_som", "id": 3, "valeur": "depuis_vault", "vault_cle": "password"}
+{"type": "remplir_som", "id": 3, "valeur": "depuis_secrets", "secret_cle": "password"}
 ```
 
-Nunca extraiga un secreto al shell. `lib/vault.py` lo resuelve dentro del
+Nunca extraiga un secreto al shell. `lib/repertoire_chiffre.py` lo resuelve dentro del
 proceso de Playwright; el valor nunca llega a su línea de órdenes, a su
-historial ni a ningún registro. `depuis_vault_totp` hace lo mismo con un
+historial ni a ningún registro. `depuis_secrets_totp` hace lo mismo con un
 código TOTP.
 
 ---
@@ -117,7 +117,7 @@ código TOTP.
 | Elemento que está fuera de la pantalla visible | `defiler` primero; verifique `boussole.som_hors_viewport` |
 | La página nunca termina de cargar | `--wait-until load` |
 | El botón "Enviar" no hace nada, sin error | validación HTML nativa; envíe el formulario a través de `evaluer` |
-| `exit 42` | bóveda no montada: `diwall-mount-vault` |
+| `exit 42` | bóveda no montada: `diwall-monter-secrets` |
 | `exit 43` | no `diwall.conf` — copie la muestra que está al lado |
 | `guide_non_lu` | pase `--guide-version` una vez |
 | 403 / 429 | lea `respect.waf_bloquants` — es una señal, no una excepción |

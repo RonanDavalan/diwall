@@ -100,7 +100,7 @@ invoked from `~/git/Diwall/Diwall/` via CLI. Access: `__HOST_SERVICE__` (Pretix)
      car l'ID des éléments change après le rechargement de la page.
 
   Propositions d'optimisation
-   1. Standardisation des Vaults : Comme tu l'as souligné, la confusion entre DIWALL_VAULT_DIR
+   1. Standardisation des Vaults : Comme tu l'as souligné, la confusion entre DIWALL_SECRETS_DIR
       et DIWALL_CONF est un point de friction. Permettre à vault.py de supporter les deux
       variables en fallback faciliterait la portabilité des scripts.
    2. Stratégie de "Sondage Atomique" : Pour des vérifications de routine (ex: nombre
@@ -118,7 +118,7 @@ invoked from `~/git/Diwall/Diwall/` via CLI. Access: `__HOST_SERVICE__` (Pretix)
 ```
 
 **External observations (operator, not attributed to Gemini):**
-- `DIWALL_VAULT_DIR` pointed to the directory containing the `.conf` instead of the directory
+- `DIWALL_SECRETS_DIR` pointed to the directory containing the `.conf` instead of the directory
   containing `<hostname>.json` files — self-corrected to `DIWALL_CONF` without assistance (FR-58)
 - End-of-session drift: proposal to record a rule in `CLAUDE.md` (public product)
   instead of `_CADRE/GOUVERNANCE/` — typical long-session drift

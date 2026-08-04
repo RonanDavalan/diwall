@@ -13,7 +13,7 @@ Un skill est un fichier JSON au même format qu'un scénario `scenarios/*.json` 
   "description": "Connexion admin Sillage depuis la page de login",
   "url": "https://mon-app.local/",
   "actions": [
-    {"type": "remplir_som", "id": 1, "valeur": "depuis_vault", "vault_cle": "password"},
+    {"type": "remplir_som", "id": 1, "valeur": "depuis_secrets", "secret_cle": "password"},
     {"type": "cliquer_som", "id": 2}
   ]
 }
@@ -48,6 +48,6 @@ Le fichier `skills/connexion_sillage.json` est créé et peut être rejoué via 
 
 ## Règles
 
-- Un skill ne contient jamais de credentials en clair — toujours `"valeur": "depuis_vault"`.
+- Un skill ne contient jamais de credentials en clair — toujours `"valeur": "depuis_secrets"`.
 - Les IDs SoM ne sont valables que si l'interface n'a pas changé depuis la validation.
 - Ajouter `derniere_validation` (date ISO) dans le JSON lors des rejeux réussis.

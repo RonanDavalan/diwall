@@ -108,8 +108,8 @@ def test_t2_lecture_pas_archivage():
 
 def test_t3_securite_zero_credential():
     actions = [
-        {"type": "remplir_som", "id": 1, "valeur": "depuis_vault", "vault_cle": "password"},
-        # Simule le chemin rpa.py : vault résolu en amont, valeur en clair.
+        {"type": "remplir_som", "id": 1, "valeur": "depuis_secrets", "secret_cle": "password"},
+        # Simule le chemin rpa.py : identifiants résolus en amont, valeur en clair.
         {"type": "remplir", "selecteur": "#pwd", "valeur": "S3CR3T_RESOLU_simule"},
         {"type": "cliquer_som", "id": 2},
     ]
@@ -121,11 +121,11 @@ def test_t3_securite_zero_credential():
     e = _entrees()[-1]
     raw = json.dumps(e, ensure_ascii=False)
     resume = (e.get("actions") or [""])[0]
-    return _verdict("T3) sécurité — credentials masqués (vault + défense en profondeur)", [
-        ("résumé vault = 'remplir_som#1=<vault:password>'",
-         resume == "remplir_som#1=<vault:password>"),
-        ("'depuis_vault' absent de la ligne", "depuis_vault" not in raw),
-        ("'vault_cle' (clé brute) absente de la ligne", "vault_cle" not in raw),
+    return _verdict("T3) sécurité — credentials masqués (répertoire chiffré + défense en profondeur)", [
+        ("résumé des identifiants = 'remplir_som#1=<secrets:password>'",
+         resume == "remplir_som#1=<secrets:password>"),
+        ("'depuis_secrets' absent de la ligne", "depuis_secrets" not in raw),
+        ("'secret_cle' (clé brute) absente de la ligne", "secret_cle" not in raw),
         ("valeur de saisie résolue masquée (défense en profondeur)",
          "S3CR3T_RESOLU" not in raw),
     ])

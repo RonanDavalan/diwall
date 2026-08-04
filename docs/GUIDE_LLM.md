@@ -52,15 +52,15 @@ guarantee against lying about it.
 
 **FORBIDDEN — extracts credentials into the shell:**
 ```bash
-PASS=$(jq -r '.password' ~/Vaults/.../file.json)   # NEVER
+PASS=$(jq -r '.password' ~/Secrets/.../file.json)   # NEVER
 ```
 
 **CORRECT — vault resolved inside Playwright** (this is Diwall's core
 authentication mechanism — form-filling with real credentials, always
 supported):
 ```json
-{"type": "remplir_som", "id": 2, "valeur": "depuis_vault", "vault_cle": "username"}
-{"type": "remplir_som", "id": 3, "valeur": "depuis_vault", "vault_cle": "password"}
+{"type": "remplir_som", "id": 2, "valeur": "depuis_secrets", "secret_cle": "username"}
+{"type": "remplir_som", "id": 3, "valeur": "depuis_secrets", "secret_cle": "password"}
 ```
 
 Values never appear in shell, bash history, or any log. Also forbidden:
@@ -81,7 +81,7 @@ loop`. You do not guess the rendering, you do not use `lynx`. You SEE it.
 ```
 /opt/diwall/          ← production (always invoke from here)
   shot.py rpa.py watch.py journal.py   ← main tools
-  lib/vault.py         ← credential resolver (inside Playwright only)
+  lib/repertoire_chiffre.py         ← credential resolver (inside Playwright only)
   venv/                ← isolated Python — ALWAYS use this venv
   scenarios/ references/
 
@@ -132,8 +132,8 @@ opt-in with either mode.
 | `cliquer` | `selecteur`, [`force`\|`repli_js`] | `force` bypasses CSS-hidden/showModal; `repli_js` retries via JS if the native click still fails (needs `--no-evaluer` off) |
 | `cliquer_som` | `id` | Coordinate click — no `force` needed |
 | `cliquer_visuel` | `description` | LLM vision fallback (~32s) |
-| `remplir` | `selecteur`, `valeur` | `valeur` can be `"depuis_vault"` |
-| `remplir_som` | `id`, `valeur`, [`vault_cle`] | Clears field before typing |
+| `remplir` | `selecteur`, `valeur` | `valeur` can be `"depuis_secrets"` |
+| `remplir_som` | `id`, `valeur`, [`secret_cle`] | Clears field before typing |
 | `capturer` | `nom` | Named intermediate PNG |
 | `evaluer` | `script`, [`attendu`\|`contient`\|`motif`] | Assertion keys are rpa.py-only |
 | `defiler` | `px` or `selecteur` | Scroll viewport |

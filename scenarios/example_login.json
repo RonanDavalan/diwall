@@ -6,8 +6,8 @@
     {
       "type": "remplir_som",
       "id": 1,
-      "valeur": "depuis_vault",
-      "vault_cle": "password"
+      "valeur": "depuis_secrets",
+      "secret_cle": "password"
     },
     {
       "type": "cliquer_som",

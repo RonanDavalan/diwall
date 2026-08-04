@@ -7,9 +7,9 @@ Garanties :
 - **Best-effort** : un échec de journalisation ne fait JAMAIS échouer
   l'opération Diwall (toute exception est avalée, avec un warning stderr).
 - **Zéro credential** : les actions ne sont jamais sérialisées brutes ;
-  seul leur résumé neutralisé est écrit, et une valeur `depuis_vault` est
-  remplacée par le marqueur `<vault:clé>` (la valeur réelle n'existe pas
-  dans l'action — Diwall utilise toujours `depuis_vault`).
+  seul leur résumé neutralisé est écrit, et une valeur `depuis_secrets` est
+  remplacée par le marqueur `<secrets:clé>` (la valeur réelle n'existe pas
+  dans l'action — Diwall utilise toujours `depuis_secrets`).
 - **Append atomique** : écriture d'une seule ligne sous verrou exclusif.
 
 Spécification : _CADRE/SPECIFICATIONS/35_JOURNAL_OPERATIONS.md
@@ -30,7 +30,7 @@ def _journal_path():
     if explicite:
         return explicite
     try:
-        from lib.vault import _lire_conf
+        from lib.repertoire_chiffre import _lire_conf
         conf = _lire_conf()
         chemin = conf.get("journal", {}).get("chemin", "")
         if chemin:
@@ -74,7 +74,7 @@ def est_mutatif(actions):
 def _resumer_action(action):
     """Résumé court et neutralisé d'une action.
 
-    Une valeur `depuis_vault` devient `<vault:clé>` : aucune valeur de
+    Une valeur `depuis_secrets` devient `<secrets:clé>` : aucune valeur de
     credential ne transite par le journal.
     """
     if not isinstance(action, dict):
@@ -83,11 +83,11 @@ def _resumer_action(action):
     ref = action.get("id", action.get("selecteur", ""))
     tete = f"{t}#{ref}" if ref != "" else t
     if "valeur" in action:
-        if action.get("valeur") == "depuis_vault":
-            return f"{tete}=<vault:{action.get('vault_cle', '?')}>"
+        if action.get("valeur") == "depuis_secrets":
+            return f"{tete}=<secrets:{action.get('secret_cle', '?')}>"
         # Défense en profondeur : la valeur d'une saisie n'est jamais
         # journalisée en clair. Selon le chemin d'appel (rpa.py résout le
-        # vault en amont), une valeur de saisie peut être un credential
+        # identifiants résolus en amont), une valeur de saisie peut être un credential
         # déjà résolu — on ne peut pas le distinguer ici, donc on masque.
         if t in ("remplir", "remplir_som", "remplir_iframe"):
             return f"{tete}=<saisie>"
@@ -109,9 +109,9 @@ def _neutraliser_actions_raw(actions):
     Préserve la structure dict (contrairement à resumer_actions qui produit
     des chaînes plates). Masquage appliqué :
     - remplir / remplir_som avec valeur directe : remplacée par "<saisie>"
-    - depuis_vault et depuis_vault_totp : conservés tels quels (pas de valeur réelle)
+    - depuis_secrets et depuis_secrets_totp : conservés tels quels (pas de valeur réelle)
     - evaluer : script tronqué à 500 caractères
-    - attendre_mfa_ntfy : copié tel quel (le topic vient du vault, pas de l'action)
+    - attendre_mfa_ntfy : copié tel quel (le topic vient du répertoire chiffré, pas de l'action)
     - tout le reste : copié tel quel
     """
     resultat = []
@@ -122,7 +122,7 @@ def _neutraliser_actions_raw(actions):
         t = a2.get("type", "")
         if t in ("remplir", "remplir_som", "remplir_iframe"):
             v = a2.get("valeur")
-            if v not in ("depuis_vault", "depuis_vault_totp", None):
+            if v not in ("depuis_secrets", "depuis_secrets_totp", None):
                 a2["valeur"] = "<saisie>"
         elif t == "evaluer" and "script" in a2:
             a2["script"] = a2["script"][:500]
@@ -137,18 +137,18 @@ def archiver_preuves(operation_id, captures):
     Retourne la liste des chemins archivés. Best-effort : une copie qui
     échoue est ignorée. Appelée uniquement pour les runs mutatifs.
 
-    Garde-fou vault (v1.17.2) : si <preuves> est configuré à l'intérieur du
-    coffre credentials mais que celui-ci n'est pas monté, n'archive rien —
+    Garde-fou de montage (v1.17.2) : si <preuves> est configuré à l'intérieur du
+    répertoire chiffré credentials mais que celui-ci n'est pas monté, n'archive rien —
     les captures restent à leur emplacement d'origine plutôt que d'être
     dupliquées en clair sur le disque hôte nu. Pas de repli vers `/tmp/` ici
     (contrairement au journal) : des captures d'écran authentifiées sont plus
     sensibles qu'une ligne de journal neutralisée.
     """
     preuves_dir = _preuves_dir()
-    if _ecriture_vault_bloquee(preuves_dir):
+    if _ecriture_secrets_bloquee(preuves_dir):
         print(
-            "⚠ journal : preuves non archivées (coffre fermé — "
-            "preuves configurées dans le vault)",
+            "⚠ journal : preuves non archivées (répertoire chiffré fermé — "
+            "preuves configurées dans le répertoire chiffré)",
             file=sys.stderr,
         )
         return list(captures or [])
@@ -285,26 +285,26 @@ def _gid_diwall():
         return -1
 
 
-def _ecriture_vault_bloquee(repertoire):
-    """True si `repertoire` est configuré à l'intérieur du vault_dir de
-    l'opérateur mais que ce coffre n'est actuellement pas monté (v1.17.2).
+def _ecriture_secrets_bloquee(repertoire):
+    """True si `repertoire` est configuré à l'intérieur du secrets_dir de
+    l'opérateur mais que ce répertoire chiffré n'est actuellement pas monté (v1.17.2).
 
     Ne s'applique jamais au chemin système par défaut (`/var/log/diwall/`) ni
-    à un `journal.chemin`/preuves personnalisé hors du vault — uniquement au
+    à un `journal.chemin`/preuves personnalisé hors du répertoire chiffré — uniquement au
     cas où l'opérateur a délibérément configuré le journal ou les preuves à
-    l'intérieur du coffre credentials. Constat terrain à l'origine du
+    l'intérieur du répertoire chiffré credentials. Constat terrain à l'origine du
     correctif : écriture silencieuse en clair sur le disque hôte nu quand ce
     garde-fou était absent.
     """
     try:
-        from lib.vault import _chemin_vault, _coffre_est_monte
-        vault_dir = os.path.realpath(os.path.expanduser(_chemin_vault()))
+        from lib.repertoire_chiffre import _chemin_secrets, _repertoire_est_monte
+        secrets_dir = os.path.realpath(os.path.expanduser(_chemin_secrets()))
     except Exception:
         return False
     cible = os.path.realpath(repertoire)
-    if cible != vault_dir and not cible.startswith(vault_dir + os.sep):
+    if cible != secrets_dir and not cible.startswith(secrets_dir + os.sep):
         return False
-    return not _coffre_est_monte(repertoire)
+    return not _repertoire_est_monte(repertoire)
 
 
 def _ecrire_fallback(ligne, raison):
@@ -334,8 +334,8 @@ def _ecrire_ligne(entree):
     cette note.
 
     Permissions : 640 + groupe diwall (C2 v1.15.1).
-    Garde-fou vault (v1.17.2) : si le chemin configuré est à l'intérieur du
-    coffre credentials mais que celui-ci n'est pas monté, écrit directement
+    Garde-fou de montage (v1.17.2) : si le chemin configuré est à l'intérieur du
+    répertoire chiffré credentials mais que celui-ci n'est pas monté, écrit directement
     dans le fallback local plutôt que de recréer l'arborescence en clair sur
     le disque hôte nu.
     """
@@ -343,8 +343,8 @@ def _ecrire_ligne(entree):
     repertoire = os.path.dirname(path)
     ligne = json.dumps(entree, ensure_ascii=False) + "\n"
 
-    if repertoire and _ecriture_vault_bloquee(repertoire):
-        _ecrire_fallback(ligne, "coffre fermé — journal configuré dans le vault")
+    if repertoire and _ecriture_secrets_bloquee(repertoire):
+        _ecrire_fallback(ligne, "répertoire chiffré fermé — journal configuré dans le répertoire chiffré")
         return
 
     if repertoire:
