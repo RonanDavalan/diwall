@@ -36,6 +36,16 @@ __version__ = "1.23.0"
 # Permet d'importer lib/ depuis le même répertoire que shot.py
 sys.path.insert(0, os.path.dirname(os.path.abspath(__file__)))
 
+# Chantier crédibilité (05/08/2026) — trouvé par le cycle .deb réel sur une
+# machine où dpkg exécute les scripts postinst avec HOME=/root : sans ce
+# réglage, `playwright install chromium` (postinst / install.sh, exécutés en
+# root) télécharge Chromium dans /root/.cache/ms-playwright, invisible pour
+# l'opérateur réel (HOME différent, ou utilisateur système `diwall` sans
+# home). Fixe l'emplacement indépendamment de qui a lancé l'installation —
+# install.sh et postinst pointent tous les deux vers ce même chemin.
+# setdefault : un opérateur qui a déjà positionné la variable garde la main.
+os.environ.setdefault("PLAYWRIGHT_BROWSERS_PATH", "/opt/diwall/.cache/ms-playwright")
+
 
 def _boussole(operation_id=None):
     try:

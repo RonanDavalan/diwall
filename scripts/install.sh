@@ -70,18 +70,31 @@ else
 fi
 
 # ── Étape 4 — Chromium ───────────────────────────────────────────────────────
-if ! sudo "$DEST/venv/bin/python3" -c "from playwright.sync_api import sync_playwright; p = sync_playwright().start(); p.stop()" 2>/dev/null; then
+# Chemin fixe, passé explicitement à travers sudo (VAR=val cmd, pas export) :
+# ne pas dépendre du réglage env_reset de sudo pour HOME sur cette machine.
+# Trouvé par un cycle .deb réel sur une machine où sudo remet HOME=/root —
+# sans ce réglage, Chromium atterrit dans /root/.cache/ms-playwright,
+# invisible pour l'opérateur réel. shot.py fixe le même chemin par défaut à
+# l'exécution — les deux doivent rester synchronisés.
+PW_BROWSERS="$DEST/.cache/ms-playwright"
+if ! sudo PLAYWRIGHT_BROWSERS_PATH="$PW_BROWSERS" "$DEST/venv/bin/python3" -c "from playwright.sync_api import sync_playwright; p = sync_playwright().start(); p.stop()" 2>/dev/null; then
     echo "  Playwright non disponible, skip Chromium"
 fi
-CHROMIUM_PATH=$(sudo "$DEST/venv/bin/python3" -c \
+CHROMIUM_PATH=$(sudo PLAYWRIGHT_BROWSERS_PATH="$PW_BROWSERS" "$DEST/venv/bin/python3" -c \
     "from playwright.sync_api import sync_playwright; p=sync_playwright().start(); b=p.chromium; print(b.executable_path); p.stop()" 2>/dev/null || true)
 if [ -z "$CHROMIUM_PATH" ] || [ ! -f "$CHROMIUM_PATH" ]; then
     echo "  Installation de Chromium..."
-    sudo "$DEST/venv/bin/playwright" install chromium
+    # --with-deps : installe aussi les bibliothèques partagées système
+    # (libnspr4, libnss3, etc.) via apt — trouvé manquant par un cycle .deb
+    # réel sur machine minimale (TargetClosedError, libnspr4.so introuvable).
+    sudo PLAYWRIGHT_BROWSERS_PATH="$PW_BROWSERS" "$DEST/venv/bin/playwright" install --with-deps chromium
     echo "  Chromium : installé"
 else
     echo "  Existant : Chromium ($CHROMIUM_PATH)"
 fi
+sudo chown -R root:"$GROUPE" "$PW_BROWSERS" 2>/dev/null || true
+sudo find "$PW_BROWSERS" -type d -exec chmod 755 {} + 2>/dev/null || true
+sudo find "$PW_BROWSERS" -type f -exec chmod go+r {} + 2>/dev/null || true
 
 # ── Étape 5 — Déploiement du code ────────────────────────────────────────────
 echo ""
