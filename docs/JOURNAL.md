@@ -4,6 +4,48 @@ History of decisions and discoveries by session, in reverse chronological order.
 
 ---
 
+## 2026-08-05 — A code-quality pass, and what a full install cycle still catches
+
+A pass distinct from the security review above: every root script and
+`lib/` module now carries a docstring header (why the file exists, its
+inputs/outputs, its dependencies) — no author or date lines, since those
+go stale the moment someone else touches the file and `git blame` never
+does. Duplication the same pass turned up got factored out rather than
+left standing: the Set-of-Mark selector list and visibility filter, copied
+across seven near-identical JavaScript blocks; the `depuis_secrets`
+credential-resolution logic, duplicated across three action types; a
+mount-check block duplicated verbatim between two functions in the
+encrypted-secrets module; and, in the RPA executor, a JSON error-emission
+pattern repeated roughly fifteen times and three assertion branches that
+shared everything but their message. Each factoring was checked against
+the pre-change behaviour before being trusted — byte-for-byte comparison
+of the generated JavaScript, and every branch of the credential resolution
+exercised against fixtures — then the full validation suite replayed on a
+real browser run.
+
+Separately, a complete install/remove cycle of the `.deb` package, run on
+a fresh machine rather than assumed to still work, found two real bugs
+neither static review nor the existing test suite could have caught.
+First: Chromium's binaries were downloading to `/root/.cache`, invisible
+to the operator who runs the tool afterwards — `postinst` runs as root
+regardless of who invoked the install, so the browser location silently
+depended on where root's home directory happened to be. Second: asking
+Playwright to install its own system library dependencies from inside
+that same `postinst` deadlocks, because that call spawns its own package
+manager transaction while the one already installing Diwall still holds
+the lock. Both are fixed now — a browser path pinned independently of
+`$HOME`, and the required libraries declared as ordinary package
+dependencies instead of installed by a nested call that could never have
+worked from that context.
+
+The release also adds a security-disclosure policy, exact dependency
+pins in place of open-ended floors, a continuous-integration workflow
+that recompiles and re-validates on every push, and a changelog generated
+from the package's own release history rather than maintained by hand
+alongside it.
+
+---
+
 ## 2026-08-05 — The same review, checked a second time, found what it had missed
 
 A same-day cross-check of the security fixes below found one more instance of
