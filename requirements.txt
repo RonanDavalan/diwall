@@ -1,7 +1,11 @@
 # Diwall — Python dependencies
 #
-# Tested versions are the floor; later patch versions are expected to
-# work. Install in a virtual environment:
+# Exact versions — the ones actually installed and tested in the reference
+# deployment (`/opt/diwall/venv`, checked 2026-08-05). Pinned rather than
+# floored: a security-handling tool should install the same thing every
+# time, not "whatever later patch happens to resolve" at install time.
+# Bumping a pin is a deliberate act — re-test, then update the number.
+# Install in a virtual environment:
 #
 #     python3 -m venv /opt/diwall/venv
 #     /opt/diwall/venv/bin/pip install -r requirements.txt
@@ -12,30 +16,31 @@
 # pip dependency.
 
 # Core: HTTP client for Ollama and Claude APIs
-requests>=2.32
+requests==2.34.2
 
 # Core: PNG IO (resize for vision, diff pixel for watch)
-Pillow>=11.0
+Pillow==12.3.0
 
 # Core: scenario JSON schema validation (lot 9.2)
-jsonschema>=4.20
+jsonschema==4.26.0
 
 # Core: browser automation (Playwright Python bindings)
-playwright>=1.50
+playwright==1.62.0
 
 # v1.3: operator profile YAML loader (lib/profil_operateur.py)
-PyYAML>=6.0
+PyYAML==6.0.3
 
 # Optional but recommended: NumPy-accelerated pixel diff in watch.py
 # Falls back to Pillow-only if NumPy is missing (≈ 10× slower)
-numpy>=2.0
+numpy==2.5.1
 
 # v1.6.0: TOTP generation for 2FA (Google Authenticator / Authy)
-pyotp>=2.9
+pyotp==2.10.0
 
 # v1.15.0: stealth mode — normalise les attributs headless (--stealth)
-playwright-stealth>=2.0
+playwright-stealth==2.0.3
 
 # Optional: Anthropic API for --llm claude in vision.py / watch.py
-# Not required for the default Ollama-only deployment
+# Not required for the default Ollama-only deployment, not installed in the
+# reference venv — floor, not a tested exact pin like the rest of this file.
 # anthropic>=0.40

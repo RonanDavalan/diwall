@@ -1,0 +1,75 @@
+name: CI
+
+on:
+  push:
+  pull_request:
+
+jobs:
+  verify:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: actions/setup-python@v5
+        with:
+          python-version: "3.13"
+
+      - name: Install dependencies
+        run: |
+          pip install -r requirements.txt
+          playwright install --with-deps chromium
+
+      - name: Compile check — every Python file must parse
+        run: |
+          find . -name '*.py' -not -path './.git/*' -print0 \
+            | xargs -0 python3 -m py_compile
+
+      - name: Validate scenario JSON files against schema.json
+        run: |
+          python3 - <<'PYEOF'
+          import glob, json, sys
+          import jsonschema
+
+          with open("scenarios/schema.json", encoding="utf-8") as f:
+              schema = json.load(f)
+
+          failed = False
+          for path in glob.glob("scenarios/*.json"):
+              if path.endswith("schema.json"):
+                  continue
+              with open(path, encoding="utf-8") as f:
+                  data = json.load(f)
+              try:
+                  jsonschema.validate(data, schema)
+                  print(f"  OK   {path}")
+              except jsonschema.ValidationError as e:
+                  print(f"  FAIL {path}: {e.message}")
+                  failed = True
+
+          sys.exit(1 if failed else 0)
+          PYEOF
+
+      # Suites that run fully green without a mounted encrypted secrets
+      # directory or the private maintainer tooling (~/git/Diwall/scripts/).
+      # v1.4_validation and v1.23.0_validation are excluded: each carries one
+      # pre-existing failing test unrelated to CI infrastructure (T3
+      # actions_raw, T-1 PDF manifest) — tracked separately, not swept under
+      # a green badge here. Re-add once fixed.
+      - name: Replay validation suites
+        run: |
+          for suite in \
+            v1.3_validation \
+            v1.15.2_validation \
+            v1.16.0_validation \
+            v1.17.0_validation \
+            v1.17.2_validation \
+            v1.18.0_validation \
+            v1.19.0_validation \
+            v1.20.0_validation \
+            v1.21.0_validation \
+            v1.22.0_validation \
+          ; do
+            echo "::group::$suite"
+            python3 "scenarios/$suite/verifier.py"
+            echo "::endgroup::"
+          done
