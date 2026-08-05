@@ -23,6 +23,7 @@ import argparse
 import getpass
 import json
 import os
+import re
 import resource
 import socket
 import sys
@@ -73,6 +74,7 @@ def _boussole(operation_id=None):
 _DW_EST_SENSIBLE_JS = """
     const dwEstSensible = (el) => el.type === 'password' ||
         /password|token|secret|otp|totp/i.test(el.name || '') ||
+        /password|token|secret|otp|totp/i.test(el.id || '') ||
         /password/i.test(el.autocomplete || '');
 """
 
@@ -326,19 +328,13 @@ _SOM_TROUVER_STABLE_JS_SHADOW = """(id) => {
 }"""
 
 # ── Sécurité visuelle — masquage des champs sensibles ────────────────────────
-_MASQUER_SECRETS_JS = """() => {
-    var SENS = [
-        'input[type="password"]',
-        'input[autocomplete="current-password"]',
-        'input[autocomplete="new-password"]',
-        'input[autocomplete*="password"]',
-        'input[name*="password"]',
-        'input[name*="token"]',
-        'input[name*="secret"]',
-        'input[name*="otp"]',
-        'input[name*="totp"]'
-    ].join(',');
-    document.querySelectorAll(SENS).forEach(function(f) {
+# Audit 05/08/2026 (D-13) : cette liste de sélecteurs divergeait de
+# dwEstSensible (totp absent ici, id jamais consulté par aucune des deux) —
+# deux définitions de « champ sensible » pour un même produit. Dérivée du
+# même prédicat unique désormais.
+_MASQUER_SECRETS_JS = """() => {""" + _DW_EST_SENSIBLE_JS + """
+    document.querySelectorAll('input, textarea').forEach(function(f) {
+        if (!dwEstSensible(f)) return;
         f.setAttribute('data-dw-blur', f.style.filter || '');
         f.style.filter = 'blur(8px)';
     });
@@ -450,13 +446,44 @@ def _injecter_som(page, output_dir, nom="state_som", screenshot_timeout=120_000,
 
 # ── Arbre d'accessibilité (A11y) ──────────────────────────────────────────────
 
+# Audit 05/08/2026 (D-01, correctif ciblé) : page.aria_snapshot() inclut la
+# valeur des champs de saisie, y compris type="password" — vérifié en réel
+# contre une cible authentifiée (mot de passe publié en clair dans a11y_tree).
+# Réutilise dwEstSensible (_DW_EST_SENSIBLE_JS), même prédicat que le SoM
+# (C-01) et le masquage visuel (D-13) — une seule définition de « champ
+# sensible » pour les trois canaux.
+_DW_VALEURS_SENSIBLES_JS = """() => {""" + _DW_EST_SENSIBLE_JS + """
+    const valeurs = [];
+    document.querySelectorAll('input, textarea').forEach((el) => {
+        if (dwEstSensible(el) && el.value) valeurs.push(el.value);
+    });
+    return valeurs;
+}"""
+
+
 def _snapshot_a11y(page):
     """Retourne le snapshot ARIA de la page (format texte YAML-like, Playwright 1.9+).
-    Inclut rôles, noms, URLs des liens. Retourne None si non disponible."""
+    Inclut rôles, noms, URLs des liens. Retourne None si non disponible.
+
+    Audit 05/08/2026 (D-01, correctif ciblé) : les valeurs des champs
+    sensibles actuellement présents dans le DOM (autofill navigateur,
+    session persistante — donc pas nécessairement saisis par Diwall) sont
+    rédigées du texte avant retour. Complète le correctif de fond
+    (_rediger_valeurs_secrets), qui ne connaît que ce que Diwall a lui-même
+    résolu via _resoudre_valeur_secrets.
+    """
     try:
-        return page.aria_snapshot()
+        texte = page.aria_snapshot()
     except Exception:
         return None
+    if texte:
+        try:
+            for v in page.evaluate(_DW_VALEURS_SENSIBLES_JS):
+                if v:
+                    texte = texte.replace(v, "<secret_redige>")
+        except Exception:
+            pass
+    return texte
 
 
 # ── Persistance de session (ReAct) ────────────────────────────────────────────
@@ -692,6 +719,7 @@ def _journaliser_run(result, actions, intention, cible_url, resultat, erreur=Non
         respect=result.get("respect"),
         source_scenario=source_scenario,
         chainage=chainage,
+        auth_status=result.get("auth_status"),
     )
 
 
@@ -718,8 +746,17 @@ def _sauver_session(ctx, page, chemin, viewport):
     # identifiants après authentification — os.open à mode explicite 0o600,
     # comme le marqueur de guide (preflight_guide.py), plutôt que l'umask du
     # processus (0644 en configuration Debian par défaut).
+    # Audit 05/08/2026 (D-09) : chemin_tmp est prévisible (<cible>.tmp). Sans
+    # O_EXCL, un fichier ou un lien symbolique pré-existant à ce chemin serait
+    # réutilisé avec ses permissions/sa cible actuelles ; O_NOFOLLOW refuse
+    # explicitement de suivre un lien. Un .tmp résiduel d'un run précédent est
+    # retiré avant l'ouverture — sinon O_EXCL échouerait systématiquement.
     chemin_tmp = chemin + ".tmp"
-    fd = os.open(chemin_tmp, os.O_WRONLY | os.O_CREAT | os.O_TRUNC, 0o600)
+    try:
+        os.unlink(chemin_tmp)
+    except FileNotFoundError:
+        pass
+    fd = os.open(chemin_tmp, os.O_WRONLY | os.O_CREAT | os.O_EXCL | os.O_NOFOLLOW, 0o600)
     with os.fdopen(fd, "w", encoding="utf-8") as f:
         json.dump(session, f, ensure_ascii=False, indent=2)
     os.replace(chemin_tmp, chemin)  # rename : chemin hérite du mode 0o600 du .tmp
@@ -750,6 +787,15 @@ def _detecter_derive_session(session, url_cible_reprise):
     Retourne un dict prêt à injecter sous la clé `derive_session` du JSON
     de sortie si une divergence est détectée, ou None sinon (URLs identiques,
     session legacy, ou URL manquante).
+
+    Audit 05/08/2026 (D-05) : comparaison sur des URL normalisées (schéma +
+    hôte + port + chemin — via _sanitiser_url_journal, qui ignore déjà query
+    et fragment), plutôt que sur la chaîne brute. Sans ça, une différence
+    purement cosmétique (`.../?` vs `.../`) déclenchait une fausse dérive,
+    et `GUIDE_LLM_SESSIONS.md` prescrit de rejouer l'authentification
+    complète dès que ce signal est vrai — nouvelle exposition de credentials
+    et nouvelle tentative de connexion comptabilisée côté cible, sur une
+    session parfaitement valide.
     """
     meta = session.get("diwall_meta")
     if not meta:
@@ -757,7 +803,8 @@ def _detecter_derive_session(session, url_cible_reprise):
     url_sauvegardee = meta.get("url_au_moment_sauvegarde")
     if not url_sauvegardee or not url_cible_reprise:
         return None
-    if url_sauvegardee == url_cible_reprise:
+    from lib.journal import _sanitiser_url_journal
+    if _sanitiser_url_journal(url_sauvegardee) == _sanitiser_url_journal(url_cible_reprise):
         return None
     return {
         "url_sauvegardee": url_sauvegardee,
@@ -963,13 +1010,19 @@ def _resoudre_frame_locator(page, a, type_action):
     return page.frame_locator(iframe_sel)
 
 
-def _resoudre_valeur_secrets(a, valeur, page, secrets_chemin, type_action):
+def _resoudre_valeur_secrets(a, valeur, page, secrets_chemin, type_action, valeurs_resolues=None):
     """Résout 'depuis_secrets'/'depuis_secrets_totp' en credential réel lu
     depuis le répertoire chiffré. Factorisé depuis remplir/remplir_som/
     remplir_iframe (chantier qualité 05/08/2026) — même bloc de résolution
     dupliqué trois fois à l'identique, même catégorie de défaut que C-01
     (dwEstSensible, corrigé en session 76) : trois copies d'un code de
     résolution de credentials sont trois endroits à corriger en cas de bug.
+
+    `valeurs_resolues` (audit 05/08/2026, D-01, correctif de fond) : si
+    fourni, chaque valeur réellement résolue y est ajoutée — point de
+    passage unique qui alimente la redaction de la sortie JSON finale,
+    quel que soit le canal par lequel une valeur injectée ressortirait
+    (a11y_tree aujourd'hui, un canal encore inconnu demain).
     """
     if valeur == "depuis_secrets":
         cle = a.get("secret_cle")
@@ -977,16 +1030,50 @@ def _resoudre_valeur_secrets(a, valeur, page, secrets_chemin, type_action):
             raise ValueError(f"{type_action} depuis_secrets : champ 'secret_cle' requis")
         if secrets_chemin:
             from lib.repertoire_chiffre import lire_credential_fichier
-            return lire_credential_fichier(secrets_chemin, cle, page.url)
-        from lib.repertoire_chiffre import lire_credential, domaine_depuis_url
-        return lire_credential(domaine_depuis_url(page.url), cle)
+            resultat = lire_credential_fichier(secrets_chemin, cle, page.url)
+        else:
+            from lib.repertoire_chiffre import lire_credential, domaine_depuis_url
+            resultat = lire_credential(domaine_depuis_url(page.url), cle)
+        if valeurs_resolues is not None and resultat:
+            valeurs_resolues.add(resultat)
+        return resultat
     if valeur == "depuis_secrets_totp":
         if secrets_chemin:
             from lib.repertoire_chiffre import lire_totp_fichier
-            return lire_totp_fichier(secrets_chemin, page.url)
-        from lib.repertoire_chiffre import lire_totp, domaine_depuis_url
-        return lire_totp(domaine_depuis_url(page.url))
+            resultat = lire_totp_fichier(secrets_chemin, page.url)
+        else:
+            from lib.repertoire_chiffre import lire_totp, domaine_depuis_url
+            resultat = lire_totp(domaine_depuis_url(page.url))
+        if valeurs_resolues is not None and resultat:
+            valeurs_resolues.add(resultat)
+        return resultat
     return valeur
+
+
+def _rediger_valeurs_secrets(obj, valeurs):
+    """Parcourt récursivement obj (dict/list/str) et remplace, dans toute
+    chaîne, chaque occurrence exacte d'une valeur de `valeurs` par un
+    marqueur neutre.
+
+    Audit 05/08/2026 (D-01, correctif de fond) : point de passage unique
+    appliqué juste avant json.dumps(result) — invariant plutôt que
+    protection par canal (a11y_tree aujourd'hui, un canal encore inconnu
+    demain). Aucun seuil de longueur (décision Ronan, 05/08/2026) :
+    correspondance exacte systématique, un faux positif de redaction étant
+    strictement préférable à une fuite.
+    """
+    if not valeurs:
+        return obj
+    if isinstance(obj, str):
+        for v in valeurs:
+            if v and v in obj:
+                obj = obj.replace(v, "<secret_redige>")
+        return obj
+    if isinstance(obj, dict):
+        return {k: _rediger_valeurs_secrets(v, valeurs) for k, v in obj.items()}
+    if isinstance(obj, list):
+        return [_rediger_valeurs_secrets(v, valeurs) for v in obj]
+    return obj
 
 
 def executer_actions(page, actions, output_dir, timeout, mode_llm="local",
@@ -994,7 +1081,7 @@ def executer_actions(page, actions, output_dir, timeout, mode_llm="local",
                      secrets_chemin=None, screenshot_timeout=120_000, shadow_dom=False,
                      min_action_delay_ms=0, max_pages_par_run=0, max_actions_par_run=0,
                      t_debut=None, no_evaluer=False, operation_id=None, progress=None,
-                     som_rafraichir=False):
+                     som_rafraichir=False, valeurs_secrets_resolues=None):
     from playwright.sync_api import TimeoutError as PWTimeoutError, Error as PWError
 
     if som_rafraichir:
@@ -1003,6 +1090,14 @@ def executer_actions(page, actions, output_dir, timeout, mode_llm="local",
         _som_trouver = _SOM_TROUVER_JS_SHADOW if shadow_dom else _SOM_TROUVER_JS
     intermediaires = []
     stream_captures = []
+    # Audit 05/08/2026 (D-01, correctif de fond) : valeurs réellement résolues
+    # par _resoudre_valeur_secrets durant ce run — l'appelant fournit
+    # l'ensemble (créé avant l'appel) pour que les valeurs résolues restent
+    # accessibles même si une exception interrompt executer_actions avant son
+    # retour normal ; rédigées de la sortie JSON finale quel que soit le
+    # canal où elles réapparaîtraient.
+    if valeurs_secrets_resolues is None:
+        valeurs_secrets_resolues = set()
     evaluations = []
     latences_actions = []
     stream_dir = None
@@ -1136,7 +1231,7 @@ def executer_actions(page, actions, output_dir, timeout, mode_llm="local",
 
         elif t == "remplir":
             valeur = a.get("valeur", "")
-            valeur = _resoudre_valeur_secrets(a, valeur, page, secrets_chemin, "remplir")
+            valeur = _resoudre_valeur_secrets(a, valeur, page, secrets_chemin, "remplir", valeurs_secrets_resolues)
             page.locator(a["selecteur"]).fill(valeur, timeout=timeout)
 
         elif t == "cliquer":
@@ -1185,7 +1280,10 @@ def executer_actions(page, actions, output_dir, timeout, mode_llm="local",
                     time.sleep(min(0.05, max(deadline - time.time(), 0)))
 
         elif t == "capturer":
-            nom = a.get("nom", "etape")
+            # Audit 05/08/2026 (D-07) : 'nom' concaténé sans filtrage permettait
+            # une traversée de chemin (../../.., écrit hors du répertoire de
+            # run isolé en 0700). Restreint à un jeu de caractères sûr.
+            nom = re.sub(r"[^A-Za-z0-9_-]", "_", a.get("nom", "etape"))[:60]
             if a.get("som"):
                 p, _, _ = _injecter_som(page, output_dir, f"capture_som_{nom}",
                                         screenshot_timeout=screenshot_timeout,
@@ -1209,7 +1307,7 @@ def executer_actions(page, actions, output_dir, timeout, mode_llm="local",
             valeur = a.get("valeur", "")
             if som_id is None:
                 raise ValueError("remplir_som requiert un champ 'id'")
-            valeur = _resoudre_valeur_secrets(a, valeur, page, secrets_chemin, "remplir_som")
+            valeur = _resoudre_valeur_secrets(a, valeur, page, secrets_chemin, "remplir_som", valeurs_secrets_resolues)
             coord = page.evaluate(_som_trouver, som_id)
             if coord is None:
                 raise ValueError(f"remplir_som : élément SoM {som_id!r} non trouvé sur la page")
@@ -1309,7 +1407,7 @@ def executer_actions(page, actions, output_dir, timeout, mode_llm="local",
                 raise ValueError("remplir_iframe requiert un champ 'selecteur' (cible dans le frame)")
             frame_locator = _resoudre_frame_locator(page, a, "remplir_iframe")
             valeur = a.get("valeur", "")
-            valeur = _resoudre_valeur_secrets(a, valeur, page, secrets_chemin, "remplir_iframe")
+            valeur = _resoudre_valeur_secrets(a, valeur, page, secrets_chemin, "remplir_iframe", valeurs_secrets_resolues)
             frame_locator.locator(a["selecteur"]).fill(valeur, timeout=timeout)
 
         elif t == "defiler":
@@ -1446,19 +1544,34 @@ def executer_actions(page, actions, output_dir, timeout, mode_llm="local",
             latences_actions, dernier_code_http, repli_js_utilise)
 
 
+# Audit 05/08/2026 (D-10) : constaté en production — diwall.conf
+# absent, les plafonds valaient 0 (donc inactifs, max_* > 0 conditionne tout
+# contrôle) et les runs s'exécutaient sans aucune limite ni délai minimal.
+# La protection ne doit pas dépendre de la présence d'un fichier optionnel —
+# mêmes valeurs que celles déjà proposées par diwall-sample.conf.
+_NAVIGATION_DEFAUT = {
+    "min_action_delay_ms": 800,
+    "max_pages_par_run": 10,
+    "max_actions_par_run": 30,
+}
+
+
 def _conf_navigation():
-    """Lit les paramètres [navigation] depuis /opt/diwall/diwall.conf (JSON)."""
+    """Lit les paramètres [navigation] depuis le fichier résolu par
+    lib.repertoire_chiffre._lire_conf() (DIWALL_CONF, ou /opt/diwall/diwall.conf
+    par défaut). Valeurs par défaut non nulles si absentes ou si diwall.conf
+    lui-même est absent (D-10)."""
     try:
         from lib.repertoire_chiffre import _lire_conf
         conf = _lire_conf()
         nav = conf.get("navigation", {})
         return {
-            "min_action_delay_ms": int(nav.get("min_action_delay_ms", 0)),
-            "max_pages_par_run": int(nav.get("max_pages_par_run", 0)),
-            "max_actions_par_run": int(nav.get("max_actions_par_run", 0)),
+            "min_action_delay_ms": int(nav.get("min_action_delay_ms", _NAVIGATION_DEFAUT["min_action_delay_ms"])),
+            "max_pages_par_run": int(nav.get("max_pages_par_run", _NAVIGATION_DEFAUT["max_pages_par_run"])),
+            "max_actions_par_run": int(nav.get("max_actions_par_run", _NAVIGATION_DEFAUT["max_actions_par_run"])),
         }
     except Exception:
-        return {"min_action_delay_ms": 0, "max_pages_par_run": 0, "max_actions_par_run": 0}
+        return dict(_NAVIGATION_DEFAUT)
 
 
 def main():
@@ -1638,6 +1751,11 @@ def main():
     # réussies ; lu dans le except si une action échoue en cours de route
     # (support des checkpoints rpa.py).
     progress = {}
+    # Audit 05/08/2026 (D-01, correctif de fond) : créé ici, avant le bloc
+    # try qui englobe executer_actions, pour rester lisible depuis le
+    # handler d'erreur si une exception interrompt le run après qu'un
+    # secret a déjà été résolu.
+    valeurs_secrets_resolues = set()
     http_status = None
     # v1.22.0, Axe D — condition d'arrêt réellement appliquée à la navigation
     # initiale, posée seulement si elle diffère du défaut et que la navigation
@@ -1816,6 +1934,7 @@ def main():
                     operation_id=operation_id,
                     progress=progress,
                     som_rafraichir=args.som_rafraichir,
+                    valeurs_secrets_resolues=valeurs_secrets_resolues,
                 )
             except Exception:
                 if args.sauver_session:
@@ -1854,6 +1973,12 @@ def main():
                     auth_status = "active" if visible else "inactive"
                 except Exception:
                     auth_status = "inactive"
+
+            # Audit 05/08/2026 (D-05) : un indicateur d'authentification actif
+            # annule une dérive de session résiduelle — les deux signaux ne
+            # doivent jamais se contredire dans le même objet de sortie.
+            if auth_status == "active" and derive_session:
+                derive_session = None
 
             # ── Sauvegarde session ────────────────────────────────────────────
             session_file = None
@@ -1973,6 +2098,7 @@ def main():
             )
         except Exception:
             pass  # etat est un confort de lecture, jamais un bloquant (item A)
+        result = _rediger_valeurs_secrets(result, valeurs_secrets_resolues)
         print(json.dumps(result, ensure_ascii=False))
         _journaliser_run(result, actions, args.intention, url_finale, "succes",
                          operation_id=operation_id, source_scenario=args.source_scenario,
@@ -2000,6 +2126,7 @@ def main():
                 ),
                 "boussole": _boussole(operation_id),
             }
+            result = _rediger_valeurs_secrets(result, valeurs_secrets_resolues)
             print(json.dumps(result, ensure_ascii=False))
             _journaliser_run(result, actions, args.intention, url_cible, "echec",
                              erreur=f"SecretsFermesError: {e}", operation_id=operation_id,
@@ -2040,6 +2167,7 @@ def main():
             result["actions_executees_avant_echec"] = progress["actions_executees"]
             result["pages_visitees_avant_echec"] = progress.get("pages_visitees", 0)
         result["boussole"] = _boussole(operation_id)
+        result = _rediger_valeurs_secrets(result, valeurs_secrets_resolues)
         print(json.dumps(result, ensure_ascii=False))
         _journaliser_run(result, actions, args.intention, url_cible, "echec",
                          erreur=f"{type(e).__name__}: {e}", operation_id=operation_id,
