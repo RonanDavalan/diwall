@@ -4,6 +4,77 @@ History of decisions and discoveries by session, in reverse chronological order.
 
 ---
 
+## 2026-08-05 — Running the tool against itself found what reading it did not
+
+Every review so far had been static: reading the code, reasoning about what
+it does. This one ran it — nine real invocations against a live,
+authenticated target, checking what actually came back rather than what the
+code suggested would.
+
+**A filled password field could show up in the accessibility snapshot.**
+`--a11y` (and `--mode fast`, which forces it on) asks the browser for its
+full accessibility tree, and that tree includes the current value of every
+input on the page — password fields included. The screenshot masking and the
+numbered-element listing had both been fixed to withhold this exact value in
+an earlier pass; the accessibility snapshot is a fourth, separate output
+channel, and nothing had ever been asked whether it needed the same
+treatment. It was the most-recommended way to confirm a login had
+succeeded — the guide pointed operators at the one output that was still
+leaking. Two independent fixes now close it: the accessibility snapshot text
+has any value matching a known sensitive field redacted before it is
+returned, and, separately, every credential value a run actually resolves
+from the encrypted secrets store is tracked for the run's duration and
+stripped from the entire JSON result — whichever output channel it might
+have ended up on, including ones nobody has found yet.
+
+**A screenshot of an authenticated page was archived in the clear,
+indefinitely.** Any run classed as a write (which, out of caution, includes
+a plain diagnostic script) copies its screenshots into a standing archive
+for later reference — outside the encrypted secrets directory by default,
+world-readable to the local machine's operator group, never purged. A
+screenshot of a signed-in dashboard is not meaningfully different from the
+session cookie that got the tool there, and the cookie was already
+protected. The archive now follows the same rule: a screenshot taken on an
+authenticated page is only kept if the encrypted secrets directory is
+mounted, and it is written there rather than to the general log location.
+Off that directory, nothing is archived at all — the screenshot stays only
+in the run's own temporary folder. Archived files are now owner-only, with
+an optional retention limit.
+
+**Three unrelated modules each hardcoded the same configuration path,**
+silently ignoring the environment variable that every other part of the
+tool already honours to redirect it. The practical effect: an operator who
+installs the packaged distribution and configures a private notification
+relay for two-factor codes — precisely to avoid sending them through a
+public service — got the public service anyway, without any indication that
+their configuration had been read and discarded. All three now share the
+one function that already resolves this correctly.
+
+**The operations log's secret-detection filter matched words, and secrets
+have shapes, not words.** A session identifier, a bearer token, an API key
+and a signed authentication token all have recognisable structures that
+contain none of the keywords the filter was searching for — confirmed with
+the exact values that slipped through: a session cookie, a synthetic API
+key, and a real-format signed token, none of which literally spell out the
+word the filter was looking for. The filter now also matches by structure,
+not only by vocabulary.
+
+**Smaller fixes carried in the same pass:** a scenario-supplied file name
+could climb out of its intended output folder with a relative path; a
+session cookie's file could inherit stale permissions from a leftover
+temporary file instead of always starting from a clean, owner-only one; a
+distributed package applied looser file permissions to instance data
+(target URLs, login sequences) than the from-source install already did;
+and a run without any configuration file at all executed with no pacing and
+no cap on how many pages or actions it would take — a safety limit that
+depended on an optional file being present at all now applies by default.
+
+Ten of the existing validation suites were replayed after these changes and
+stayed green; the two that carry a documented, unrelated pre-existing
+failure each still carry only that one failure.
+
+---
+
 ## 2026-08-05 — A code-quality pass, and what a full install cycle still catches
 
 A pass distinct from the security review above: every root script and
