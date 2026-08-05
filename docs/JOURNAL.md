@@ -4,6 +4,37 @@ History of decisions and discoveries by session, in reverse chronological order.
 
 ---
 
+## 2026-08-05 — The same review, checked a second time, found what it had missed
+
+A same-day cross-check of the security fixes below found one more instance of
+the exact pattern they were meant to close. `--http-credentials` combined
+with `--secrets` resolves its username and password through the same
+function the other four call sites use, but without telling it which page it
+was resolving credentials for. The mandatory origin declaration was still
+checked for presence — a file missing it was still refused — but never
+matched against anything, because nothing was passed to match against.
+
+Confirmed directly rather than inferred: a fixture whose declared origin
+named a different host than the actual target was accepted before the fix
+and refused after it, with no other behaviour change (the existing
+`--http-credentials` test suite, exercising the correct-origin case, stayed
+green throughout).
+
+The documentation had a gap of its own: the origin declaration this fix
+depends on has been mandatory since last night, but no example anywhere
+showed it — an operator following the docs literally to build a `--secrets`
+file would have been refused at runtime with nothing but the error message
+to explain why. Both guides now show it.
+
+Separately, last night's fix for the password-in-listing leak duplicated its
+detection logic verbatim across the two Set-of-Mark code paths (standard and
+Shadow DOM), which the review that found the leak had itself flagged as the
+wrong way to close it. Factored into one shared fragment, reused in both —
+checked byte-for-byte against the original to confirm nothing but a comment
+moved.
+
+---
+
 ## 2026-08-05 — A security review found the gaps between protections that already existed
 
 A static review of the full public codebase (shot.py, rpa.py, watch.py, the
