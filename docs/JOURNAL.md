@@ -4,6 +4,98 @@ History of decisions and discoveries by session, in reverse chronological order.
 
 ---
 
+## 2026-08-06 — Fixing a fix is not the same act as writing the code it touched
+
+The previous entry closed a security pass with a set of thirteen fixes. This
+one reran every test that had established the original findings, against
+the corrected code — and then treated each fix itself as new code, subject
+to the same scrutiny. Eleven of the thirteen held exactly as intended. Two
+did not, and three introduced a defect of their own — the same pattern each
+time: a fix proven against the one case in front of it, not against the
+class of case it was meant to cover.
+
+**None of the thirteen fixes were running anywhere.** They existed in the
+source tree and nowhere else — the installed copy the documentation
+actually points operators at still ran the code the fixes were written to
+replace. Not an oversight: a real installation cycle was already a known
+blocker on something unrelated, and the fixes had been sitting behind it.
+Deployed now, last, after everything below — publishing them before fixing
+what follows would have frozen two new problems into production in the
+same gesture meant to close the old ones.
+
+**A screenshot of an authenticated dashboard was still found in the clear.**
+The previous fix redirected such screenshots to the encrypted secrets
+store, but only when the operator had explicitly declared the page
+authenticated. Left undeclared — which most runs are — the tool falls back
+to believing whatever it is told, not what it can see: a login that
+actually succeeded, with credentials it had just resolved from the
+encrypted store itself, produced a full-page capture of a live dashboard
+sitting unencrypted on disk. A second, narrower gap sat right next to it —
+an operator using the "one credentials file per target" pattern this
+project documents got neither an encrypted archive nor a clear-text one:
+the archiving code checked only a global setting that mode doesn't use, and
+silently archived nothing at all. Both are now closed: resolving any
+credential during a run is itself treated as proof of an authenticated
+page, whether or not the operator says so, and the destination now follows
+whichever credentials file was actually in use. The seventy-six files left
+over from before either fix existed — screenshots of pages that had been
+authenticated, sitting world- or group-readable on the local disk — were
+locked down and moved into the encrypted store, checksummed on the way.
+
+**A session-expiry check went blind on the one target it exists to
+protect.** An earlier fix stopped a harmless difference in a web address
+from being mistaken for a security problem — but it did so by ignoring the
+part of the address where a real session expiry actually shows up on this
+target's own login page. The fix traded a false alarm for a missed one, on
+exactly the case it was written for. The address is compared in full now,
+normalised rather than stripped.
+
+**A one-line cleanup broke something it never touched.** A note was added
+that a housekeeping step, though harmless, ran more often than it needed
+to — so a check was added to stop it running twice. That check outlived
+the very reason the file gets reopened at all: a periodic log rotation,
+which the surrounding code was explicitly written to survive. After a
+rotation, the check now silently prevented a permission repair that used to
+happen automatically. Removed; the repair runs every time again, as it did
+before the note was written.
+
+**A secrets filter, tightened, took a diagnostic feature down with it.**
+An earlier pass had taught a log filter to recognise real credential
+shapes it was missing. Widening it caught the missing shapes — and also
+began catching ordinary field labels, CSS selectors and filenames that
+merely resembled one by coincidence of length. On a routine page scan, this
+silently discarded the one result an operator actually needed: the
+inventory of input fields on the page, because one of those fields happened
+to be typed "password". The filter is now applied structurally — value by
+value inside a scanned page, not to the page's result as one long string —
+and only treats an isolated, punctuation-free string as a candidate
+keyword, so an ordinary sentence stops being mistaken for a token.
+
+**A rare failure path in the accessibility-snapshot redaction fell back the
+wrong way.** If the browser call that finds and masks sensitive field
+values failed mid-run, the previous version returned the snapshot
+unredacted rather than not at all — exactly backwards for a step whose only
+job is withholding that value. It now withholds the whole snapshot on that
+path instead, with a flag in the output noting why.
+
+**Smaller fixes carried in the same pass:** a retention policy meant to
+purge old evidence in days was deleting by calendar month instead, which
+could discard six-day-old evidence the moment the calendar turned; a
+checkpoint file and a monitoring run's saved output were written at the
+process's default file permissions rather than the owner-only mode used
+elsewhere; and a two-line note documenting an intentionally-idempotent
+operation was written as a stale comment instead of removed.
+
+The twelve validation suites that could be replayed offline came back
+green except for the same two pre-existing, unrelated failures already on
+record. The fixes above were then run for real against a live authenticated
+target: the password-leak check from the previous entry still holds on the
+deployed copy, and a full login performed with no authentication flag set
+and only a per-target credentials file in use archived its screenshot to
+the encrypted store on the first try, exactly as intended.
+
+---
+
 ## 2026-08-05 — Running the tool against itself found what reading it did not
 
 Every review so far had been static: reading the code, reasoning about what
