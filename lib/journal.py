@@ -18,6 +18,7 @@ import fcntl
 import grp
 import json
 import os
+import re
 import shutil
 import sys
 import uuid
@@ -250,7 +251,7 @@ def enregistrer_operation(outil, version, cible_url, resultat, actions,
             entree["respect"] = respect
         if evaluations:
             entree["evaluations"] = [
-                {"script": e.get("script", "")[:500], "valeur_retournee": e.get("valeur")}
+                {"script": e.get("script", "")[:500], "valeur_retournee": _neutraliser_valeur_evaluer(e.get("valeur"))}
                 for e in evaluations
                 if isinstance(e, dict)
             ]
@@ -260,13 +261,36 @@ def enregistrer_operation(outil, version, cible_url, resultat, actions,
         print(f"⚠ journal : opération non journalisée ({e})", file=sys.stderr)
 
 
+_MOTIFS_SENSIBLES_EVALUER = re.compile(r"token|session|password|bearer|jwt", re.IGNORECASE)
+_BASE64_LONGUE = re.compile(r"[A-Za-z0-9+/=_-]{40,}")
+
+
+def _neutraliser_valeur_evaluer(valeur):
+    """Audit 05/08/2026 (C-06) : valeur_retournee était le seul champ du
+    journal à échapper à la doctrine « zéro credential » de ce module (voir
+    docstring en tête de fichier). Tronque à 500 caractères comme 'script',
+    et remplace par un marqueur toute valeur qui ressemble à un secret.
+    """
+    if valeur is None:
+        return None
+    texte = str(valeur)
+    if _MOTIFS_SENSIBLES_EVALUER.search(texte) or _BASE64_LONGUE.search(texte):
+        return "<valeur_filtree>"
+    return texte[:500]
+
+
 def _sanitiser_url_journal(url):
-    """Conserve uniquement scheme://host/path — supprime toute query string et fragment."""
+    """Conserve uniquement scheme://host/path — supprime toute query string,
+    fragment, et userinfo (audit 05/08/2026, C-07 : p.netloc inclut
+    'user:password@', qui survivait en clair dans le journal)."""
     if not url:
         return url
     try:
         p = urlparse(url)
-        return f"{p.scheme}://{p.netloc}{p.path}"
+        netloc_sans_userinfo = p.hostname or ""
+        if p.port:
+            netloc_sans_userinfo += f":{p.port}"
+        return f"{p.scheme}://{netloc_sans_userinfo}{p.path}"
     except Exception:
         return "[url non parseable]"
 

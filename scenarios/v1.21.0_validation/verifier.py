@@ -106,7 +106,8 @@ def test_2_succes_avec_flag(secrets_dir):
 
     chemin = os.path.join(secrets_dir, "_test_v1210_fixture_secrets.json")
     with open(chemin, "w", encoding="utf-8") as f:
-        json.dump({"http_username": UTILISATEUR, "http_password": MOT_DE_PASSE}, f)
+        json.dump({"http_username": UTILISATEUR, "http_password": MOT_DE_PASSE,
+                   "origines_autorisees": ["127.0.0.1"]}, f)
     try:
         r = subprocess.run(
             [PYTHON, SHOT, "--url", URL_FIXTURE, "--no-capture", "--http-credentials",
@@ -135,7 +136,8 @@ def test_3_mauvais_identifiants(secrets_dir):
 
     chemin = os.path.join(secrets_dir, "_test_v1210_fixture_secrets_faux.json")
     with open(chemin, "w", encoding="utf-8") as f:
-        json.dump({"http_username": UTILISATEUR, "http_password": "mauvais_mot_de_passe"}, f)
+        json.dump({"http_username": UTILISATEUR, "http_password": "mauvais_mot_de_passe",
+                   "origines_autorisees": ["127.0.0.1"]}, f)
     try:
         r = subprocess.run(
             [PYTHON, SHOT, "--url", URL_FIXTURE, "--no-capture", "--http-credentials",

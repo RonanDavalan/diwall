@@ -15,11 +15,17 @@ jamais un nom prévisible. Le stocker dans le répertoire chiffré sous 'ntfy_to
 """
 import json
 import os
+import re
 import time
 
 _CONF_PATH = "/opt/diwall/diwall.conf"
 _NTFY_DEFAULT = "https://ntfy.sh"
 _POLL_INTERVAL_S = 3
+# Audit 05/08/2026 (C-05) : le topic est le seul secret du canal — un
+# identifiant, pas une clé. Sans validation de format, quiconque connaît le
+# topic peut injecter une valeur arbitraire dans le champ MFA. Forme
+# quasi-universelle d'un code MFA SMS/email.
+_CODE_MFA_FORMAT = re.compile(r"^\d{4,8}$")
 
 
 def _ntfy_url() -> str:
@@ -38,12 +44,17 @@ def _ntfy_url() -> str:
 
 
 def publier_attente(topic: str, url_page: str, url_ntfy: str = None) -> None:
-    """Publie un message d'attente MFA sur le topic ntfy."""
+    """Publie un message d'attente MFA sur le topic ntfy.
+
+    Audit 05/08/2026 (C-05) : l'URL cible ne part plus dans le corps du
+    message — le titre suffit à identifier l'attente sans exposer
+    l'infrastructure interne vers un service tiers public par défaut.
+    """
     import requests
     base = (url_ntfy or _ntfy_url()).rstrip("/")
     requests.post(
         f"{base}/{topic}",
-        data=f"Code MFA attendu pour : {url_page}".encode("utf-8"),
+        data=b"Code MFA attendu",
         headers={
             "Title": "Diwall — Code 2FA requis",
             "Priority": "high",
@@ -56,8 +67,13 @@ def publier_attente(topic: str, url_page: str, url_ntfy: str = None) -> None:
 def attendre_code(topic: str, timeout_s: int = 120, url_ntfy: str = None) -> str:
     """Interroge l'API ntfy jusqu'à réception d'un message ou timeout.
 
-    Retourne le contenu du premier message reçu sur le topic depuis
-    l'appel de cette fonction. Lève TimeoutError si timeout_s est dépassé.
+    Retourne le premier message reçu sur le topic depuis l'appel de cette
+    fonction **dont le format correspond à un code MFA** (4 à 8 chiffres,
+    audit 05/08/2026, C-05). Un message hors format est ignoré, la boucle de
+    polling continue — le topic est un identifiant, pas une clé
+    cryptographique ; sans cette validation, quiconque le connaît peut
+    injecter une valeur arbitraire dans le champ MFA. Lève TimeoutError si
+    timeout_s est dépassé sans message valide.
     """
     import requests
     base = (url_ntfy or _ntfy_url()).rstrip("/")
@@ -79,7 +95,9 @@ def attendre_code(topic: str, timeout_s: int = 120, url_ntfy: str = None) -> str
                 except json.JSONDecodeError:
                     continue
                 if msg.get("event") == "message" and msg.get("message"):
-                    return msg["message"].strip()
+                    code = msg["message"].strip()
+                    if _CODE_MFA_FORMAT.match(code):
+                        return code
         except Exception:
             pass
         time.sleep(_POLL_INTERVAL_S)

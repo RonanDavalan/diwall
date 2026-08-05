@@ -757,13 +757,13 @@ If the guard fails: rpa.py stops before the deletion is executed.
 /opt/diwall/venv/bin/python3 /opt/diwall/shot.py \
   --url https://app.example.com/login/ \
   --actions /tmp/login.json \
-  --sauver-session /tmp/session.json \
+  --sauver-session /tmp/diwall/session.json \
   --som
 
 # Subsequent invocations — reuse the session (no re-login)
 /opt/diwall/venv/bin/python3 /opt/diwall/shot.py \
   --url https://app.example.com/dashboard/ \
-  --reprendre-session /tmp/session.json \
+  --reprendre-session /tmp/diwall/session.json \
   --som
 ```
 

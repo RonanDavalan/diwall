@@ -4,7 +4,43 @@ History of decisions and discoveries by session, in reverse chronological order.
 
 ---
 
-## 2026-08-04 — What machine translation gets right, and the four things it gets wrong that no check catches
+## 2026-08-05 — A security review found the gaps between protections that already existed
+
+A static review of the full public codebase (shot.py, rpa.py, watch.py, the
+lib/ modules, the shell scripts) found no dangerous primitive and several
+protections that were already correct — masked screenshots, a neutralised
+operations log, HTTP Basic Auth scoped by origin. What it found instead were
+places where a protection applied rigorously in one spot had not been
+extended to a symmetric one.
+
+**A filled password field could show up in the numbered-element listing.**
+Set-of-Mark labelling reads `el.value` as a fallback when an element has no
+visible text — the right choice for a filled text input, the wrong one for a
+filled password field, whose value is a secret, not a label. The screenshot
+masking that already existed for this exact case did not extend to the JSON
+output. It now does: password, token, secret, OTP and TOTP fields report an
+empty label instead of their value.
+
+**A designated credentials file (`--secrets`) stopped being bound to the page
+that was actually loaded.** Without it, a credential is resolved from the
+domain of the current page, and a redirection to another domain simply fails
+to find a match — nothing gets typed. With a designated file, that binding
+was gone: the file was read regardless of where the browser had actually
+navigated. Every `--secrets` file must now declare which origins it applies
+to; a file that omits this is refused outright rather than silently trusted
+everywhere.
+
+**A few smaller gaps closed alongside these two:** a saved session file
+(cookies, effectively equivalent to being logged in) was written with default
+file permissions instead of owner-only; a diagnostic script's return value
+could carry a token or session identifier into the operations log verbatim;
+a URL with embedded credentials (`user:pass@host`) survived log sanitisation
+because only the query string and fragment were stripped, not the
+credentials themselves; and a code delivered over the push-notification MFA
+channel was accepted without checking that it looked like a code at all.
+
+None of this involved a new feature or a changed public interface beyond the
+`--secrets` file format, which now requires one more field.
 
 The French, German and Spanish documentation was brought back in line with the
 English source after the credential vocabulary was renamed. 430 segments were

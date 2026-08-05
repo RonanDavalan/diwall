@@ -46,6 +46,25 @@ class SecretsChecksumError(SecretsFermesError):
     """
 
 
+class SecretsOriginesManquantesError(SecretsFermesError):
+    """Fichier --secrets sans clé 'origines_autorisees' — obligatoire depuis le 05/08/2026.
+
+    Audit de sécurité Claude Opus 5 (C-03, _CADRE/MEMOIRE/audit-2026-08-05.md) :
+    --secrets rompt le liage domaine que lire_credential assure par défaut via
+    domaine_depuis_url(page.url). Décision du 05/08/2026, rupture franche
+    (_CADRE/SPECIFICATIONS/25_PHASE6_RPA_IDENTIFIANTS.md) : hérite de
+    SecretsFermesError, code de sortie 42 (même famille de refus).
+    """
+
+
+class SecretsOrigineNonAutoriseeError(SecretsFermesError):
+    """Le domaine de la page courante n'est pas dans 'origines_autorisees' du fichier --secrets.
+
+    Refus de saisie — protection contre une redirection vers un domaine tiers
+    pendant qu'un fichier --secrets est actif. Même famille que SecretsFermesError.
+    """
+
+
 class SecretsNonConfigureError(Exception):
     """diwall.conf absent ou sans clé secrets_dir — aucune configuration du répertoire chiffré active.
 
@@ -301,7 +320,37 @@ def lire_totp(domaine: str) -> str:
     return pyotp.TOTP(seed).now()
 
 
-def lire_credential_fichier(chemin: str, cle: str) -> str:
+def _verifier_origines_autorisees(data: dict, chemin: str, url_page: str | None = None) -> None:
+    """Audit 05/08/2026 (C-03) : liage domaine obligatoire pour --secrets.
+
+    Sans --secrets, lire_credential lie chaque lecture au domaine réellement
+    chargé (domaine_depuis_url(page.url)) : une redirection vers un domaine
+    tiers fait échouer la résolution. --secrets rompt ce liage par défaut.
+    Décision du 05/08/2026, rupture franche, sans période de compatibilité
+    (_CADRE/SPECIFICATIONS/25_PHASE6_RPA_IDENTIFIANTS.md).
+    """
+    origines = data.get("origines_autorisees")
+    if origines is None:
+        raise SecretsOriginesManquantesError(
+            f"Fichier secrets sans clé 'origines_autorisees' — obligatoire depuis le 05/08/2026.\n"
+            f"  Fichier : {chemin}\n"
+            f"  Ajoutez : \"origines_autorisees\": [\"hostname.exemple\"]\n"
+            f"  Sans cette clé, --secrets rompt le liage domaine que lire_credential "
+            f"assure par défaut — refus tant qu'elle n'est pas déclarée."
+        )
+    if url_page is not None:
+        domaine = domaine_depuis_url(url_page)
+        autorisees = {str(o).lower() for o in origines}
+        if domaine not in autorisees:
+            raise SecretsOrigineNonAutoriseeError(
+                f"Origine '{domaine}' absente de 'origines_autorisees' du fichier secrets.\n"
+                f"  Fichier     : {chemin}\n"
+                f"  Autorisées  : {sorted(autorisees)}\n"
+                f"  Refus de lecture — possible redirection vers un domaine tiers."
+            )
+
+
+def lire_credential_fichier(chemin: str, cle: str, url_page: str | None = None) -> str:
     """Lit un credential depuis un fichier désigné explicitement (--secrets).
 
     T1 (montage strict) : le répertoire parent doit être un point de montage
@@ -309,6 +358,10 @@ def lire_credential_fichier(chemin: str, cle: str) -> str:
     (ex. /tmp) — ferme le contournement identifié en session 33.
     Fallback : si /proc/mounts est illisible, ne bloque pas (même logique
     que _repertoire_est_monte).
+
+    url_page (audit 05/08/2026, C-03) : URL de la page courante (page.url).
+    Vérifie que son domaine figure dans 'origines_autorisees' du fichier ;
+    la clé elle-même est obligatoire, url_page ou non.
     """
     repertoire = os.path.dirname(os.path.abspath(chemin))
     if not _repertoire_est_monte(repertoire):
@@ -333,6 +386,7 @@ def lire_credential_fichier(chemin: str, cle: str) -> str:
     with open(chemin, encoding="utf-8") as f:
         data = json.load(f)
     _verifier_checksum(data, chemin)
+    _verifier_origines_autorisees(data, chemin, url_page)
     if cle not in data:
         raise KeyError(
             f"Clé '{cle}' absente du fichier secrets ({chemin})\n"
@@ -344,8 +398,11 @@ def lire_credential_fichier(chemin: str, cle: str) -> str:
 def verifier_cles_fichier(chemin: str, cles) -> None:
     """Pré-validation fail-fast sur un fichier de secrets explicite (--secrets).
 
-    Même vérification de montage T1 que lire_credential_fichier.
-    Vérifie répertoire chiffré + clés SANS lire les valeurs.
+    Même vérification de montage T1 que lire_credential_fichier. Vérifie
+    répertoire chiffré + clés + présence de 'origines_autorisees' (audit
+    05/08/2026, C-03) SANS lire les valeurs. Le contrôle de correspondance
+    domaine a lieu plus tard, dans lire_credential_fichier, seul moment où
+    page.url (post-navigation, post-redirection éventuelle) est connu.
     """
     repertoire = os.path.dirname(os.path.abspath(chemin))
     if not _repertoire_est_monte(repertoire):
@@ -369,6 +426,7 @@ def verifier_cles_fichier(chemin: str, cles) -> None:
         )
     with open(chemin, encoding="utf-8") as f:
         data = json.load(f)
+    _verifier_origines_autorisees(data, chemin)
     manquantes = [c for c in cles if c not in data]
     if manquantes:
         raise KeyError(
@@ -377,11 +435,11 @@ def verifier_cles_fichier(chemin: str, cles) -> None:
         )
 
 
-def lire_totp_fichier(chemin: str) -> str:
+def lire_totp_fichier(chemin: str, url_page: str | None = None) -> str:
     """Génère le code TOTP depuis la seed dans un fichier secrets explicite (--secrets).
 
-    Délègue à lire_credential_fichier (vérification montage T1 incluse).
+    Délègue à lire_credential_fichier (vérification montage T1 + origines_autorisees incluse).
     """
     import pyotp
-    seed = lire_credential_fichier(chemin, "totp_cle")
+    seed = lire_credential_fichier(chemin, "totp_cle", url_page)
     return pyotp.TOTP(seed).now()

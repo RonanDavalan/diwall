@@ -151,13 +151,13 @@ When a login form saves a cookie in the browser, you can persist the session.
 /opt/diwall/venv/bin/python3 /opt/diwall/shot.py \
   --url https://target.local/login \
   --actions login_actions.json \
-  --sauver-session ~/diwall-session.json \
+  --sauver-session /tmp/diwall/session.json \
   --som
 
 # Subsequent calls — reuse session
 /opt/diwall/venv/bin/python3 /opt/diwall/shot.py \
   --url https://target.local/dashboard \
-  --reprendre-session ~/diwall-session.json \
+  --reprendre-session /tmp/diwall/session.json \
   --som
 ```
 
@@ -348,8 +348,13 @@ notification system. This requires the ntfy integration to be configured.
 
 `id_som`: SoM ID of the OTP input field. `timeout`: max wait in seconds (default 120).
 
-The action polls the ntfy topic for a 6-digit code, then fills the input field
-and submits. It does NOT read the credentials file — the code is pushed live by the authenticator.
+The action polls the ntfy topic for a 4-to-8-digit code (non-matching
+messages are ignored), then fills the input field and submits. It does NOT
+read the credentials file — the code is pushed live by the authenticator.
+
+**Production deployments:** the default `https://ntfy.sh` is a public
+service with no end-to-end encryption. Point `DIWALL_NTFY_URL` at a private
+ntfy instance outside of demonstration use.
 
 **Manual TOTP fallback** (no ntfy):
 ```json

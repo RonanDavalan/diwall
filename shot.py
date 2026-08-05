@@ -55,6 +55,12 @@ _SOM_INJECTER_JS = """() => {
     // ancien data-dw-som-id, qui peut entrer en collision avec un nouveau numéro
     // et faire résoudre --som-rafraichir vers le mauvais élément (Qwen, signal 1).
     document.querySelectorAll('[data-dw-som-id]').forEach(el => el.removeAttribute('data-dw-som-id'));
+    // Audit 05/08/2026 (C-01) : el.value d'un champ sensible ne doit jamais
+    // atteindre elements_som — le blur CSS de _MASQUER_SECRETS_JS protège la
+    // capture PNG, pas ce JSON. Même détection que _MASQUER_SECRETS_JS.
+    const dwEstSensible = (el) => el.type === 'password' ||
+        /password|token|secret|otp|totp/i.test(el.name || '') ||
+        /password/i.test(el.autocomplete || '');
     document.querySelectorAll(SELECTORS).forEach(el => {
         let p = el.parentElement; while (p) { if (p.tagName === 'DIALOG' && !p.hasAttribute('open')) return; p = p.parentElement; }
         const s = window.getComputedStyle(el);
@@ -84,7 +90,7 @@ _SOM_INJECTER_JS = """() => {
         items.push({
             id: num, tag: el.tagName,
             role: el.getAttribute('role') || el.tagName.toLowerCase(),
-            texte: (el.innerText || el.value || el.placeholder || el.getAttribute('aria-label') || '').trim().slice(0, 60),
+            texte: dwEstSensible(el) ? '' : (el.innerText || el.value || el.placeholder || el.getAttribute('aria-label') || '').trim().slice(0, 60),
             type: el.type || null,
         });
         num++;
@@ -179,6 +185,10 @@ _SOM_INJECTER_JS_SHADOW = """() => {
     // shadow root lors d'un appel précédent — document.querySelectorAll seul
     // ne traverse pas la frontière shadow.
     queryShadowAll('[data-dw-som-id]', document).forEach(el => el.removeAttribute('data-dw-som-id'));
+    // Audit 05/08/2026 (C-01) : même neutralisation que la variante standard.
+    const dwEstSensible = (el) => el.type === 'password' ||
+        /password|token|secret|otp|totp/i.test(el.name || '') ||
+        /password/i.test(el.autocomplete || '');
     queryShadowAll(SELECTORS, document).forEach(el => {
         let p = el.parentElement; while (p) { if (p.tagName === 'DIALOG' && !p.hasAttribute('open')) return; p = p.parentElement; }
         const s = window.getComputedStyle(el);
@@ -208,7 +218,7 @@ _SOM_INJECTER_JS_SHADOW = """() => {
         items.push({
             id: num, tag: el.tagName,
             role: el.getAttribute('role') || el.tagName.toLowerCase(),
-            texte: (el.innerText || el.value || el.placeholder || el.getAttribute('aria-label') || '').trim().slice(0, 60),
+            texte: dwEstSensible(el) ? '' : (el.innerText || el.value || el.placeholder || el.getAttribute('aria-label') || '').trim().slice(0, 60),
             type: el.type || null,
         });
         num++;
@@ -368,13 +378,22 @@ def _prendre_capture(page, path, full_page=True, screenshot_timeout=120_000):
 
 
 def _valider_schema_url(url):
-    """Rejette les URL dont le schéma n'est pas http ou https."""
+    """Rejette les URL dont le schéma n'est pas http ou https, ou qui portent
+    un userinfo (audit 05/08/2026, C-07 : user:password@host survivait en
+    clair jusqu'au journal — --http-credentials traite ce cas correctement,
+    scopé par origine)."""
     if not url:
         return
-    scheme = urlparse(url).scheme.lower()
+    parsed = urlparse(url)
+    scheme = parsed.scheme.lower()
     if scheme not in {"http", "https"}:
         raise ValueError(
             f"URL scheme '{scheme}' interdit — seuls http et https sont acceptés. URL: {url}"
+        )
+    if parsed.username or parsed.password:
+        raise ValueError(
+            "URL avec identifiants embarqués (user:password@host) interdite — "
+            "utilisez --http-credentials, scopé par origine et jamais journalisé en clair."
         )
 
 # ── Détection passive de WAF (v1.16.0, item C) ────────────────────────────────
@@ -704,11 +723,16 @@ def _sauver_session(ctx, page, chemin, viewport):
             "version_shot": __version__,
         },
     }
-    # Écriture atomique : évite la corruption du fichier lors d'appels rapides successifs
+    # Écriture atomique : évite la corruption du fichier lors d'appels rapides successifs.
+    # Audit 05/08/2026 (C-02) : storage_state est l'équivalent fonctionnel des
+    # identifiants après authentification — os.open à mode explicite 0o600,
+    # comme le marqueur de guide (preflight_guide.py), plutôt que l'umask du
+    # processus (0644 en configuration Debian par défaut).
     chemin_tmp = chemin + ".tmp"
-    with open(chemin_tmp, "w", encoding="utf-8") as f:
+    fd = os.open(chemin_tmp, os.O_WRONLY | os.O_CREAT | os.O_TRUNC, 0o600)
+    with os.fdopen(fd, "w", encoding="utf-8") as f:
         json.dump(session, f, ensure_ascii=False, indent=2)
-    os.replace(chemin_tmp, chemin)
+    os.replace(chemin_tmp, chemin)  # rename : chemin hérite du mode 0o600 du .tmp
 
 
 def _charger_session(chemin):
@@ -1102,14 +1126,14 @@ def executer_actions(page, actions, output_dir, timeout, mode_llm="local",
                     raise ValueError("remplir depuis_secrets : champ 'secret_cle' requis")
                 if secrets_chemin:
                     from lib.repertoire_chiffre import lire_credential_fichier
-                    valeur = lire_credential_fichier(secrets_chemin, cle)
+                    valeur = lire_credential_fichier(secrets_chemin, cle, page.url)
                 else:
                     from lib.repertoire_chiffre import lire_credential, domaine_depuis_url
                     valeur = lire_credential(domaine_depuis_url(page.url), cle)
             elif valeur == "depuis_secrets_totp":
                 if secrets_chemin:
                     from lib.repertoire_chiffre import lire_totp_fichier
-                    valeur = lire_totp_fichier(secrets_chemin)
+                    valeur = lire_totp_fichier(secrets_chemin, page.url)
                 else:
                     from lib.repertoire_chiffre import lire_totp, domaine_depuis_url
                     valeur = lire_totp(domaine_depuis_url(page.url))
@@ -1191,14 +1215,14 @@ def executer_actions(page, actions, output_dir, timeout, mode_llm="local",
                     raise ValueError("remplir_som depuis_secrets : champ 'secret_cle' requis")
                 if secrets_chemin:
                     from lib.repertoire_chiffre import lire_credential_fichier
-                    valeur = lire_credential_fichier(secrets_chemin, cle)
+                    valeur = lire_credential_fichier(secrets_chemin, cle, page.url)
                 else:
                     from lib.repertoire_chiffre import lire_credential, domaine_depuis_url
                     valeur = lire_credential(domaine_depuis_url(page.url), cle)
             elif valeur == "depuis_secrets_totp":
                 if secrets_chemin:
                     from lib.repertoire_chiffre import lire_totp_fichier
-                    valeur = lire_totp_fichier(secrets_chemin)
+                    valeur = lire_totp_fichier(secrets_chemin, page.url)
                 else:
                     from lib.repertoire_chiffre import lire_totp, domaine_depuis_url
                     valeur = lire_totp(domaine_depuis_url(page.url))
@@ -1319,14 +1343,14 @@ def executer_actions(page, actions, output_dir, timeout, mode_llm="local",
                     raise ValueError("remplir_iframe depuis_secrets : champ 'secret_cle' requis")
                 if secrets_chemin:
                     from lib.repertoire_chiffre import lire_credential_fichier
-                    valeur = lire_credential_fichier(secrets_chemin, cle)
+                    valeur = lire_credential_fichier(secrets_chemin, cle, page.url)
                 else:
                     from lib.repertoire_chiffre import lire_credential, domaine_depuis_url
                     valeur = lire_credential(domaine_depuis_url(page.url), cle)
             elif valeur == "depuis_secrets_totp":
                 if secrets_chemin:
                     from lib.repertoire_chiffre import lire_totp_fichier
-                    valeur = lire_totp_fichier(secrets_chemin)
+                    valeur = lire_totp_fichier(secrets_chemin, page.url)
                 else:
                     from lib.repertoire_chiffre import lire_totp, domaine_depuis_url
                     valeur = lire_totp(domaine_depuis_url(page.url))
@@ -1353,7 +1377,7 @@ def executer_actions(page, actions, output_dir, timeout, mode_llm="local",
             from lib import ntfy as ntfy_lib
             if secrets_chemin:
                 from lib.repertoire_chiffre import lire_credential_fichier
-                topic = lire_credential_fichier(secrets_chemin, "ntfy_topic")
+                topic = lire_credential_fichier(secrets_chemin, "ntfy_topic", page.url)
             else:
                 from lib.repertoire_chiffre import lire_credential, domaine_depuis_url
                 topic = lire_credential(domaine_depuis_url(page.url), "ntfy_topic")
