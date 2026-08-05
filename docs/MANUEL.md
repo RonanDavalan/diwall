@@ -491,6 +491,19 @@ export DIWALL_CONF=~/git/MyProject/.diwall.conf
 /opt/diwall/venv/bin/python3 /opt/diwall/shot.py --url https://target.local/ --som
 ```
 
+**`--secrets` file content — `origines_autorisees` mandatory since
+05/08/2026** (breaking change, no compatibility period): a file missing this
+key is refused before any read.
+
+```json
+{"username": "operator", "password": "secret", "origines_autorisees": ["target.local"]}
+```
+
+`origines_autorisees` lists the hostnames this file may be used against —
+same lowercase, no-scheme, no-port format as `domaine_depuis_url()`. A read
+against a page whose domain is not in the list is refused
+(`SecretsOrigineNonAutoriseeError`).
+
 Content of `~/git/MyProject/.diwall.conf`:
 ```json
 {"secrets_dir": "../MyProject-secrets"}

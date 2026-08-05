@@ -90,6 +90,21 @@ When a scenario needs credentials from a file other than the default:
   --secrets ~/Vaults/Diwall/other-project/creds.json
 ```
 
+**`origines_autorisees` — mandatory since 05/08/2026 (breaking change, no
+compatibility period):** every `--secrets` file must declare which hostnames
+it may be used against, or it is refused before any read:
+
+```json
+{"username": "u", "password": "p", "origines_autorisees": ["target.local"]}
+```
+
+Without `--secrets`, a credential is bound to the domain actually loaded in
+the browser (`domaine_depuis_url(page.url)`) — a redirection to another
+domain fails resolution. `--secrets` reads a designated file regardless of
+origin unless `origines_autorisees` is present; a domain outside the list
+refuses the read (`SecretsOrigineNonAutoriseeError`), same exit family as a
+closed encrypted directory (42).
+
 **Multiple credentials files (v1.10.0):** one `--secrets FILE` per run — not repeatable on the
 same command line (`--secrets` is a single value; a second occurrence
 silently overrides the first, it does not accumulate). "Multiple files" means

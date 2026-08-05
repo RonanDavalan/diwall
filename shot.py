@@ -35,6 +35,17 @@ def _boussole(operation_id=None):
     return b
 
 # ── Set-of-Mark ───────────────────────────────────────────────────────────────
+# Audit 05/08/2026 (C-01) : détection « champ sensible » partagée entre les
+# deux variantes SoM (standard et Shadow DOM, ci-dessous) — une seule source,
+# concaténée telle quelle dans les deux blobs. Pas de f-string : les deux
+# blobs JS sont truffés d'accolades qu'une interpolation .format()/f-string
+# casserait sans échappement systématique de chaque '{'/'}'.
+_DW_EST_SENSIBLE_JS = """
+    const dwEstSensible = (el) => el.type === 'password' ||
+        /password|token|secret|otp|totp/i.test(el.name || '') ||
+        /password/i.test(el.autocomplete || '');
+"""
+
 _SOM_INJECTER_JS = """() => {
     const SELECTORS = [
         'a[href]', 'button', 'input:not([type="hidden"])',
@@ -57,10 +68,7 @@ _SOM_INJECTER_JS = """() => {
     document.querySelectorAll('[data-dw-som-id]').forEach(el => el.removeAttribute('data-dw-som-id'));
     // Audit 05/08/2026 (C-01) : el.value d'un champ sensible ne doit jamais
     // atteindre elements_som — le blur CSS de _MASQUER_SECRETS_JS protège la
-    // capture PNG, pas ce JSON. Même détection que _MASQUER_SECRETS_JS.
-    const dwEstSensible = (el) => el.type === 'password' ||
-        /password|token|secret|otp|totp/i.test(el.name || '') ||
-        /password/i.test(el.autocomplete || '');
+    // capture PNG, pas ce JSON. dwEstSensible factorisée dans _DW_EST_SENSIBLE_JS.""" + _DW_EST_SENSIBLE_JS + """
     document.querySelectorAll(SELECTORS).forEach(el => {
         let p = el.parentElement; while (p) { if (p.tagName === 'DIALOG' && !p.hasAttribute('open')) return; p = p.parentElement; }
         const s = window.getComputedStyle(el);
@@ -185,10 +193,8 @@ _SOM_INJECTER_JS_SHADOW = """() => {
     // shadow root lors d'un appel précédent — document.querySelectorAll seul
     // ne traverse pas la frontière shadow.
     queryShadowAll('[data-dw-som-id]', document).forEach(el => el.removeAttribute('data-dw-som-id'));
-    // Audit 05/08/2026 (C-01) : même neutralisation que la variante standard.
-    const dwEstSensible = (el) => el.type === 'password' ||
-        /password|token|secret|otp|totp/i.test(el.name || '') ||
-        /password/i.test(el.autocomplete || '');
+    // Audit 05/08/2026 (C-01) : même neutralisation que la variante standard,
+    // dwEstSensible factorisée dans _DW_EST_SENSIBLE_JS.""" + _DW_EST_SENSIBLE_JS + """
     queryShadowAll(SELECTORS, document).forEach(el => {
         let p = el.parentElement; while (p) { if (p.tagName === 'DIALOG' && !p.hasAttribute('open')) return; p = p.parentElement; }
         const s = window.getComputedStyle(el);
@@ -1731,12 +1737,16 @@ def main():
                 # renommage pour le cas le plus courant.
                 if secrets_chemin:
                     from lib.repertoire_chiffre import lire_credential_fichier
+                    # Audit 05/08/2026 (C-03), site retrouvé lors de la revue de
+                    # couverture du 05/08/2026 : url_cible plutôt que page.url —
+                    # ce bloc s'exécute avant new_context(), page n'existe pas
+                    # encore. url_cible est la même source que 'origin' ci-dessous.
                     try:
-                        http_username = lire_credential_fichier(secrets_chemin, "http_username")
-                        http_password = lire_credential_fichier(secrets_chemin, "http_password")
+                        http_username = lire_credential_fichier(secrets_chemin, "http_username", url_cible)
+                        http_password = lire_credential_fichier(secrets_chemin, "http_password", url_cible)
                     except KeyError:
-                        http_username = lire_credential_fichier(secrets_chemin, "username")
-                        http_password = lire_credential_fichier(secrets_chemin, "password")
+                        http_username = lire_credential_fichier(secrets_chemin, "username", url_cible)
+                        http_password = lire_credential_fichier(secrets_chemin, "password", url_cible)
                 else:
                     from lib.repertoire_chiffre import lire_credential, domaine_depuis_url
                     _domaine = domaine_depuis_url(url_cible)
