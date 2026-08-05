@@ -17,10 +17,12 @@ Spécification : _CADRE/SPECIFICATIONS/35_JOURNAL_OPERATIONS.md
 import fcntl
 import grp
 import json
+import math
 import os
 import re
 import shutil
 import sys
+import time
 import uuid
 from datetime import datetime, timezone
 from urllib.parse import urlparse
@@ -132,11 +134,31 @@ def _neutraliser_actions_raw(actions):
 
 
 # ── Archivage des preuves (étape 3) ──────────────────────────────────────────
-def _preuves_dir_authentifie():
+def _preuves_dir_authentifie(secrets_chemin=None):
     """Chemin des preuves d'une page authentifiée (D-02) : à l'intérieur du
     répertoire chiffré credentials de l'opérateur, jamais sur le disque hôte
-    nu. None si aucun secrets_dir n'est configuré (DIWALL_SECRETS_DIR,
-    DIWALL_CONF, ou diwall.conf)."""
+    nu.
+
+    Audit 06/08/2026 (E-02, trou 2) : si un fichier `--secrets` est en
+    usage, sa présence est le signal le plus direct du répertoire chiffré
+    effectivement employé pour ce run — résolu en priorité, avant de
+    retomber sur `_chemin_secrets()` (DIWALL_SECRETS_DIR/DIWALL_CONF/
+    diwall.conf). Sans cette priorité, un opérateur qui n'utilise que
+    `--secrets` (mode « un fichier d'identifiants par tenant », documenté
+    par GUIDE_LLM_SESSIONS.md) voyait `_chemin_secrets()` lever faute de
+    `secrets_dir` configuré globalement — et l'archivage disparaissait
+    silencieusement, aucune preuve nulle part.
+
+    None si ni l'un ni l'autre ne résout — l'appelant traite alors ce run
+    comme non archivable.
+    """
+    if secrets_chemin:
+        try:
+            rep = os.path.dirname(os.path.realpath(os.path.expanduser(secrets_chemin)))
+            if rep:
+                return os.path.join(rep, "preuves")
+        except Exception:
+            pass
     try:
         from lib.repertoire_chiffre import _chemin_secrets
         return os.path.join(_chemin_secrets(), "preuves")
@@ -155,24 +177,50 @@ def _retention_jours():
 
 
 def _purger_preuves_expirees(preuves_dir, retention_jours):
-    """Supprime les sous-répertoires <preuves_dir>/AAAA-MM/ plus vieux que
-    retention_jours. Best-effort, jamais bloquant (D-02)."""
+    """Supprime les sous-répertoires <preuves_dir>/AAAA-MM/<operation_id>/
+    dont le mtime réel dépasse retention_jours — pas le répertoire mensuel
+    entier. Best-effort, jamais bloquant (D-02).
+
+    Audit 06/08/2026 (E-06) : la version précédente comparait le premier
+    jour du mois du répertoire au seuil, puis supprimait tout le mois —
+    une rétention de 30 jours pouvait détruire des preuves vieilles de
+    quelques jours seulement, au premier jour du mois suivant. La purge
+    porte maintenant sur le mtime réel de chaque sous-répertoire
+    <operation_id>, un répertoire mensuel devenu vide est retiré ensuite.
+    """
     if retention_jours <= 0:
         return
     try:
-        cutoff = datetime.now().toordinal() - retention_jours
+        cutoff = time.time() - retention_jours * 86400
         for nom in os.listdir(preuves_dir):
+            mois_dir = os.path.join(preuves_dir, nom)
             try:
-                mois = datetime.strptime(nom, "%Y-%m")
+                datetime.strptime(nom, "%Y-%m")
             except ValueError:
                 continue
-            if mois.toordinal() < cutoff:
-                shutil.rmtree(os.path.join(preuves_dir, nom), ignore_errors=True)
+            if not os.path.isdir(mois_dir):
+                continue
+            for operation_id in os.listdir(mois_dir):
+                cible = os.path.join(mois_dir, operation_id)
+                try:
+                    if os.path.getmtime(cible) < cutoff:
+                        if os.path.isdir(cible):
+                            shutil.rmtree(cible, ignore_errors=True)
+                        else:
+                            os.remove(cible)
+                except OSError:
+                    continue
+            try:
+                if not os.listdir(mois_dir):
+                    os.rmdir(mois_dir)
+            except OSError:
+                pass
     except OSError:
         pass
 
 
-def archiver_preuves(operation_id, captures, auth_status=None):
+def archiver_preuves(operation_id, captures, auth_status=None, secret_resolu=False,
+                     secrets_chemin=None):
     """Copie les captures vers <preuves>/AAAA-MM/<operation_id>/.
 
     Retourne la liste des chemins archivés. Best-effort : une copie qui
@@ -188,12 +236,21 @@ def archiver_preuves(operation_id, captures, auth_status=None):
     correctif : 73 PNG en clair sous /var/log/diwall/preuves/, permissions
     664, dont une capture pleine page d'un tableau de bord authentifié.
 
+    Audit 06/08/2026 (E-02, trou 1) : `auth_status` n'existe que si
+    l'opérateur a fourni `--auth-indicator` — sans lui, un run authentifié
+    (identifiants réellement résolus depuis le répertoire chiffré) prenait
+    la branche non authentifiée, vérifié en réel (capture pleine page d'un
+    tableau de bord archivée en clair). `secret_resolu` (un `depuis_secrets`
+    effectivement résolu pendant le run) est désormais un second signal,
+    suffisant à lui seul pour traiter les captures postérieures comme
+    authentifiées, sans remplacer `auth_status` quand il est disponible.
+
     Garde-fou de montage (v1.17.2, inchangé pour le cas non authentifié) : si
     <preuves> est configuré à l'intérieur du répertoire chiffré credentials
     mais que celui-ci n'est pas monté, n'archive rien.
     """
-    if auth_status == "active":
-        preuves_dir = _preuves_dir_authentifie()
+    if auth_status == "active" or secret_resolu:
+        preuves_dir = _preuves_dir_authentifie(secrets_chemin)
         from lib.repertoire_chiffre import _repertoire_est_monte
         if not preuves_dir or not _repertoire_est_monte(preuves_dir):
             print(
@@ -238,7 +295,8 @@ def enregistrer_operation(outil, version, cible_url, resultat, actions,
                           diwall_meta=None, intention=None, captures=None,
                           erreur=None, mutatif=None, evaluations=None,
                           operation_id=None, respect=None,
-                          source_scenario=None, chainage=None, auth_status=None):
+                          source_scenario=None, chainage=None, auth_status=None,
+                          secret_resolu=False, secrets_chemin=None):
     """Compose et écrit une entrée de journal. Best-effort, ne lève jamais.
 
     Réutilise les champs d'environnement de `diwall_meta` (v1.3.2) :
@@ -269,6 +327,11 @@ def enregistrer_operation(outil, version, cible_url, resultat, actions,
     `auth_status` (audit 05/08/2026, D-02) : transmis tel quel à
     archiver_preuves — "active" redirige l'archivage vers le répertoire
     chiffré credentials plutôt que le chemin par défaut du disque hôte nu.
+
+    `secret_resolu`, `secrets_chemin` (audit 06/08/2026, E-02) : transmis
+    tels quels à archiver_preuves — second signal d'authentification
+    indépendant de `--auth-indicator`, et chemin du fichier `--secrets` en
+    usage pour la résolution de destination.
     """
     try:
         meta = diwall_meta or {}
@@ -276,7 +339,10 @@ def enregistrer_operation(outil, version, cible_url, resultat, actions,
         mutatif = est_mutatif(actions) if mutatif is None else bool(mutatif)
 
         if mutatif and captures:
-            captures_ref = archiver_preuves(operation_id, captures, auth_status=auth_status)
+            captures_ref = archiver_preuves(
+                operation_id, captures, auth_status=auth_status,
+                secret_resolu=secret_resolu, secrets_chemin=secrets_chemin,
+            )
         else:
             captures_ref = list(captures or [])
 
@@ -329,31 +395,105 @@ def enregistrer_operation(outil, version, cible_url, resultat, actions,
 # secrets ont des formes — un JWT réel ne contient jamais la chaîne littérale
 # "jwt", et PHPSESSID/clés API passaient sans qu'aucun mot ne matche. 'sess'
 # (substring, pas de \b : PHPSESSID n'a pas de séparateur avant 'sess'),
-# 'csrf'/'xsrf'/'auth' ajoutés ; _BASE64_LONGUE abaissé (40 → 20) pour capter
-# les clés API courtes (~36 car.) que le seuil précédent laissait passer.
+# 'csrf'/'xsrf'/'auth' ajoutés.
+# Audit 06/08/2026 (E-05) : le seuil base64 remonte de 20 à 32 caractères et
+# se double d'un plancher d'entropie — sans ça, un sélecteur CSS
+# (#btn-sauvegarder-barre) ou un nom de fichier (capture_...png) matchaient
+# aussi. Sur `diagnostic_dom.json`, la redaction ne porte plus sur la chaîne
+# entière d'une structure JSON (un dict contenant "type":"password" perdait
+# tout l'inventaire des <input>, pas seulement ce champ) mais uniquement sur
+# les feuilles qui, individuellement, portent une forme ou un mot-clé de
+# secret — et les mots-clés ne s'appliquent qu'aux feuilles qui ressemblent
+# à un jeton isolé (ni espace ni ponctuation JSON), pour ne pas happer un
+# libellé ordinaire ("Authentification à deux facteurs").
 _MOTIFS_SENSIBLES_EVALUER = re.compile(r"token|session|password|bearer|jwt|sess|csrf|xsrf|auth", re.IGNORECASE)
-_BASE64_LONGUE = re.compile(r"[A-Za-z0-9+/=_-]{20,}")
+_BASE64_LONGUE = re.compile(r"[A-Za-z0-9+/=_-]{32,}")
 # Forme d'un JWT : trois segments base64url séparés par des points — aucun
 # des deux motifs ci-dessus ne le capte, les points cassent _BASE64_LONGUE
 # en tronçons et "jwt" n'apparaît jamais dans le jeton lui-même.
 _MOTIF_JWT = re.compile(r"[A-Za-z0-9_-]{8,}\.[A-Za-z0-9_-]{8,}\.[A-Za-z0-9_-]+")
+# Ponctuation JSON ou espace : une feuille qui en contient n'est pas un
+# jeton isolé (un mot-clé qui matche dedans est un mot ordinaire, pas un
+# secret collé sans séparateur).
+_PONCTUATION_OU_ESPACE = re.compile(r'[\s{}\[\]":,]')
+_PROFONDEUR_MAX_EVALUER = 8
+
+
+def _entropie_shannon(texte):
+    """Entropie de Shannon en bits/caractère — distingue un jeton aléatoire
+    (~4.5-6 bits/car. sur l'alphabet base64) d'une chaîne structurée
+    (nom de fichier, sélecteur CSS, timestamp), nettement plus répétitive."""
+    if not texte:
+        return 0.0
+    freq = {}
+    for c in texte:
+        freq[c] = freq.get(c, 0) + 1
+    n = len(texte)
+    return -sum((c / n) * math.log2(c / n) for c in freq.values())
+
+
+_SEUIL_ENTROPIE_BASE64 = 3.5
+
+
+def _forme_secrete(texte):
+    """Vrai si `texte` porte une forme de secret : JWT, ou segment base64
+    long avec une entropie suffisante pour exclure les chaînes structurées."""
+    if _MOTIF_JWT.search(texte):
+        return True
+    for m in _BASE64_LONGUE.finditer(texte):
+        if _entropie_shannon(m.group(0)) >= _SEUIL_ENTROPIE_BASE64:
+            return True
+    return False
+
+
+def _ressemble_jeton_isole(texte):
+    """Vrai si `texte` ne contient ni espace ni ponctuation JSON — condition
+    pour appliquer les mots-clés (`_MOTIFS_SENSIBLES_EVALUER`) : un libellé
+    ordinaire ("Authentification à deux facteurs") contient des espaces et
+    ne doit pas être traité comme un jeton collé (ex. PHPSESSID=abc123)."""
+    return bool(texte) and not _PONCTUATION_OU_ESPACE.search(texte)
+
+
+def _neutraliser_feuille_evaluer(valeur):
+    texte = str(valeur)
+    if _forme_secrete(texte):
+        return "<valeur_filtree>"
+    if _ressemble_jeton_isole(texte) and _MOTIFS_SENSIBLES_EVALUER.search(texte):
+        return "<valeur_filtree>"
+    return texte[:500]
+
+
+def _neutraliser_structure_evaluer(valeur, profondeur=0):
+    """Parcourt récursivement dict/list et ne rédige que les feuilles à
+    risque (audit 06/08/2026, E-05) — la version précédente stringifiait la
+    structure entière avant de décider, et perdait tout un inventaire
+    `diagnostic_dom` (6 évaluations sur 6, dont 1 filtrée à tort) pour un
+    seul champ `"type":"password"` noyé dedans."""
+    if profondeur > _PROFONDEUR_MAX_EVALUER:
+        return "<structure_tronquee>"
+    if isinstance(valeur, dict):
+        return {k: _neutraliser_structure_evaluer(v, profondeur + 1) for k, v in valeur.items()}
+    if isinstance(valeur, list):
+        return [_neutraliser_structure_evaluer(v, profondeur + 1) for v in valeur]
+    if isinstance(valeur, str):
+        return _neutraliser_feuille_evaluer(valeur)
+    return valeur  # int/float/bool/None : pas de forme de secret possible
 
 
 def _neutraliser_valeur_evaluer(valeur):
-    """Audit 05/08/2026 (C-06, D-06) : valeur_retournee était le seul champ du
-    journal à échapper à la doctrine « zéro credential » de ce module (voir
-    docstring en tête de fichier). Tronque à 500 caractères comme 'script',
-    et remplace par un marqueur toute valeur qui ressemble à un secret —
-    par mot-clé ou par forme (base64 longue, JWT).
+    """Audit 05/08/2026 (C-06, D-06), affiné 06/08/2026 (E-05) :
+    valeur_retournee était le seul champ du journal à échapper à la
+    doctrine « zéro credential » de ce module (voir docstring en tête de
+    fichier). Les structures (dict/list — le cas courant de `evaluer` sur
+    un inventaire DOM) sont parcourues feuille par feuille ; seules les
+    feuilles qui portent une forme de secret (JWT, base64 à haute entropie)
+    ou un mot-clé sur un jeton isolé sont rédigées.
     """
     if valeur is None:
         return None
-    texte = str(valeur)
-    if (_MOTIFS_SENSIBLES_EVALUER.search(texte)
-            or _BASE64_LONGUE.search(texte)
-            or _MOTIF_JWT.search(texte)):
-        return "<valeur_filtree>"
-    return texte[:500]
+    if isinstance(valeur, (dict, list)):
+        return _neutraliser_structure_evaluer(valeur)
+    return _neutraliser_feuille_evaluer(valeur)
 
 
 def _sanitiser_url_journal(url):
@@ -453,14 +593,15 @@ def _ecrire_ligne(entree):
     try:
         fd = os.open(path, os.O_CREAT | os.O_WRONLY | os.O_APPEND, 0o640)
         gid = _gid_diwall()
-        if gid != -1 and not os.path.exists(path + ".chowned"):
+        if gid != -1:
+            # os.chown retenté à chaque écriture, volontairement : après une
+            # rotation logrotate le fichier courant est un nouvel inode créé
+            # avec le groupe primaire de l'appelant (audit 06/08/2026, E-04) —
+            # une sentinelle de "déjà fait" survivrait à la rotation qu'elle
+            # est censée accompagner et casserait le groupe en silence.
+            # L'opération est bon marché ; l'idempotence n'a pas de valeur ici.
             try:
                 os.chown(fd, -1, gid)
-                # Audit 05/08/2026 (D-11) : sans cette sentinelle, la condition
-                # ci-dessus est toujours vraie et os.chown est retenté à
-                # chaque écriture — sans conséquence fonctionnelle, mais
-                # fausse affordance d'idempotence pour un lecteur futur.
-                open(path + ".chowned", "a").close()
             except PermissionError:
                 pass
         with os.fdopen(fd, "a", encoding="utf-8") as f:

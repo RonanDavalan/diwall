@@ -699,7 +699,12 @@ def main():
                 if reprise_checkpoint:
                     with open(args.checkpoint, encoding="utf-8") as f:
                         n_avant = json.load(f).get("actions_completees", 0)
-                with open(args.checkpoint, "w", encoding="utf-8") as f:
+                # 0600 explicite (audit 06/08/2026, E-09) : le checkpoint
+                # divulgue le chemin du fichier de session ; l'écriture à
+                # l'umask par défaut (souvent 644) le rendait lisible par
+                # d'autres comptes du système.
+                fd = os.open(args.checkpoint, os.O_CREAT | os.O_WRONLY | os.O_TRUNC, 0o600)
+                with os.fdopen(fd, "w", encoding="utf-8") as f:
                     json.dump({
                         "actions_completees": n_avant + delta,
                         "session_file": checkpoint_session_file,

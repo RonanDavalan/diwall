@@ -462,8 +462,11 @@ _DW_VALEURS_SENSIBLES_JS = """() => {""" + _DW_EST_SENSIBLE_JS + """
 
 
 def _snapshot_a11y(page):
-    """Retourne le snapshot ARIA de la page (format texte YAML-like, Playwright 1.9+).
-    Inclut rôles, noms, URLs des liens. Retourne None si non disponible.
+    """Retourne (texte, redaction_echouee) : le snapshot ARIA de la page
+    (format texte YAML-like, Playwright 1.9+, rôles/noms/URLs des liens),
+    et un booléen signalant si la rédaction ciblée n'a pas pu s'exécuter.
+    texte est None si le snapshot lui-même n'est pas disponible, ou si la
+    rédaction a échoué.
 
     Audit 05/08/2026 (D-01, correctif ciblé) : les valeurs des champs
     sensibles actuellement présents dans le DOM (autofill navigateur,
@@ -471,19 +474,28 @@ def _snapshot_a11y(page):
     rédigées du texte avant retour. Complète le correctif de fond
     (_rediger_valeurs_secrets), qui ne connaît que ce que Diwall a lui-même
     résolu via _resoudre_valeur_secrets.
+
+    Audit 06/08/2026 (E-07) : si `page.evaluate` échoue (navigation en
+    cours, contexte détruit, CSP particulière), la version précédente
+    retournait le snapshot intact, non rédigé — un repli qui publiait
+    exactement ce que cette fonction existe pour protéger. Le repli sûr
+    ici est l'inverse : ne rien publier, avec un signal explicite pour que
+    l'appelant le porte dans la boussole plutôt que de le passer sous
+    silence.
     """
     try:
         texte = page.aria_snapshot()
     except Exception:
-        return None
-    if texte:
-        try:
-            for v in page.evaluate(_DW_VALEURS_SENSIBLES_JS):
-                if v:
-                    texte = texte.replace(v, "<secret_redige>")
-        except Exception:
-            pass
-    return texte
+        return None, False
+    if not texte:
+        return texte, False
+    try:
+        for v in page.evaluate(_DW_VALEURS_SENSIBLES_JS):
+            if v:
+                texte = texte.replace(v, "<secret_redige>")
+    except Exception:
+        return None, True
+    return texte, False
 
 
 # ── Persistance de session (ReAct) ────────────────────────────────────────────
@@ -678,7 +690,8 @@ def _nettoyer_session_ephemere(chemin_session, explicitement_demandee):
 
 
 def _journaliser_run(result, actions, intention, cible_url, resultat, erreur=None,
-                     operation_id=None, source_scenario=None, chainage=None):
+                     operation_id=None, source_scenario=None, chainage=None,
+                     secret_resolu=False, secrets_chemin=None):
     """Consigne le run dans le journal d'opérations (v1.4). Best-effort.
 
     N'altère jamais la sortie ni le code de retour de shot.py : toute
@@ -690,6 +703,10 @@ def _journaliser_run(result, actions, intention, cible_url, resultat, erreur=Non
     `chainage` (v1.19.0) : transmis tel quel depuis rpa.py (--chainage), qui
     l'a construit lors de l'aplatissement des `declencher_scenario`. Absent
     sur un run sans chaînage — additif strict.
+
+    `secret_resolu`, `secrets_chemin` (audit 06/08/2026, E-02) : transmis à
+    `journal.enregistrer_operation` — second signal d'authentification pour
+    l'archivage des preuves, indépendant de `--auth-indicator`.
     """
     try:
         from lib import journal
@@ -720,6 +737,8 @@ def _journaliser_run(result, actions, intention, cible_url, resultat, erreur=Non
         source_scenario=source_scenario,
         chainage=chainage,
         auth_status=result.get("auth_status"),
+        secret_resolu=secret_resolu,
+        secrets_chemin=secrets_chemin,
     )
 
 
@@ -781,6 +800,32 @@ def _charger_session(chemin):
     return session
 
 
+def _normaliser_url_derive(url):
+    """Normalise une URL pour la comparaison de dérive de session : schéma +
+    hôte + port + chemin, plus la query normalisée (paramètres triés, query
+    vide traitée comme absente) — fragment ignoré.
+
+    Audit 06/08/2026 (E-03) : distincte de `_sanitiser_url_journal`, qui
+    supprime la query entièrement pour la confidentialité du journal — un
+    choix légitime là, mais qui rendait la détection de dérive aveugle à
+    toute expiration de session dont l'unique signal est un paramètre de
+    query (ex. `/?vue=login` remplaçant `/?vue=domaine`).
+    """
+    if not url:
+        return url
+    try:
+        from urllib.parse import parse_qsl, urlencode
+        p = urlparse(url)
+        netloc_sans_userinfo = p.hostname or ""
+        if p.port:
+            netloc_sans_userinfo += f":{p.port}"
+        query_triee = urlencode(sorted(parse_qsl(p.query, keep_blank_values=True)))
+        base = f"{p.scheme}://{netloc_sans_userinfo}{p.path}"
+        return f"{base}?{query_triee}" if query_triee else base
+    except Exception:
+        return "[url non parseable]"
+
+
 def _detecter_derive_session(session, url_cible_reprise):
     """Compare l'URL au moment de la sauvegarde à l'URL au moment de la reprise.
 
@@ -788,14 +833,15 @@ def _detecter_derive_session(session, url_cible_reprise):
     de sortie si une divergence est détectée, ou None sinon (URLs identiques,
     session legacy, ou URL manquante).
 
-    Audit 05/08/2026 (D-05) : comparaison sur des URL normalisées (schéma +
-    hôte + port + chemin — via _sanitiser_url_journal, qui ignore déjà query
-    et fragment), plutôt que sur la chaîne brute. Sans ça, une différence
-    purement cosmétique (`.../?` vs `.../`) déclenchait une fausse dérive,
+    Audit 05/08/2026 (D-05), affiné 06/08/2026 (E-03) : comparaison sur des
+    URL normalisées (schéma + hôte + port + chemin + query triée, via
+    _normaliser_url_derive), plutôt que sur la chaîne brute ni sur la query
+    entièrement écartée. Sans normalisation de query, une différence
+    purement cosmétique (`.../?` vs `.../`) déclenchait une fausse dérive ;
+    sans la conserver du tout, une expiration réelle signalée uniquement par
+    la query (`/?vue=login` remplaçant `/?vue=domaine`) passait inaperçue —
     et `GUIDE_LLM_SESSIONS.md` prescrit de rejouer l'authentification
-    complète dès que ce signal est vrai — nouvelle exposition de credentials
-    et nouvelle tentative de connexion comptabilisée côté cible, sur une
-    session parfaitement valide.
+    complète dès que ce signal est vrai.
     """
     meta = session.get("diwall_meta")
     if not meta:
@@ -803,8 +849,7 @@ def _detecter_derive_session(session, url_cible_reprise):
     url_sauvegardee = meta.get("url_au_moment_sauvegarde")
     if not url_sauvegardee or not url_cible_reprise:
         return None
-    from lib.journal import _sanitiser_url_journal
-    if _sanitiser_url_journal(url_sauvegardee) == _sanitiser_url_journal(url_cible_reprise):
+    if _normaliser_url_derive(url_sauvegardee) == _normaliser_url_derive(url_cible_reprise):
         return None
     return {
         "url_sauvegardee": url_sauvegardee,
@@ -1960,7 +2005,9 @@ def main():
                     shadow_dom=args.shadow_dom)
 
             # ── A11y ──────────────────────────────────────────────────────────
-            a11y_tree = _snapshot_a11y(page) if args.a11y else None
+            a11y_tree, a11y_redaction_echouee = (
+                _snapshot_a11y(page) if args.a11y else (None, False)
+            )
 
             # ── Auth status ───────────────────────────────────────────────────
             auth_status = None
@@ -2088,6 +2135,8 @@ def main():
             result["boussole"]["auth_status"] = auth_status
         if hors_vp_som > 0:
             result["boussole"]["som_hors_viewport"] = hors_vp_som
+        if a11y_redaction_echouee:
+            result["boussole"]["a11y_redaction_echouee"] = True
         try:
             result["etat"] = _construire_etat(
                 auth_status, respect, derive_session, erreurs_js,
@@ -2102,7 +2151,8 @@ def main():
         print(json.dumps(result, ensure_ascii=False))
         _journaliser_run(result, actions, args.intention, url_finale, "succes",
                          operation_id=operation_id, source_scenario=args.source_scenario,
-                         chainage=chainage)
+                         chainage=chainage, secret_resolu=bool(valeurs_secrets_resolues),
+                         secrets_chemin=getattr(args, "secrets", None))
         _nettoyer_session_ephemere(
             getattr(args, "reprendre_session", None),
             explicitement_demandee=bool(args.sauver_session),
@@ -2130,7 +2180,9 @@ def main():
             print(json.dumps(result, ensure_ascii=False))
             _journaliser_run(result, actions, args.intention, url_cible, "echec",
                              erreur=f"SecretsFermesError: {e}", operation_id=operation_id,
-                             source_scenario=args.source_scenario, chainage=chainage)
+                             source_scenario=args.source_scenario, chainage=chainage,
+                             secret_resolu=bool(valeurs_secrets_resolues),
+                             secrets_chemin=getattr(args, "secrets", None))
             sys.exit(SecretsFermesError.CODE_SORTIE)
 
         capture_echec = None
@@ -2171,7 +2223,9 @@ def main():
         print(json.dumps(result, ensure_ascii=False))
         _journaliser_run(result, actions, args.intention, url_cible, "echec",
                          erreur=f"{type(e).__name__}: {e}", operation_id=operation_id,
-                         source_scenario=args.source_scenario, chainage=chainage)
+                         source_scenario=args.source_scenario, chainage=chainage,
+                         secret_resolu=bool(valeurs_secrets_resolues),
+                         secrets_chemin=getattr(args, "secrets", None))
         _nettoyer_session_ephemere(
             getattr(args, "reprendre_session", None),
             explicitement_demandee=bool(getattr(args, "sauver_session", None)),

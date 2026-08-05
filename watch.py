@@ -745,7 +745,11 @@ def main():
                                mutatif=False, intention=args.intention)
         payload = json.dumps(resultat, ensure_ascii=False)
         if args.sortie_json:
-            with open(args.sortie_json, "w", encoding="utf-8") as f:
+            # 0600 explicite (audit 06/08/2026, E-09) : le résultat complet
+            # d'un run watch (boussole, diffs) ne doit pas rester lisible à
+            # l'umask par défaut.
+            fd = os.open(args.sortie_json, os.O_CREAT | os.O_WRONLY | os.O_TRUNC, 0o600)
+            with os.fdopen(fd, "w", encoding="utf-8") as f:
                 f.write(payload)
         else:
             print(payload)
