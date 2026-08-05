@@ -350,18 +350,17 @@ def _verifier_origines_autorisees(data: dict, chemin: str, url_page: str | None 
             )
 
 
-def lire_credential_fichier(chemin: str, cle: str, url_page: str | None = None) -> str:
-    """Lit un credential depuis un fichier désigné explicitement (--secrets).
+def _verifier_montage_fichier_secrets(chemin: str) -> None:
+    """Vérifie T1 (montage strict) pour un fichier de secrets explicite.
 
-    T1 (montage strict) : le répertoire parent doit être un point de montage
-    actif dans /proc/mounts. Refuse tout fichier sur disque nu persistant
-    (ex. /tmp) — ferme le contournement identifié en session 33.
-    Fallback : si /proc/mounts est illisible, ne bloque pas (même logique
-    que _repertoire_est_monte).
-
-    url_page (audit 05/08/2026, C-03) : URL de la page courante (page.url).
-    Vérifie que son domaine figure dans 'origines_autorisees' du fichier ;
-    la clé elle-même est obligatoire, url_page ou non.
+    Factorisé depuis lire_credential_fichier/verifier_cles_fichier (chantier
+    qualité 05/08/2026) — bloc dupliqué verbatim entre les deux. Le répertoire
+    parent doit être un point de montage actif dans /proc/mounts ; refuse
+    tout fichier sur disque nu persistant (ex. /tmp) — ferme le contournement
+    identifié en session 33. Fallback : si /proc/mounts est illisible, ne
+    bloque pas (même logique que _repertoire_est_monte). Lève aussi
+    FileNotFoundError si le fichier lui-même est absent une fois le montage
+    validé.
     """
     repertoire = os.path.dirname(os.path.abspath(chemin))
     if not _repertoire_est_monte(repertoire):
@@ -383,6 +382,18 @@ def lire_credential_fichier(chemin: str, cle: str, url_page: str | None = None) 
         raise FileNotFoundError(
             f"Fichier secrets introuvable : {chemin}"
         )
+
+
+def lire_credential_fichier(chemin: str, cle: str, url_page: str | None = None) -> str:
+    """Lit un credential depuis un fichier désigné explicitement (--secrets).
+
+    T1 (montage strict) : voir _verifier_montage_fichier_secrets.
+
+    url_page (audit 05/08/2026, C-03) : URL de la page courante (page.url).
+    Vérifie que son domaine figure dans 'origines_autorisees' du fichier ;
+    la clé elle-même est obligatoire, url_page ou non.
+    """
+    _verifier_montage_fichier_secrets(chemin)
     with open(chemin, encoding="utf-8") as f:
         data = json.load(f)
     _verifier_checksum(data, chemin)
@@ -398,32 +409,14 @@ def lire_credential_fichier(chemin: str, cle: str, url_page: str | None = None) 
 def verifier_cles_fichier(chemin: str, cles) -> None:
     """Pré-validation fail-fast sur un fichier de secrets explicite (--secrets).
 
-    Même vérification de montage T1 que lire_credential_fichier. Vérifie
-    répertoire chiffré + clés + présence de 'origines_autorisees' (audit
-    05/08/2026, C-03) SANS lire les valeurs. Le contrôle de correspondance
-    domaine a lieu plus tard, dans lire_credential_fichier, seul moment où
-    page.url (post-navigation, post-redirection éventuelle) est connu.
+    Même vérification de montage T1 que lire_credential_fichier (voir
+    _verifier_montage_fichier_secrets). Vérifie répertoire chiffré + clés +
+    présence de 'origines_autorisees' (audit 05/08/2026, C-03) SANS lire les
+    valeurs. Le contrôle de correspondance domaine a lieu plus tard, dans
+    lire_credential_fichier, seul moment où page.url (post-navigation,
+    post-redirection éventuelle) est connu.
     """
-    repertoire = os.path.dirname(os.path.abspath(chemin))
-    if not _repertoire_est_monte(repertoire):
-        if not os.path.isdir(repertoire):
-            raise SecretsFermesError(
-                f"Répertoire du fichier secrets introuvable — répertoire chiffré non monté ?\n"
-                f"  Fichier    : {chemin}\n"
-                f"  Répertoire : {repertoire}\n"
-                f"  Montez le répertoire chiffré contenant ce fichier avant d'exécuter."
-            )
-        raise SecretsFermesError(
-            f"Le répertoire du fichier secrets n'est pas un point de montage actif.\n"
-            f"  Fichier    : {chemin}\n"
-            f"  Répertoire : {repertoire}\n"
-            f"  Seuls les points de montage actifs sont autorisés (répertoire chiffré gocryptfs, tmpfs…).\n"
-            f"  Refusé : disque nu persistant (ex. /tmp, ~/Documents)."
-        )
-    if not os.path.isfile(chemin):
-        raise FileNotFoundError(
-            f"Fichier secrets introuvable : {chemin}"
-        )
+    _verifier_montage_fichier_secrets(chemin)
     with open(chemin, encoding="utf-8") as f:
         data = json.load(f)
     _verifier_origines_autorisees(data, chemin)

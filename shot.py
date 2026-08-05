@@ -1,4 +1,24 @@
 #!/opt/diwall/venv/bin/python3
+"""
+shot.py — point d'entrée Playwright unique de Diwall : capture d'écran,
+Set-of-Mark et exécution d'actions séquentielles (mode ReAct).
+
+Pourquoi ce fichier existe :
+    Un LLM ne voit pas le rendu d'une page web. shot.py lui donne des yeux
+    (capture PNG + Set-of-Mark + arbre d'accessibilité) et des mains
+    (cliquer, remplir, attendre) sur une session Playwright persistante,
+    sans jamais faire transiter un credential en clair par le shell.
+
+Entrée / sortie :
+    CLI — `--url` (nouvelle session) ou `--reprendre-session` (session
+    existante) + `--actions`/`--action` (JSON). Sortie : JSON structuré sur
+    stdout (boussole, résultat par action, capture éventuelle).
+
+Dépend de :
+    lib/repertoire_chiffre.py (credentials), lib/journal.py (journalisation),
+    lib/preflight_guide.py (verrou de lecture du guide), lib/profil_operateur.py,
+    lib/vision.py (cliquer_visuel), lib/modeles.py, lib/ntfy.py (MFA/TOTP).
+"""
 import argparse
 import getpass
 import json
@@ -46,7 +66,12 @@ _DW_EST_SENSIBLE_JS = """
         /password/i.test(el.autocomplete || '');
 """
 
-_SOM_INJECTER_JS = """() => {
+# Chantier qualité 05/08/2026 : liste des sélecteurs interactifs SoM et filtre
+# de visibilité, auparavant dupliqués tels quels dans 7 blobs JS distincts
+# (standard, Shadow DOM, et l'injection <select> de remplir_som). Même
+# principe de concaténation que _DW_EST_SENSIBLE_JS ci-dessus — pas de
+# f-string, ces blobs sont truffés d'accolades.
+_SOM_SELECTORS_JS = """
     const SELECTORS = [
         'a[href]', 'button', 'input:not([type="hidden"])',
         'select', 'textarea', 'summary',
@@ -54,6 +79,20 @@ _SOM_INJECTER_JS = """() => {
         '[role="checkbox"]', '[role="menuitem"]', '[role="radio"]',
         '[role="combobox"]', '[role="spinbutton"]', '[role="searchbox"]'
     ].join(',');
+"""
+
+# Filtre de visibilité commun (dialog fermé, style, taille) — le test de
+# position par rapport au viewport diffère selon l'appelant (dans/hors
+# viewport) et reste écrit à part dans chaque blob.
+_SOM_FILTRE_VISIBLE_JS = """
+        let p = el.parentElement; while (p) { if (p.tagName === 'DIALOG' && !p.hasAttribute('open')) return; p = p.parentElement; }
+        const s = window.getComputedStyle(el);
+        if (s.display === 'none' || s.visibility === 'hidden' || s.opacity === '0') return;
+        const r = el.getBoundingClientRect();
+        if (r.width < 2 || r.height < 2) return;
+"""
+
+_SOM_INJECTER_JS = """() => {""" + _SOM_SELECTORS_JS + """
     const vw = window.innerWidth, vh = window.innerHeight;
     const container = document.createElement('div');
     container.id = '__som__';
@@ -69,12 +108,7 @@ _SOM_INJECTER_JS = """() => {
     // Audit 05/08/2026 (C-01) : el.value d'un champ sensible ne doit jamais
     // atteindre elements_som — le blur CSS de _MASQUER_SECRETS_JS protège la
     // capture PNG, pas ce JSON. dwEstSensible factorisée dans _DW_EST_SENSIBLE_JS.""" + _DW_EST_SENSIBLE_JS + """
-    document.querySelectorAll(SELECTORS).forEach(el => {
-        let p = el.parentElement; while (p) { if (p.tagName === 'DIALOG' && !p.hasAttribute('open')) return; p = p.parentElement; }
-        const s = window.getComputedStyle(el);
-        if (s.display === 'none' || s.visibility === 'hidden' || s.opacity === '0') return;
-        const r = el.getBoundingClientRect();
-        if (r.width < 2 || r.height < 2) return;
+    document.querySelectorAll(SELECTORS).forEach(el => {""" + _SOM_FILTRE_VISIBLE_JS + """
         if (r.right < 0 || r.bottom < 0 || r.left > vw || r.top > vh) return;
         const box = document.createElement('div');
         box.style.cssText = [
@@ -108,22 +142,10 @@ _SOM_INJECTER_JS = """() => {
 
 _SOM_RETIRER_JS = "() => { const el = document.getElementById('__som__'); if (el) el.remove(); }"
 
-_SOM_COMPTER_HORS_VIEWPORT_JS = """() => {
-    const SELECTORS = [
-        'a[href]', 'button', 'input:not([type="hidden"])',
-        'select', 'textarea', 'summary',
-        '[role="button"]', '[role="link"]', '[role="tab"]',
-        '[role="checkbox"]', '[role="menuitem"]', '[role="radio"]',
-        '[role="combobox"]', '[role="spinbutton"]', '[role="searchbox"]'
-    ].join(',');
+_SOM_COMPTER_HORS_VIEWPORT_JS = """() => {""" + _SOM_SELECTORS_JS + """
     const vw = window.innerWidth, vh = window.innerHeight;
     let n = 0;
-    document.querySelectorAll(SELECTORS).forEach(el => {
-        let p = el.parentElement; while (p) { if (p.tagName === 'DIALOG' && !p.hasAttribute('open')) return; p = p.parentElement; }
-        const s = window.getComputedStyle(el);
-        if (s.display === 'none' || s.visibility === 'hidden' || s.opacity === '0') return;
-        const r = el.getBoundingClientRect();
-        if (r.width < 2 || r.height < 2) return;
+    document.querySelectorAll(SELECTORS).forEach(el => {""" + _SOM_FILTRE_VISIBLE_JS + """
         if (r.right >= 0 && r.bottom >= 0 && r.left <= vw && r.top <= vh) return;
         n++;
     });
@@ -131,22 +153,10 @@ _SOM_COMPTER_HORS_VIEWPORT_JS = """() => {
 }"""
 
 # Même filtrage que l'injection SoM, retourne les coordonnées du centre de l'élément N
-_SOM_TROUVER_JS = """(id) => {
-    const SELECTORS = [
-        'a[href]', 'button', 'input:not([type="hidden"])',
-        'select', 'textarea', 'summary',
-        '[role="button"]', '[role="link"]', '[role="tab"]',
-        '[role="checkbox"]', '[role="menuitem"]', '[role="radio"]',
-        '[role="combobox"]', '[role="spinbutton"]', '[role="searchbox"]'
-    ].join(',');
+_SOM_TROUVER_JS = """(id) => {""" + _SOM_SELECTORS_JS + """
     const vw = window.innerWidth, vh = window.innerHeight;
     const items = [];
-    document.querySelectorAll(SELECTORS).forEach(el => {
-        let p = el.parentElement; while (p) { if (p.tagName === 'DIALOG' && !p.hasAttribute('open')) return; p = p.parentElement; }
-        const s = window.getComputedStyle(el);
-        if (s.display === 'none' || s.visibility === 'hidden' || s.opacity === '0') return;
-        const r = el.getBoundingClientRect();
-        if (r.width < 2 || r.height < 2) return;
+    document.querySelectorAll(SELECTORS).forEach(el => {""" + _SOM_FILTRE_VISIBLE_JS + """
         if (r.right < 0 || r.bottom < 0 || r.left > vw || r.top > vh) return;
         items.push(el);
     });
@@ -173,14 +183,7 @@ _SOM_INJECTER_JS_SHADOW = """() => {
             });
         } catch(ignore) {}
         return result;
-    }
-    const SELECTORS = [
-        'a[href]', 'button', 'input:not([type="hidden"])',
-        'select', 'textarea', 'summary',
-        '[role="button"]', '[role="link"]', '[role="tab"]',
-        '[role="checkbox"]', '[role="menuitem"]', '[role="radio"]',
-        '[role="combobox"]', '[role="spinbutton"]', '[role="searchbox"]'
-    ].join(',');
+    }""" + _SOM_SELECTORS_JS + """
     const vw = window.innerWidth, vh = window.innerHeight;
     const container = document.createElement('div');
     container.id = '__som__';
@@ -195,12 +198,7 @@ _SOM_INJECTER_JS_SHADOW = """() => {
     queryShadowAll('[data-dw-som-id]', document).forEach(el => el.removeAttribute('data-dw-som-id'));
     // Audit 05/08/2026 (C-01) : même neutralisation que la variante standard,
     // dwEstSensible factorisée dans _DW_EST_SENSIBLE_JS.""" + _DW_EST_SENSIBLE_JS + """
-    queryShadowAll(SELECTORS, document).forEach(el => {
-        let p = el.parentElement; while (p) { if (p.tagName === 'DIALOG' && !p.hasAttribute('open')) return; p = p.parentElement; }
-        const s = window.getComputedStyle(el);
-        if (s.display === 'none' || s.visibility === 'hidden' || s.opacity === '0') return;
-        const r = el.getBoundingClientRect();
-        if (r.width < 2 || r.height < 2) return;
+    queryShadowAll(SELECTORS, document).forEach(el => {""" + _SOM_FILTRE_VISIBLE_JS + """
         if (r.right < 0 || r.bottom < 0 || r.left > vw || r.top > vh) return;
         const box = document.createElement('div');
         box.style.cssText = [
@@ -244,22 +242,10 @@ _SOM_COMPTER_HORS_VIEWPORT_JS_SHADOW = """() => {
             });
         } catch(ignore) {}
         return result;
-    }
-    const SELECTORS = [
-        'a[href]', 'button', 'input:not([type="hidden"])',
-        'select', 'textarea', 'summary',
-        '[role="button"]', '[role="link"]', '[role="tab"]',
-        '[role="checkbox"]', '[role="menuitem"]', '[role="radio"]',
-        '[role="combobox"]', '[role="spinbutton"]', '[role="searchbox"]'
-    ].join(',');
+    }""" + _SOM_SELECTORS_JS + """
     const vw = window.innerWidth, vh = window.innerHeight;
     let n = 0;
-    queryShadowAll(SELECTORS, document).forEach(el => {
-        let p = el.parentElement; while (p) { if (p.tagName === 'DIALOG' && !p.hasAttribute('open')) return; p = p.parentElement; }
-        const s = window.getComputedStyle(el);
-        if (s.display === 'none' || s.visibility === 'hidden' || s.opacity === '0') return;
-        const r = el.getBoundingClientRect();
-        if (r.width < 2 || r.height < 2) return;
+    queryShadowAll(SELECTORS, document).forEach(el => {""" + _SOM_FILTRE_VISIBLE_JS + """
         if (r.right >= 0 && r.bottom >= 0 && r.left <= vw && r.top <= vh) return;
         n++;
     });
@@ -278,22 +264,10 @@ _SOM_TROUVER_JS_SHADOW = """(id) => {
             });
         } catch(ignore) {}
         return result;
-    }
-    const SELECTORS = [
-        'a[href]', 'button', 'input:not([type="hidden"])',
-        'select', 'textarea', 'summary',
-        '[role="button"]', '[role="link"]', '[role="tab"]',
-        '[role="checkbox"]', '[role="menuitem"]', '[role="radio"]',
-        '[role="combobox"]', '[role="spinbutton"]', '[role="searchbox"]'
-    ].join(',');
+    }""" + _SOM_SELECTORS_JS + """
     const vw = window.innerWidth, vh = window.innerHeight;
     const items = [];
-    queryShadowAll(SELECTORS, document).forEach(el => {
-        let p = el.parentElement; while (p) { if (p.tagName === 'DIALOG' && !p.hasAttribute('open')) return; p = p.parentElement; }
-        const s = window.getComputedStyle(el);
-        if (s.display === 'none' || s.visibility === 'hidden' || s.opacity === '0') return;
-        const r = el.getBoundingClientRect();
-        if (r.width < 2 || r.height < 2) return;
+    queryShadowAll(SELECTORS, document).forEach(el => {""" + _SOM_FILTRE_VISIBLE_JS + """
         if (r.right < 0 || r.bottom < 0 || r.left > vw || r.top > vh) return;
         items.push(el);
     });
@@ -979,6 +953,32 @@ def _resoudre_frame_locator(page, a, type_action):
     return page.frame_locator(iframe_sel)
 
 
+def _resoudre_valeur_secrets(a, valeur, page, secrets_chemin, type_action):
+    """Résout 'depuis_secrets'/'depuis_secrets_totp' en credential réel lu
+    depuis le répertoire chiffré. Factorisé depuis remplir/remplir_som/
+    remplir_iframe (chantier qualité 05/08/2026) — même bloc de résolution
+    dupliqué trois fois à l'identique, même catégorie de défaut que C-01
+    (dwEstSensible, corrigé en session 76) : trois copies d'un code de
+    résolution de credentials sont trois endroits à corriger en cas de bug.
+    """
+    if valeur == "depuis_secrets":
+        cle = a.get("secret_cle")
+        if not cle:
+            raise ValueError(f"{type_action} depuis_secrets : champ 'secret_cle' requis")
+        if secrets_chemin:
+            from lib.repertoire_chiffre import lire_credential_fichier
+            return lire_credential_fichier(secrets_chemin, cle, page.url)
+        from lib.repertoire_chiffre import lire_credential, domaine_depuis_url
+        return lire_credential(domaine_depuis_url(page.url), cle)
+    if valeur == "depuis_secrets_totp":
+        if secrets_chemin:
+            from lib.repertoire_chiffre import lire_totp_fichier
+            return lire_totp_fichier(secrets_chemin, page.url)
+        from lib.repertoire_chiffre import lire_totp, domaine_depuis_url
+        return lire_totp(domaine_depuis_url(page.url))
+    return valeur
+
+
 def executer_actions(page, actions, output_dir, timeout, mode_llm="local",
                      interval_capture_default=0, modeles_appeles=None,
                      secrets_chemin=None, screenshot_timeout=120_000, shadow_dom=False,
@@ -1126,23 +1126,7 @@ def executer_actions(page, actions, output_dir, timeout, mode_llm="local",
 
         elif t == "remplir":
             valeur = a.get("valeur", "")
-            if valeur == "depuis_secrets":
-                cle = a.get("secret_cle")
-                if not cle:
-                    raise ValueError("remplir depuis_secrets : champ 'secret_cle' requis")
-                if secrets_chemin:
-                    from lib.repertoire_chiffre import lire_credential_fichier
-                    valeur = lire_credential_fichier(secrets_chemin, cle, page.url)
-                else:
-                    from lib.repertoire_chiffre import lire_credential, domaine_depuis_url
-                    valeur = lire_credential(domaine_depuis_url(page.url), cle)
-            elif valeur == "depuis_secrets_totp":
-                if secrets_chemin:
-                    from lib.repertoire_chiffre import lire_totp_fichier
-                    valeur = lire_totp_fichier(secrets_chemin, page.url)
-                else:
-                    from lib.repertoire_chiffre import lire_totp, domaine_depuis_url
-                    valeur = lire_totp(domaine_depuis_url(page.url))
+            valeur = _resoudre_valeur_secrets(a, valeur, page, secrets_chemin, "remplir")
             page.locator(a["selecteur"]).fill(valeur, timeout=timeout)
 
         elif t == "cliquer":
@@ -1215,43 +1199,15 @@ def executer_actions(page, actions, output_dir, timeout, mode_llm="local",
             valeur = a.get("valeur", "")
             if som_id is None:
                 raise ValueError("remplir_som requiert un champ 'id'")
-            if valeur == "depuis_secrets":
-                cle = a.get("secret_cle")
-                if not cle:
-                    raise ValueError("remplir_som depuis_secrets : champ 'secret_cle' requis")
-                if secrets_chemin:
-                    from lib.repertoire_chiffre import lire_credential_fichier
-                    valeur = lire_credential_fichier(secrets_chemin, cle, page.url)
-                else:
-                    from lib.repertoire_chiffre import lire_credential, domaine_depuis_url
-                    valeur = lire_credential(domaine_depuis_url(page.url), cle)
-            elif valeur == "depuis_secrets_totp":
-                if secrets_chemin:
-                    from lib.repertoire_chiffre import lire_totp_fichier
-                    valeur = lire_totp_fichier(secrets_chemin, page.url)
-                else:
-                    from lib.repertoire_chiffre import lire_totp, domaine_depuis_url
-                    valeur = lire_totp(domaine_depuis_url(page.url))
+            valeur = _resoudre_valeur_secrets(a, valeur, page, secrets_chemin, "remplir_som")
             coord = page.evaluate(_som_trouver, som_id)
             if coord is None:
                 raise ValueError(f"remplir_som : élément SoM {som_id!r} non trouvé sur la page")
             if coord.get("tag", "").upper() == "SELECT":
-                ok = page.evaluate("""(args) => {
-                    const SELECTORS = [
-                        'a[href]','button','input:not([type="hidden"])',
-                        'select','textarea','summary',
-                        '[role="button"]','[role="link"]','[role="tab"]',
-                        '[role="checkbox"]','[role="menuitem"]','[role="radio"]',
-                        '[role="combobox"]','[role="spinbutton"]','[role="searchbox"]'
-                    ].join(',');
+                ok = page.evaluate("""(args) => {""" + _SOM_SELECTORS_JS + """
                     const vw = window.innerWidth, vh = window.innerHeight;
                     const items = [];
-                    document.querySelectorAll(SELECTORS).forEach(el => {
-                        let p = el.parentElement; while (p) { if (p.tagName === 'DIALOG' && !p.hasAttribute('open')) return; p = p.parentElement; }
-                        const s = window.getComputedStyle(el);
-                        if (s.display==='none'||s.visibility==='hidden'||s.opacity==='0') return;
-                        const r = el.getBoundingClientRect();
-                        if (r.width<2||r.height<2) return;
+                    document.querySelectorAll(SELECTORS).forEach(el => {""" + _SOM_FILTRE_VISIBLE_JS + """
                         if (r.right<0||r.bottom<0||r.left>vw||r.top>vh) return;
                         items.push(el);
                     });
@@ -1343,23 +1299,7 @@ def executer_actions(page, actions, output_dir, timeout, mode_llm="local",
                 raise ValueError("remplir_iframe requiert un champ 'selecteur' (cible dans le frame)")
             frame_locator = _resoudre_frame_locator(page, a, "remplir_iframe")
             valeur = a.get("valeur", "")
-            if valeur == "depuis_secrets":
-                cle = a.get("secret_cle")
-                if not cle:
-                    raise ValueError("remplir_iframe depuis_secrets : champ 'secret_cle' requis")
-                if secrets_chemin:
-                    from lib.repertoire_chiffre import lire_credential_fichier
-                    valeur = lire_credential_fichier(secrets_chemin, cle, page.url)
-                else:
-                    from lib.repertoire_chiffre import lire_credential, domaine_depuis_url
-                    valeur = lire_credential(domaine_depuis_url(page.url), cle)
-            elif valeur == "depuis_secrets_totp":
-                if secrets_chemin:
-                    from lib.repertoire_chiffre import lire_totp_fichier
-                    valeur = lire_totp_fichier(secrets_chemin, page.url)
-                else:
-                    from lib.repertoire_chiffre import lire_totp, domaine_depuis_url
-                    valeur = lire_totp(domaine_depuis_url(page.url))
+            valeur = _resoudre_valeur_secrets(a, valeur, page, secrets_chemin, "remplir_iframe")
             frame_locator.locator(a["selecteur"]).fill(valeur, timeout=timeout)
 
         elif t == "defiler":

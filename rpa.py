@@ -1,6 +1,13 @@
 #!/opt/diwall/venv/bin/python3
 """
-rpa.py — Phase 6 : exécuteur de scénarios RPA (JSON ou YAML).
+rpa.py — exécuteur de scénarios RPA Diwall (JSON ou YAML).
+
+Pourquoi ce fichier existe :
+    Un scénario RPA doit être validé (schéma, secrets jamais en clair,
+    assertions) et rejoué de façon fiable avant que le résultat n'atteigne
+    l'appelant. rpa.py fait cette pré-validation puis délègue l'exécution
+    Playwright à shot.py en sous-processus — il n'exécute jamais d'action
+    navigateur lui-même.
 
 Usage :
     /opt/diwall/rpa.py --scenario /opt/diwall/scenarios/example_login.json
@@ -17,8 +24,15 @@ Format du scénario :
         ]
     }
 
-Le répertoire chiffré est résolu par lib/repertoire_chiffre.py (DIWALL_SECRETS_DIR > diwall.conf > ~/Vaults/Diwall/).
-Jamais de mot de passe dans les fichiers de scénario.
+Entrée / sortie :
+    CLI — `--scenario` (chemin ou nom résolu). Sortie : JSON structuré sur
+    stdout (boussole, résultat, éventuelles erreurs d'assertion), codes de
+    sortie non nuls sur échec.
+
+Dépend de :
+    shot.py (exécution effective, sous-processus), lib/repertoire_chiffre.py
+    (résolution du répertoire chiffré : DIWALL_SECRETS_DIR > diwall.conf >
+    ~/Vaults/Diwall/). Jamais de mot de passe dans les fichiers de scénario.
 """
 __version__ = "1.23.0"
 
@@ -43,6 +57,25 @@ def _boussole():
         "ip_locale": ip,
         "repertoire": os.getcwd(),
     }
+
+
+def _sortir_erreur(erreur, message=None, exit_code=1, **extra):
+    """Émet un JSON d'erreur structuré (succes: false) sur stdout, puis quitte.
+
+    Factorisé (chantier qualité 05/08/2026) — motif répété une quinzaine de
+    fois dans ce fichier : succes=False + erreur + boussole avant sys.exit.
+    Les champs propres à un site d'appel (scenario, chemins_testes,
+    profondeur, code_sortie_recommande…) passent par **extra.
+    """
+    payload = {"succes": False, "erreur": erreur}
+    if message is not None:
+        payload["message"] = message
+    payload.update(extra)
+    payload["boussole"] = _boussole()
+    print(json.dumps(payload))
+    sys.exit(exit_code)
+
+
 from lib.repertoire_chiffre import domaine_depuis_url, verifier_cles, verifier_cles_fichier, SecretsFermesError
 
 _SCHEMA_PATH = os.path.join(os.path.dirname(os.path.abspath(__file__)),
@@ -124,17 +157,14 @@ def _linter_som(actions, chemin_scenario):
             continue
         id_val = a.get("id")
         if not isinstance(id_val, int) or id_val < 1:
-            print(json.dumps({
-                "succes": False,
-                "erreur": "linter_som",
-                "message": (
+            _sortir_erreur(
+                "linter_som",
+                message=(
                     f"Action #{i} ({t}) : 'id' doit être un entier positif, "
                     f"reçu : {json.dumps(id_val)}."
                 ),
-                "scenario": chemin_scenario,
-                "boussole": _boussole(),
-            }))
-            sys.exit(1)
+                scenario=chemin_scenario,
+            )
 
 
 def _aplatir_actions(actions, profondeur=0):
@@ -152,14 +182,11 @@ def _aplatir_actions(actions, profondeur=0):
     d'appels d'un scénario chaîné après un échec en profondeur.
     """
     if profondeur > 5:
-        print(json.dumps({
-            "succes": False,
-            "erreur": "profondeur_max_chainages",
-            "message": "Profondeur maximale de chaînage (5) atteinte — vérifier les appels circulaires.",
-            "profondeur": profondeur,
-            "boussole": _boussole(),
-        }))
-        sys.exit(1)
+        _sortir_erreur(
+            "profondeur_max_chainages",
+            message="Profondeur maximale de chaînage (5) atteinte — vérifier les appels circulaires.",
+            profondeur=profondeur,
+        )
 
     resultat = []
     chainage = []
@@ -170,23 +197,15 @@ def _aplatir_actions(actions, profondeur=0):
         nom = a.get("scenario", "")
         chemin, essais = resoudre_chemin_scenario(nom)
         if not chemin:
-            print(json.dumps({
-                "succes": False,
-                "erreur": "fichier_introuvable",
-                "message": f"Sous-scénario introuvable : {nom}",
-                "chemins_testes": essais,
-                "boussole": _boussole(),
-            }))
-            sys.exit(1)
+            _sortir_erreur(
+                "fichier_introuvable",
+                message=f"Sous-scénario introuvable : {nom}",
+                chemins_testes=essais,
+            )
         try:
             sous = charger_scenario(chemin)
         except Exception as e:
-            print(json.dumps({
-                "succes": False, "erreur": "scenario_invalide",
-                "message": f"Sous-scénario {nom!r} : {e}",
-                "boussole": _boussole(),
-            }))
-            sys.exit(1)
+            _sortir_erreur("scenario_invalide", message=f"Sous-scénario {nom!r} : {e}")
         debut = len(resultat)
         sous_actions, sous_chainage = _aplatir_actions(sous.get("actions", []), profondeur + 1)
         resultat.extend(sous_actions)
@@ -238,13 +257,11 @@ def charger_scenario(chemin: str) -> dict:
                 import yaml
                 return yaml.safe_load(f)
             except ImportError:
-                print(json.dumps({
-                    "succes": False, "erreur": "dependance_manquante",
-                    "message": "PyYAML requis pour les scénarios .yaml : "
-                               "pip install pyyaml  (dans /opt/diwall/venv/)",
-                    "boussole": _boussole(),
-                }))
-                sys.exit(1)
+                _sortir_erreur(
+                    "dependance_manquante",
+                    message="PyYAML requis pour les scénarios .yaml : "
+                            "pip install pyyaml  (dans /opt/diwall/venv/)",
+                )
         else:
             return json.load(f)
 
@@ -279,6 +296,34 @@ def _comparer_surface_verifiable(reference, actuelle):
         if val_actuelle != val_ref:
             diffs.append({"champ": cle, "reference": val_ref, "obtenu": val_actuelle})
     return diffs
+
+
+def _echouer_assertion(message):
+    """Imprime un message d'échec/impossibilité d'assertion sur stderr, quitte (exit 1).
+
+    Factorisé (chantier qualité 05/08/2026) — print+sys.exit(1) répété à
+    l'identique dans les trois branches d'assertion (attendu/contient/motif) ;
+    le message reste spécifique à chaque branche, seul le mécanisme d'arrêt
+    est partagé.
+    """
+    print(message, file=sys.stderr)
+    sys.exit(1)
+
+
+def _verifier_valeur_str(idx, ev, valeur_obtenue, cle):
+    """Vérifie que la valeur évaluée est une chaîne — requis par les
+    assertions 'contient' et 'motif'. Factorisé — bloc dupliqué à l'identique
+    entre ces deux branches, seule la clé affichée diffère.
+    """
+    if not isinstance(valeur_obtenue, str):
+        _echouer_assertion(
+            f"Assertion impossible action #{idx} (evaluer) :\n"
+            f"  script   : {ev.get('script')}\n"
+            f"  clé      : \"{cle}\"\n"
+            f"  problème : valeur retournée de type "
+            f"{type(valeur_obtenue).__name__} ({valeur_obtenue!r}), pas str.\n"
+            f"             Utilisez \"attendu\" pour comparer int ou bool."
+        )
 
 
 def main():
@@ -368,40 +413,28 @@ def main():
         sys.exit(1)
 
     if not args.scenario:
-        print(json.dumps({
-            "succes": False, "erreur": "argument_manquant",
-            "message": "--scenario est requis",
-            "boussole": _boussole(),
-        }))
-        sys.exit(2)
+        _sortir_erreur("argument_manquant", message="--scenario est requis", exit_code=2)
 
     if args.sauver_verifier_reference and args.replay_verifier:
-        print(json.dumps({
-            "succes": False, "erreur": "arguments_incompatibles",
-            "message": "--sauver-verifier-reference et --replay-verifier sont mutuellement "
-                       "exclusifs — un run sauvegarde OU compare, jamais les deux.",
-            "boussole": _boussole(),
-        }))
-        sys.exit(2)
+        _sortir_erreur(
+            "arguments_incompatibles",
+            message="--sauver-verifier-reference et --replay-verifier sont mutuellement "
+                    "exclusifs — un run sauvegarde OU compare, jamais les deux.",
+            exit_code=2,
+        )
 
     chemin_scenario, essais = resoudre_chemin_scenario(args.scenario)
     if not chemin_scenario:
-        print(json.dumps({
-            "succes": False, "erreur": "fichier_introuvable",
-            "message": f"Scénario introuvable : {args.scenario}",
-            "chemins_testes": essais,
-            "boussole": _boussole(),
-        }))
-        sys.exit(1)
+        _sortir_erreur(
+            "fichier_introuvable",
+            message=f"Scénario introuvable : {args.scenario}",
+            chemins_testes=essais,
+        )
 
     try:
         scenario = charger_scenario(chemin_scenario)
     except Exception as e:
-        print(json.dumps({
-            "succes": False, "erreur": "scenario_invalide", "message": str(e),
-            "boussole": _boussole(),
-        }))
-        sys.exit(1)
+        _sortir_erreur("scenario_invalide", message=str(e))
 
     # Validation contre scenarios/schema.json (lot 9.2). Bloquant si jsonschema
     # est installé et le schéma rejette ; warning unique sinon.
@@ -429,22 +462,16 @@ def main():
 
     url = scenario.get("url")
     if not url:
-        print(json.dumps({
-            "succes": False, "erreur": "scenario_invalide",
-            "message": "Champ 'url' manquant dans le scénario",
-            "boussole": _boussole(),
-        }))
-        sys.exit(1)
+        _sortir_erreur("scenario_invalide", message="Champ 'url' manquant dans le scénario")
 
     from urllib.parse import urlparse as _urlparse
     _scheme = _urlparse(url).scheme.lower()
     if _scheme not in {"http", "https"}:
-        print(json.dumps({
-            "succes": False, "erreur": "url_scheme_interdit",
-            "message": f"URL scheme '{_scheme}' interdit — seuls http et https sont acceptés. URL: {url}",
-            "boussole": _boussole(),
-        }))
-        sys.exit(2)
+        _sortir_erreur(
+            "url_scheme_interdit",
+            message=f"URL scheme '{_scheme}' interdit — seuls http et https sont acceptés. URL: {url}",
+            exit_code=2,
+        )
 
     # ── Checkpoint (v1.17.0, item 2) ──────────────────────────────────────────
     # Reprise = session + index d'action déjà exécutée. L'état DOM (modale
@@ -505,19 +532,14 @@ def main():
                 else:
                     verifier_cles(domaine_depuis_url(url), ["username", "password"])
     except SecretsFermesError as e:
-        print(json.dumps({
-            "succes": False, "erreur": "secrets_fermes",
-            "message": str(e),
-            "code_sortie_recommande": SecretsFermesError.CODE_SORTIE,
-            "boussole": _boussole(),
-        }))
-        sys.exit(SecretsFermesError.CODE_SORTIE)
+        _sortir_erreur(
+            "secrets_fermes",
+            message=str(e),
+            exit_code=SecretsFermesError.CODE_SORTIE,
+            code_sortie_recommande=SecretsFermesError.CODE_SORTIE,
+        )
     except (FileNotFoundError, KeyError, ValueError) as e:
-        print(json.dumps({
-            "succes": False, "erreur": "secrets_erreur", "message": str(e),
-            "boussole": _boussole(),
-        }))
-        sys.exit(1)
+        _sortir_erreur("secrets_erreur", message=str(e))
 
     # Appel shot.py en mode séquentiel (Mode A), ou en reprise de session
     # (Mode B) si un checkpoint est en cours (v1.17.0, item 2).
@@ -558,14 +580,13 @@ def main():
     auth_indicator_negative = args.auth_indicator_negative or scenario.get("auth_indicator_negative")
     # v1.15.2, item 2 / GL1 : même garde-fou que shot.py, avant tout subprocess.
     if auth_indicator_negative and not auth_indicator:
-        print(json.dumps({
-            "succes": False, "erreur": "arguments_incompatibles",
-            "message": "--auth-indicator-negative requiert un auth_indicator "
-                       "(clé 'auth_indicator' du scénario) — sans lui, l'indicateur "
-                       "négatif est ignoré silencieusement",
-            "boussole": _boussole(),
-        }))
-        sys.exit(2)
+        _sortir_erreur(
+            "arguments_incompatibles",
+            message="--auth-indicator-negative requiert un auth_indicator "
+                    "(clé 'auth_indicator' du scénario) — sans lui, l'indicateur "
+                    "négatif est ignoré silencieusement",
+            exit_code=2,
+        )
     if auth_indicator:
         cmd += ["--auth-indicator", auth_indicator]
     if args.shadow_dom or scenario.get("shadow_dom"):
@@ -705,11 +726,7 @@ def main():
                 with open(args.replay_verifier, encoding="utf-8") as f:
                     reference = json.load(f)
             except (FileNotFoundError, json.JSONDecodeError) as e:
-                print(json.dumps({
-                    "succes": False, "erreur": "reference_illisible", "message": str(e),
-                    "boussole": _boussole(),
-                }))
-                sys.exit(1)
+                _sortir_erreur("reference_illisible", message=str(e))
             actuelle = _extraire_surface_verifiable(sortie)
             diffs = _comparer_surface_verifiable(reference, actuelle)
             verdict = "regression" if diffs else "stable"
@@ -732,69 +749,41 @@ def main():
     for idx, action in attentes:
         ev = evaluations.get(idx)
         if ev is None:
-            print(
-                f"Assertion impossible action #{idx} : aucune évaluation retournée par shot.py",
-                file=sys.stderr,
+            _echouer_assertion(
+                f"Assertion impossible action #{idx} : aucune évaluation retournée par shot.py"
             )
-            sys.exit(1)
 
         valeur_obtenue = ev.get("valeur")
 
         if "attendu" in action:
             if valeur_obtenue != action["attendu"]:
-                print(
+                _echouer_assertion(
                     f"Assertion échouée action #{idx} (evaluer) :\n"
                     f"  script  : {ev.get('script')}\n"
                     f"  attendu : {json.dumps(action['attendu'], ensure_ascii=False)}\n"
-                    f"  obtenu  : {json.dumps(valeur_obtenue, ensure_ascii=False)}",
-                    file=sys.stderr,
+                    f"  obtenu  : {json.dumps(valeur_obtenue, ensure_ascii=False)}"
                 )
-                sys.exit(1)
 
         elif "contient" in action:
-            if not isinstance(valeur_obtenue, str):
-                print(
-                    f"Assertion impossible action #{idx} (evaluer) :\n"
-                    f"  script   : {ev.get('script')}\n"
-                    f"  clé      : \"contient\"\n"
-                    f"  problème : valeur retournée de type "
-                    f"{type(valeur_obtenue).__name__} ({valeur_obtenue!r}), pas str.\n"
-                    f"             Utilisez \"attendu\" pour comparer int ou bool.",
-                    file=sys.stderr,
-                )
-                sys.exit(1)
+            _verifier_valeur_str(idx, ev, valeur_obtenue, "contient")
             if action["contient"] not in valeur_obtenue:
-                print(
+                _echouer_assertion(
                     f"Assertion échouée action #{idx} (evaluer) :\n"
                     f"  script   : {ev.get('script')}\n"
                     f"  contient : {json.dumps(action['contient'], ensure_ascii=False)}\n"
-                    f"  obtenu   : {json.dumps(valeur_obtenue, ensure_ascii=False)}",
-                    file=sys.stderr,
+                    f"  obtenu   : {json.dumps(valeur_obtenue, ensure_ascii=False)}"
                 )
-                sys.exit(1)
 
         elif "motif" in action:
             import re
-            if not isinstance(valeur_obtenue, str):
-                print(
-                    f"Assertion impossible action #{idx} (evaluer) :\n"
-                    f"  script   : {ev.get('script')}\n"
-                    f"  clé      : \"motif\"\n"
-                    f"  problème : valeur retournée de type "
-                    f"{type(valeur_obtenue).__name__} ({valeur_obtenue!r}), pas str.\n"
-                    f"             Utilisez \"attendu\" pour comparer int ou bool.",
-                    file=sys.stderr,
-                )
-                sys.exit(1)
+            _verifier_valeur_str(idx, ev, valeur_obtenue, "motif")
             if not re.search(action["motif"], valeur_obtenue):
-                print(
+                _echouer_assertion(
                     f"Assertion échouée action #{idx} (evaluer) :\n"
                     f"  script : {ev.get('script')}\n"
                     f"  motif  : {json.dumps(action['motif'], ensure_ascii=False)}\n"
-                    f"  obtenu : {json.dumps(valeur_obtenue, ensure_ascii=False)}",
-                    file=sys.stderr,
+                    f"  obtenu : {json.dumps(valeur_obtenue, ensure_ascii=False)}"
                 )
-                sys.exit(1)
 
     sys.exit(0)
 

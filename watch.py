@@ -1,4 +1,26 @@
 #!/opt/diwall/venv/bin/python3
+"""
+watch.py — orchestrateur de surveillance visuelle Diwall : comparaison d'une
+capture actuelle contre une référence, par analyse sémantique LLM ou diff
+pixel local.
+
+Pourquoi ce fichier existe :
+    Un LLM ne détecte pas seul qu'une interface a changé entre deux captures.
+    watch.py automatise la comparaison — sauvegarde d'une référence, rejeu
+    périodique, verdict stable/drift/regression — pour des opérations
+    longues où une capture unique ne suffit pas. Distinct de shot.py
+    (capture unitaire) et lib/vision.py (analyse statique unitaire).
+
+Entrée / sortie :
+    CLI — `--sauver-reference`, `--comparer` (LLM), `--comparer-pixel`
+    (diff local). Sortie : JSON structuré sur stdout (verdict, diffs,
+    boussole).
+
+Dépend de :
+    shot.py (capture, appelé en sous-processus), Ollama (qwen3-vl:2b, mode
+    LLM local), numpy/Pillow (diff pixel, fallback Pillow pur si numpy
+    absent).
+"""
 import argparse
 import base64
 import getpass
