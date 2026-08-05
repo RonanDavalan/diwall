@@ -132,27 +132,85 @@ def _neutraliser_actions_raw(actions):
 
 
 # ── Archivage des preuves (étape 3) ──────────────────────────────────────────
-def archiver_preuves(operation_id, captures):
+def _preuves_dir_authentifie():
+    """Chemin des preuves d'une page authentifiée (D-02) : à l'intérieur du
+    répertoire chiffré credentials de l'opérateur, jamais sur le disque hôte
+    nu. None si aucun secrets_dir n'est configuré (DIWALL_SECRETS_DIR,
+    DIWALL_CONF, ou diwall.conf)."""
+    try:
+        from lib.repertoire_chiffre import _chemin_secrets
+        return os.path.join(_chemin_secrets(), "preuves")
+    except Exception:
+        return None
+
+
+def _retention_jours():
+    """Rétention des preuves archivées, en jours. Clé 'preuves.retention_jours'
+    de diwall.conf ; 0 ou absente désactive la purge (D-02)."""
+    try:
+        from lib.repertoire_chiffre import _lire_conf
+        return int(_lire_conf().get("preuves", {}).get("retention_jours", 0))
+    except Exception:
+        return 0
+
+
+def _purger_preuves_expirees(preuves_dir, retention_jours):
+    """Supprime les sous-répertoires <preuves_dir>/AAAA-MM/ plus vieux que
+    retention_jours. Best-effort, jamais bloquant (D-02)."""
+    if retention_jours <= 0:
+        return
+    try:
+        cutoff = datetime.now().toordinal() - retention_jours
+        for nom in os.listdir(preuves_dir):
+            try:
+                mois = datetime.strptime(nom, "%Y-%m")
+            except ValueError:
+                continue
+            if mois.toordinal() < cutoff:
+                shutil.rmtree(os.path.join(preuves_dir, nom), ignore_errors=True)
+    except OSError:
+        pass
+
+
+def archiver_preuves(operation_id, captures, auth_status=None):
     """Copie les captures vers <preuves>/AAAA-MM/<operation_id>/.
 
     Retourne la liste des chemins archivés. Best-effort : une copie qui
     échoue est ignorée. Appelée uniquement pour les runs mutatifs.
 
-    Garde-fou de montage (v1.17.2) : si <preuves> est configuré à l'intérieur du
-    répertoire chiffré credentials mais que celui-ci n'est pas monté, n'archive rien —
-    les captures restent à leur emplacement d'origine plutôt que d'être
-    dupliquées en clair sur le disque hôte nu. Pas de repli vers `/tmp/` ici
-    (contrairement au journal) : des captures d'écran authentifiées sont plus
-    sensibles qu'une ligne de journal neutralisée.
+    Audit 05/08/2026 (D-02, option B — décision Ronan) : quand la page est
+    authentifiée (`auth_status == "active"`), les captures ne sont archivées
+    que si le répertoire chiffré credentials est monté — auquel cas elles y
+    sont archivées, jamais sous le chemin par défaut du disque hôte nu.
+    Sans répertoire chiffré monté, rien n'est archivé : la capture reste
+    seulement dans le répertoire de run éphémère (/tmp/diwall/), jamais
+    dupliquée en clair sur disque persistant. Constaté en production avant ce
+    correctif : 73 PNG en clair sous /var/log/diwall/preuves/, permissions
+    664, dont une capture pleine page d'un tableau de bord authentifié.
+
+    Garde-fou de montage (v1.17.2, inchangé pour le cas non authentifié) : si
+    <preuves> est configuré à l'intérieur du répertoire chiffré credentials
+    mais que celui-ci n'est pas monté, n'archive rien.
     """
-    preuves_dir = _preuves_dir()
-    if _ecriture_secrets_bloquee(preuves_dir):
-        print(
-            "⚠ journal : preuves non archivées (répertoire chiffré fermé — "
-            "preuves configurées dans le répertoire chiffré)",
-            file=sys.stderr,
-        )
-        return list(captures or [])
+    if auth_status == "active":
+        preuves_dir = _preuves_dir_authentifie()
+        from lib.repertoire_chiffre import _repertoire_est_monte
+        if not preuves_dir or not _repertoire_est_monte(preuves_dir):
+            print(
+                "⚠ journal : preuves non archivées (page authentifiée, répertoire "
+                "chiffré non monté ou non configuré — capture non dupliquée en clair)",
+                file=sys.stderr,
+            )
+            return list(captures or [])
+    else:
+        preuves_dir = _preuves_dir()
+        if _ecriture_secrets_bloquee(preuves_dir):
+            print(
+                "⚠ journal : preuves non archivées (répertoire chiffré fermé — "
+                "preuves configurées dans le répertoire chiffré)",
+                file=sys.stderr,
+            )
+            return list(captures or [])
     mois = datetime.now().strftime("%Y-%m")
     dest_dir = os.path.join(preuves_dir, mois, operation_id)
     try:
@@ -166,10 +224,12 @@ def archiver_preuves(operation_id, captures):
             if chemin and os.path.isfile(chemin):
                 dest = os.path.join(dest_dir, os.path.basename(chemin))
                 shutil.copy2(chemin, dest)
+                os.chmod(dest, 0o600)  # D-02 : 664 par défaut avant ce correctif
                 archivees.append(dest)
         except OSError as e:
             print(f"⚠ journal : preuve {chemin} non archivée ({e})",
                   file=sys.stderr)
+    _purger_preuves_expirees(preuves_dir, _retention_jours())
     return archivees
 
 
@@ -178,7 +238,7 @@ def enregistrer_operation(outil, version, cible_url, resultat, actions,
                           diwall_meta=None, intention=None, captures=None,
                           erreur=None, mutatif=None, evaluations=None,
                           operation_id=None, respect=None,
-                          source_scenario=None, chainage=None):
+                          source_scenario=None, chainage=None, auth_status=None):
     """Compose et écrit une entrée de journal. Best-effort, ne lève jamais.
 
     Réutilise les champs d'environnement de `diwall_meta` (v1.3.2) :
@@ -205,6 +265,10 @@ def enregistrer_operation(outil, version, cible_url, resultat, actions,
     `declencher_scenario` — absente sinon (additif strict). Permet de
     reconstruire l'arbre d'appels d'un scénario chaîné après un échec en
     profondeur, sans quoi le journal ne montre qu'une liste plate d'actions.
+
+    `auth_status` (audit 05/08/2026, D-02) : transmis tel quel à
+    archiver_preuves — "active" redirige l'archivage vers le répertoire
+    chiffré credentials plutôt que le chemin par défaut du disque hôte nu.
     """
     try:
         meta = diwall_meta or {}
@@ -212,7 +276,7 @@ def enregistrer_operation(outil, version, cible_url, resultat, actions,
         mutatif = est_mutatif(actions) if mutatif is None else bool(mutatif)
 
         if mutatif and captures:
-            captures_ref = archiver_preuves(operation_id, captures)
+            captures_ref = archiver_preuves(operation_id, captures, auth_status=auth_status)
         else:
             captures_ref = list(captures or [])
 
@@ -261,20 +325,33 @@ def enregistrer_operation(outil, version, cible_url, resultat, actions,
         print(f"⚠ journal : opération non journalisée ({e})", file=sys.stderr)
 
 
-_MOTIFS_SENSIBLES_EVALUER = re.compile(r"token|session|password|bearer|jwt", re.IGNORECASE)
-_BASE64_LONGUE = re.compile(r"[A-Za-z0-9+/=_-]{40,}")
+# Audit 05/08/2026 (D-06) : le filtre C-06 cherchait des mots, alors que les
+# secrets ont des formes — un JWT réel ne contient jamais la chaîne littérale
+# "jwt", et PHPSESSID/clés API passaient sans qu'aucun mot ne matche. 'sess'
+# (substring, pas de \b : PHPSESSID n'a pas de séparateur avant 'sess'),
+# 'csrf'/'xsrf'/'auth' ajoutés ; _BASE64_LONGUE abaissé (40 → 20) pour capter
+# les clés API courtes (~36 car.) que le seuil précédent laissait passer.
+_MOTIFS_SENSIBLES_EVALUER = re.compile(r"token|session|password|bearer|jwt|sess|csrf|xsrf|auth", re.IGNORECASE)
+_BASE64_LONGUE = re.compile(r"[A-Za-z0-9+/=_-]{20,}")
+# Forme d'un JWT : trois segments base64url séparés par des points — aucun
+# des deux motifs ci-dessus ne le capte, les points cassent _BASE64_LONGUE
+# en tronçons et "jwt" n'apparaît jamais dans le jeton lui-même.
+_MOTIF_JWT = re.compile(r"[A-Za-z0-9_-]{8,}\.[A-Za-z0-9_-]{8,}\.[A-Za-z0-9_-]+")
 
 
 def _neutraliser_valeur_evaluer(valeur):
-    """Audit 05/08/2026 (C-06) : valeur_retournee était le seul champ du
+    """Audit 05/08/2026 (C-06, D-06) : valeur_retournee était le seul champ du
     journal à échapper à la doctrine « zéro credential » de ce module (voir
     docstring en tête de fichier). Tronque à 500 caractères comme 'script',
-    et remplace par un marqueur toute valeur qui ressemble à un secret.
+    et remplace par un marqueur toute valeur qui ressemble à un secret —
+    par mot-clé ou par forme (base64 longue, JWT).
     """
     if valeur is None:
         return None
     texte = str(valeur)
-    if _MOTIFS_SENSIBLES_EVALUER.search(texte) or _BASE64_LONGUE.search(texte):
+    if (_MOTIFS_SENSIBLES_EVALUER.search(texte)
+            or _BASE64_LONGUE.search(texte)
+            or _MOTIF_JWT.search(texte)):
         return "<valeur_filtree>"
     return texte[:500]
 
@@ -379,6 +456,11 @@ def _ecrire_ligne(entree):
         if gid != -1 and not os.path.exists(path + ".chowned"):
             try:
                 os.chown(fd, -1, gid)
+                # Audit 05/08/2026 (D-11) : sans cette sentinelle, la condition
+                # ci-dessus est toujours vraie et os.chown est retenté à
+                # chaque écriture — sans conséquence fonctionnelle, mais
+                # fausse affordance d'idempotence pour un lecteur futur.
+                open(path + ".chowned", "a").close()
             except PermissionError:
                 pass
         with os.fdopen(fd, "a", encoding="utf-8") as f:

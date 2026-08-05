@@ -7,7 +7,8 @@ qui souhaite connecter son propre système de mémoire vectorielle.
 
 Résolution de DB_PATH (par ordre de priorité) :
   1. DIWALL_VECTOR_DB env var
-  2. Clé "vector_db" dans /opt/diwall/diwall.conf
+  2. Clé "vector_db" dans le fichier lu par lib.repertoire_chiffre._lire_conf()
+     (DIWALL_CONF, ou /opt/diwall/diwall.conf par défaut)
   3. _CADRE/MEMOIRE/chroma_db (si répertoire jumeau _CADRE/ présent)
   4. ~/Vaults/Diwall/chroma_db (défaut universel)
 
@@ -16,20 +17,21 @@ Dépendances optionnelles : chromadb, requests (non requises pour l'import).
 
 import os
 
-_CONF_PATH = "/opt/diwall/diwall.conf"
-
 
 def _chemin_db() -> str:
     """Résout le chemin de la base vectorielle ChromaDB."""
     if "DIWALL_VECTOR_DB" in os.environ:
         return os.path.expanduser(os.environ["DIWALL_VECTOR_DB"])
 
-    if os.path.isfile(_CONF_PATH):
-        import json
-        with open(_CONF_PATH, encoding="utf-8") as f:
-            conf = json.load(f)
+    # Audit 05/08/2026 (D-03) : une constante _CONF_PATH locale ignorait
+    # DIWALL_CONF — un lecteur unique désormais, partagé avec repertoire_chiffre.
+    try:
+        from lib.repertoire_chiffre import _lire_conf
+        conf = _lire_conf()
         if "vector_db" in conf:
             return os.path.expanduser(conf["vector_db"])
+    except Exception:
+        pass
 
     # Répertoire jumeau _CADRE/ (contexte de développement, sibling du dépôt)
     _repo_dir = os.path.dirname(os.path.dirname(os.path.abspath(__file__)))

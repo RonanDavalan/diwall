@@ -36,7 +36,6 @@ LISTE_ROUGE_INVIOLABLE = frozenset({
 
 _DIWALL_RACINE = Path(__file__).resolve().parent.parent
 _CONF_D = _DIWALL_RACINE / "diwall.conf.d"
-_CONF_SYSTEME = Path("/opt/diwall/diwall.conf")
 
 
 @dataclass(frozen=True)
@@ -78,19 +77,19 @@ def _chemin_profil_actif() -> Optional[Path]:
     if candidat_user.is_file():
         return candidat_user
 
-    if _CONF_SYSTEME.is_file():
-        try:
-            with _CONF_SYSTEME.open(encoding="utf-8") as f:
-                data = yaml.safe_load(f) or {}
-            chemin = data.get("profil_par_defaut")
-            if chemin:
-                return Path(chemin).expanduser()
-        except (OSError, yaml.YAMLError) as exc:
-            print(
-                f"⚠ Diwall : lecture de {_CONF_SYSTEME} impossible ({exc}). "
-                f"Fallback comportement strict.",
-                file=sys.stderr,
-            )
+    # Audit 05/08/2026 (D-03) : _CONF_SYSTEME était un chemin en dur, ignorant
+    # DIWALL_CONF — un lecteur unique désormais, partagé avec repertoire_chiffre.
+    try:
+        from lib.repertoire_chiffre import _lire_conf
+        chemin = _lire_conf().get("profil_par_defaut")
+        if chemin:
+            return Path(chemin).expanduser()
+    except Exception as exc:
+        print(
+            f"⚠ Diwall : lecture de la configuration (DIWALL_CONF ou diwall.conf) "
+            f"impossible ({exc}). Fallback comportement strict.",
+            file=sys.stderr,
+        )
 
     return None
 

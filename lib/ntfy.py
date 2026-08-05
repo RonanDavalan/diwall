@@ -7,7 +7,8 @@ Diwall interroge l'API ntfy, récupère le code et l'injecte.
 
 Configuration (par ordre de priorité) :
   1. DIWALL_NTFY_URL (variable d'environnement)
-  2. Clé "ntfy.url" dans /opt/diwall/diwall.conf (JSON)
+  2. Clé "ntfy.url" dans le fichier lu par lib.repertoire_chiffre._lire_conf()
+     (DIWALL_CONF, ou /opt/diwall/diwall.conf par défaut)
   3. Défaut : https://ntfy.sh
 
 Sécurité : le topic doit être un secret partagé opérateur-machine,
@@ -18,7 +19,6 @@ import os
 import re
 import time
 
-_CONF_PATH = "/opt/diwall/diwall.conf"
 _NTFY_DEFAULT = "https://ntfy.sh"
 _POLL_INTERVAL_S = 3
 # Audit 05/08/2026 (C-05) : le topic est le seul secret du canal — un
@@ -31,15 +31,16 @@ _CODE_MFA_FORMAT = re.compile(r"^\d{4,8}$")
 def _ntfy_url() -> str:
     if "DIWALL_NTFY_URL" in os.environ:
         return os.environ["DIWALL_NTFY_URL"].rstrip("/")
-    if os.path.isfile(_CONF_PATH):
-        try:
-            with open(_CONF_PATH, encoding="utf-8") as f:
-                conf = json.load(f)
-            ntfy_conf = conf.get("ntfy") or {}
-            if "url" in ntfy_conf:
-                return ntfy_conf["url"].rstrip("/")
-        except Exception:
-            pass
+    # Audit 05/08/2026 (D-03) : une constante _CONF_PATH locale ignorait
+    # DIWALL_CONF — sous le canal .deb, une instance ntfy privée déclarée
+    # dans /etc/diwall/diwall.conf était silencieusement contournée.
+    try:
+        from lib.repertoire_chiffre import _lire_conf
+        ntfy_conf = _lire_conf().get("ntfy") or {}
+        if "url" in ntfy_conf:
+            return ntfy_conf["url"].rstrip("/")
+    except Exception:
+        pass
     return _NTFY_DEFAULT
 
 
