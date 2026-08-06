@@ -16,19 +16,28 @@
 set -euo pipefail
 
 CONF="${DIWALL_CONF:-/opt/diwall/diwall.conf}"
-for arg in "$@"; do
-    case "$arg" in --config) shift; CONF="$1" ;; esac
+# Audit 06/08/2026 (C-10) : shift dans un for sur "$@" ne modifie pas la
+# liste itérée — --config ne fonctionnait qu'en premier argument.
+while [[ $# -gt 0 ]]; do
+    case "$1" in
+        --config) CONF="$2"; shift 2 ;;
+        *) echo "Option inconnue : $1" >&2; exit 1 ;;
+    esac
 done
 
 # ── Lire la configuration ─────────────────────────────────────────────────────
+# Audit 06/08/2026 (C-09) : $CONF interpolé dans une chaîne Python entre
+# apostrophes — passé désormais en argument positionnel (sys.argv[1]).
 if [ -f "$CONF" ]; then
     SECRETS_DIR=$(python3 -c "
-import json, os; conf=json.load(open('$CONF'))
-print(os.path.expanduser(conf.get('secrets_dir','~/Vaults/Diwall')))")
+import json, os, sys
+conf = json.load(open(sys.argv[1]))
+print(os.path.expanduser(conf.get('secrets_dir','~/Vaults/Diwall')))" "$CONF")
     SECRETS_CRYPT_DIR=$(python3 -c "
-import json, os; conf=json.load(open('$CONF'))
+import json, os, sys
+conf = json.load(open(sys.argv[1]))
 d = os.path.expanduser(conf.get('secrets_dir','~/Vaults/Diwall'))+'.crypt'
-print(os.path.expanduser(conf.get('secrets_crypt_dir',d)))")
+print(os.path.expanduser(conf.get('secrets_crypt_dir',d)))" "$CONF")
 else
     SECRETS_DIR="${DIWALL_SECRETS_DIR:-$HOME/Secrets/Diwall}"
     SECRETS_CRYPT_DIR="${DIWALL_SECRETS_CRYPT_DIR:-${SECRETS_DIR}.crypt}"
@@ -69,13 +78,22 @@ if [ ! -d "$SECRETS_DIR" ] || [ -z "$(ls -A "$SECRETS_DIR" 2>/dev/null)" ]; then
     echo "ERREUR : secrets_dir vide ou inexistant — rien à migrer." >&2; exit 1
 fi
 
+# Même défaut que C-11 (monter-repertoire-chiffre.sh), non nommé par l'audit
+# mais identique : "in l" cherche le chemin en sous-chaîne dans /proc/mounts,
+# faux positif possible sur un point de montage voisin. Champ 2 exact ou
+# sous-répertoire, comme _repertoire_est_monte (lib/repertoire_chiffre.py).
 if python3 -c "
-import os
-secrets = '$SECRETS_DIR'
+import os, sys
+cible = os.path.realpath(sys.argv[1])
 with open('/proc/mounts') as f:
-    if any(os.path.realpath(secrets) in l for l in f):
-        exit(0)
-exit(1)" 2>/dev/null; then
+    for ligne in f:
+        champs = ligne.split()
+        if len(champs) < 3 or 'fuse' not in champs[2]:
+            continue
+        point = champs[1]
+        if cible == point or cible.startswith(point + os.sep):
+            sys.exit(0)
+sys.exit(1)" "$SECRETS_DIR" 2>/dev/null; then
     echo "ERREUR : secrets_dir est déjà un point de montage actif." >&2
     echo "  Démonter d'abord : bash demonter-repertoire-chiffre.sh" >&2; exit 1
 fi

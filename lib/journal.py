@@ -98,7 +98,12 @@ def _resumer_action(action):
     if t == "evaluer" and action.get("script"):
         return f"evaluer:{str(action['script'])[:60]}"
     if t == "naviguer" and action.get("url"):
-        return f"naviguer:{action['url']}"
+        # Audit 06/08/2026 (F-11) : _sanitiser_url_journal ampute la query
+        # (C-07) sur cible_url, mais ce point d'entrée recopiait l'URL brute
+        # — un jeton de réinitialisation ou d'invitation en query
+        # (?token=…, ?reset=…) était donc journalisé en clair ici alors
+        # qu'il aurait été supprimé ailleurs.
+        return f"naviguer:{_sanitiser_url_journal(action['url'])}"
     return tete
 
 
@@ -114,6 +119,7 @@ def _neutraliser_actions_raw(actions):
     - remplir / remplir_som avec valeur directe : remplacée par "<saisie>"
     - depuis_secrets et depuis_secrets_totp : conservés tels quels (pas de valeur réelle)
     - evaluer : script tronqué à 500 caractères
+    - naviguer : url passée par _sanitiser_url_journal (F-11, 06/08/2026)
     - attendre_mfa_ntfy : copié tel quel (le topic vient du répertoire chiffré, pas de l'action)
     - tout le reste : copié tel quel
     """
@@ -129,6 +135,12 @@ def _neutraliser_actions_raw(actions):
                 a2["valeur"] = "<saisie>"
         elif t == "evaluer" and "script" in a2:
             a2["script"] = a2["script"][:500]
+        elif t == "naviguer" and "url" in a2:
+            # Audit 06/08/2026 (F-11) : ce point d'entrée copiait l'action
+            # "telle quelle" (docstring ci-dessus) — l'URL brute, query
+            # comprise, atteignait actions_raw sans passer par
+            # _sanitiser_url_journal.
+            a2["url"] = _sanitiser_url_journal(a2["url"])
         resultat.append(a2)
     return resultat
 
@@ -154,7 +166,8 @@ def _preuves_dir_authentifie(secrets_chemin=None):
     """
     if secrets_chemin:
         try:
-            rep = os.path.dirname(os.path.realpath(os.path.expanduser(secrets_chemin)))
+            from lib.repertoire_chiffre import resoudre_chemin_reel
+            rep = os.path.dirname(resoudre_chemin_reel(secrets_chemin))
             if rep:
                 return os.path.join(rep, "preuves")
         except Exception:
@@ -271,7 +284,17 @@ def archiver_preuves(operation_id, captures, auth_status=None, secret_resolu=Fal
     mois = datetime.now().strftime("%Y-%m")
     dest_dir = os.path.join(preuves_dir, mois, operation_id)
     try:
-        os.makedirs(dest_dir, exist_ok=True)
+        # Audit 06/08/2026 (F-06) : os.makedirs sans mode laissait 0775 à
+        # l'umask — l'arborescence (liste des opérations et leur horodatage)
+        # était énumérable. mode= seul ne corrige pas un répertoire parent
+        # déjà créé avec un umask laxiste (mois, preuves/) : chmod explicite
+        # sur les trois niveaux, même motif que chemin_png (shot.py).
+        os.makedirs(dest_dir, mode=0o700, exist_ok=True)
+        for d in (dest_dir, os.path.dirname(dest_dir), preuves_dir):
+            try:
+                os.chmod(d, 0o700)
+            except OSError:
+                pass
     except OSError as e:
         print(f"⚠ journal : preuves non archivées ({e})", file=sys.stderr)
         return list(captures or [])
@@ -538,11 +561,11 @@ def _ecriture_secrets_bloquee(repertoire):
     garde-fou était absent.
     """
     try:
-        from lib.repertoire_chiffre import _chemin_secrets, _repertoire_est_monte
-        secrets_dir = os.path.realpath(os.path.expanduser(_chemin_secrets()))
+        from lib.repertoire_chiffre import _chemin_secrets, _repertoire_est_monte, resoudre_chemin_reel
+        secrets_dir = resoudre_chemin_reel(_chemin_secrets())
     except Exception:
         return False
-    cible = os.path.realpath(repertoire)
+    cible = resoudre_chemin_reel(repertoire)
     if cible != secrets_dir and not cible.startswith(secrets_dir + os.sep):
         return False
     return not _repertoire_est_monte(repertoire)
@@ -556,8 +579,18 @@ def _ecrire_fallback(ligne, raison):
     """
     fb = _fallback_path()
     fb_dir = os.path.dirname(fb) or "."
+    # Audit 06/08/2026 (F-13) : mode= sur makedirs ne s'applique pas si
+    # fb_dir préexiste (cas courant — répertoire déjà créé par un run
+    # précédent) ; O_NOFOLLOW sur l'open refuse un lien symbolique
+    # pré-placé au chemin cible. Diwall tourne avec un compte système
+    # (diwall) distinct de l'opérateur (ron) — un compte local hostile qui
+    # crée /tmp/diwall/ le premier n'est pas un modèle de menace théorique.
     os.makedirs(fb_dir, mode=0o700, exist_ok=True)
-    fd_fb = os.open(fb, os.O_CREAT | os.O_WRONLY | os.O_APPEND, 0o600)
+    try:
+        os.chmod(fb_dir, 0o700)
+    except OSError:
+        pass
+    fd_fb = os.open(fb, os.O_CREAT | os.O_WRONLY | os.O_APPEND | os.O_NOFOLLOW, 0o600)
     with os.fdopen(fd_fb, "a", encoding="utf-8") as f:
         f.write(ligne)
         f.flush()

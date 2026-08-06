@@ -30,11 +30,6 @@ MAX_VISION_LARGEUR = 640
 MAX_VISION_HAUTEUR = 360
 
 
-def _lire_b64(path):
-    with open(path, "rb") as f:
-        return base64.b64encode(f.read()).decode()
-
-
 def _reduire_et_b64(path):
     """Réduit l'image à MAX_VISION_* pour économiser les tokens de contexte."""
     from PIL import Image
@@ -160,7 +155,17 @@ def _localiser_claude(image_path, description, largeur, hauteur):
                     "source": {
                         "type": "base64",
                         "media_type": "image/png",
-                        "data": _lire_b64(image_path),
+                        # Audit 06/08/2026 (F-17/C-08) : ce mode envoie la
+                        # capture hors de la machine (API Anthropic), à la
+                        # différence du mode local (Ollama, localhost) —
+                        # c'était pourtant le seul des deux à transmettre la
+                        # pleine résolution plutôt que la réduction déjà
+                        # appliquée au mode local. La réduction suffit à la
+                        # localisation, c'est son motif pour le mode local ;
+                        # elle s'applique ici pour la même raison, plus la
+                        # confidentialité d'une capture de tableau de bord
+                        # authentifié envoyée à un tiers.
+                        "data": _reduire_et_b64(image_path),
                     },
                 },
                 {"type": "text", "text": _prompt(description, largeur, hauteur)},

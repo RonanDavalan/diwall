@@ -97,7 +97,14 @@ def test_1_mode_conseille_filtre_succes():
 def test_2_chainage_unitaire():
     import rpa
 
-    with tempfile.TemporaryDirectory() as tmp:
+    # Audit 06/08/2026 (F-18/C-12) : declencher_scenario est désormais confiné
+    # à scenarios/ (rpa.resoudre_chemin_scenario(..., confiner=True)) — un
+    # chemin absolu hors de ce répertoire, comme un TemporaryDirectory() par
+    # défaut sous /tmp, est refusé. Le fixture temporaire vit donc sous
+    # scenarios/ elle-même, seul changement requis : ce test vérifie la
+    # comptabilité de chaînage, pas l'emplacement du fichier.
+    scenarios_dir = os.path.join(RACINE, "scenarios")
+    with tempfile.TemporaryDirectory(dir=scenarios_dir) as tmp:
         sous_sous = os.path.join(tmp, "profondeur2.json")
         sous = os.path.join(tmp, "profondeur1.json")
         json.dump({"actions": [{"type": "evaluer", "script": "1"}]}, open(sous_sous, "w"))
@@ -135,7 +142,10 @@ def test_2_chainage_unitaire():
 
 
 def test_3_chainage_journal_end_to_end():
-    with tempfile.TemporaryDirectory() as tmp:
+    # Audit 06/08/2026 (F-18/C-12) : même raison que test_2 — le sous-scénario
+    # référencé par declencher_scenario doit vivre sous scenarios/.
+    scenarios_dir = os.path.join(RACINE, "scenarios")
+    with tempfile.TemporaryDirectory(dir=scenarios_dir) as tmp:
         sous = os.path.join(tmp, "sous.json")
         parent = os.path.join(tmp, "parent.json")
         journal_path = os.path.join(tmp, "operations.jsonl")

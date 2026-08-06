@@ -114,6 +114,18 @@ def _construire_depuis_yaml(chemin: Path, data: dict) -> ProfilOperateur:
             continue
         if nom in LISTE_BLANCHE_AUTO_CONFIRMER:
             noms_valides.add(nom)
+        elif nom in LISTE_ROUGE_INVIOLABLE:
+            # Audit 06/08/2026 (F-18/C-14) : la version précédente classait
+            # un nom de la liste rouge parmi les "inconnus" — un simple
+            # avertissement, exactement la false affordance que le
+            # docstring du module dit vouloir éviter (une constante nommée
+            # "inviolable" sans le moindre effet sur l'exécution). Échec dur
+            # au chargement du profil, pas un avertissement continué.
+            raise ValueError(
+                f"{chemin} : '{nom}' figure dans LISTE_ROUGE_INVIOLABLE — "
+                f"verrou inviolable, ne peut jamais être placé dans "
+                f"'auto_confirmer' d'un profil YAML."
+            )
         else:
             noms_inconnus.append(nom)
     if noms_inconnus:
@@ -194,4 +206,14 @@ def charger_profil(chemin: Optional[Path] = None) -> ProfilOperateur:
         )
         sys.exit(1)
 
-    return _construire_depuis_yaml(cible, data)
+    try:
+        return _construire_depuis_yaml(cible, data)
+    except ValueError as exc:
+        # Cohérence avec le reste de cette fonction (§4.4 : "YAML invalide →
+        # exit 1") — _construire_depuis_yaml lève ValueError sur plusieurs
+        # défauts de contenu (type de auto_confirmer, type de
+        # tracabilite_modeles, et depuis l'audit 06/08/2026/F-18/C-14, un nom
+        # de LISTE_ROUGE_INVIOLABLE dans auto_confirmer). Aucun de ces cas ne
+        # doit remonter comme une trace Python brute à l'appelant.
+        print(f"✖ Diwall : {exc}", file=sys.stderr)
+        sys.exit(1)

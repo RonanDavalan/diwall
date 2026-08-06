@@ -39,6 +39,7 @@ __version__ = "1.23.0"
 import argparse
 import json
 import os
+import socket
 import subprocess
 import sys
 
@@ -46,10 +47,15 @@ sys.path.insert(0, os.path.dirname(os.path.abspath(__file__)))
 
 
 def _boussole():
+    # Audit 06/08/2026 (F-14/C-13) : shell=True sans nécessité — la commande
+    # est constante donc sans injection directe aujourd'hui, mais dépend du
+    # PATH hérité, surface inutile. shot.py obtient la même information sans
+    # shell ni processus externe (socket UDP) ; même méthode reprise ici.
     try:
-        ip = subprocess.check_output(
-            "hostname -I | cut -d' ' -f1", shell=True, text=True
-        ).strip()
+        s = socket.socket(socket.AF_INET, socket.SOCK_DGRAM)
+        s.connect(("8.8.8.8", 80))
+        ip = s.getsockname()[0]
+        s.close()
     except Exception:
         ip = ""
     return {
@@ -195,7 +201,7 @@ def _aplatir_actions(actions, profondeur=0):
             resultat.append(a)
             continue
         nom = a.get("scenario", "")
-        chemin, essais = resoudre_chemin_scenario(nom)
+        chemin, essais = resoudre_chemin_scenario(nom, confiner=True)
         if not chemin:
             _sortir_erreur(
                 "fichier_introuvable",
@@ -224,17 +230,27 @@ def _aplatir_actions(actions, profondeur=0):
     return resultat, chainage
 
 
-def resoudre_chemin_scenario(arg: str) -> tuple:
-    """Résout --scenario en cascade : chemin direct, puis scenarios/<nom>[.json|.yaml|.yml].
+def resoudre_chemin_scenario(arg: str, confiner: bool = False) -> tuple:
+    """Résout un nom de scénario en cascade : chemin direct, puis
+    scenarios/<nom>[.json|.yaml|.yml].
 
     Retourne (chemin_resolu, essais). Si chemin_resolu est None, essais liste les
     chemins testés pour le message d'erreur.
+
+    confiner=True (audit 06/08/2026, F-18/C-12) : n'accepte jamais un chemin
+    direct ni un candidat dont la cible réelle sort de scenarios/ — utilisé
+    par declencher_scenario, où le nom vient du contenu d'un scénario
+    potentiellement partagé par un tiers, pas de l'opérateur en ligne de
+    commande. --scenario (confiner=False, défaut) reste un chemin libre
+    légitime, inchangé.
     """
-    if os.path.isfile(arg):
-        return arg, [arg]
     base = os.path.dirname(os.path.abspath(__file__))
-    scenarios_dir = os.path.join(base, "scenarios")
-    essais = [arg]
+    scenarios_dir = os.path.realpath(os.path.join(base, "scenarios"))
+    essais = []
+    if not confiner:
+        essais.append(arg)
+        if os.path.isfile(arg):
+            return arg, essais
     candidats = [os.path.join(scenarios_dir, arg)]
     if not os.path.splitext(arg)[1]:
         candidats += [
@@ -244,6 +260,13 @@ def resoudre_chemin_scenario(arg: str) -> tuple:
         ]
     for c in candidats:
         essais.append(c)
+        if confiner:
+            # os.path.join avec un scenarios_dir légitime ne suffit pas :
+            # arg peut contenir "../.." et faire remonter l'arborescence
+            # avant même la jointure. Seule la cible réelle fait foi.
+            reel = os.path.realpath(c)
+            if reel != scenarios_dir and not reel.startswith(scenarios_dir + os.sep):
+                continue
         if os.path.isfile(c):
             return c, essais
     return None, essais
@@ -464,14 +487,17 @@ def main():
     if not url:
         _sortir_erreur("scenario_invalide", message="Champ 'url' manquant dans le scénario")
 
-    from urllib.parse import urlparse as _urlparse
-    _scheme = _urlparse(url).scheme.lower()
-    if _scheme not in {"http", "https"}:
-        _sortir_erreur(
-            "url_scheme_interdit",
-            message=f"URL scheme '{_scheme}' interdit — seuls http et https sont acceptés. URL: {url}",
-            exit_code=2,
-        )
+    # Audit 06/08/2026 (F-02) : cette validation ne contrôlait que le
+    # schéma — une URL à userinfo (user:pass@host) passait ce contrôle,
+    # puis atteignait l'argv du sous-processus shot.py (cmd += ["--url",
+    # url] plus bas), donc /proc/<pid>/cmdline, avant d'être rejetée là.
+    # lib/securite_url.py est désormais le seul point de contrôle, appelé
+    # ici comme dans shot.py.
+    from lib.securite_url import valider_schema_url
+    try:
+        valider_schema_url(url)
+    except ValueError as e:
+        _sortir_erreur("url_scheme_interdit", message=str(e), exit_code=2)
 
     # ── Checkpoint (v1.17.0, item 2) ──────────────────────────────────────────
     # Reprise = session + index d'action déjà exécutée. L'état DOM (modale
@@ -722,7 +748,18 @@ def main():
     if sortie is not None and result.returncode == 0:
         if args.sauver_verifier_reference:
             surface = _extraire_surface_verifiable(sortie)
-            with open(args.sauver_verifier_reference, "w", encoding="utf-8") as f:
+            # Audit 06/08/2026 (F-10) : evaluations[].valeur porte les valeurs
+            # brutes retournées par `evaluer` (sortie stdout de shot.py, non
+            # neutralisée — c'est le journal qui applique ce filtre, pas le
+            # canal agent). E-09 a durci le checkpoint (0600) au motif qu'il
+            # divulguait un chemin de fichier de session ; cette référence
+            # peut divulguer les jetons de session eux-mêmes.
+            if surface.get("evaluations"):
+                from lib.journal import _neutraliser_valeur_evaluer
+                for e in surface["evaluations"]:
+                    e["valeur"] = _neutraliser_valeur_evaluer(e.get("valeur"))
+            fd = os.open(args.sauver_verifier_reference, os.O_CREAT | os.O_WRONLY | os.O_TRUNC, 0o600)
+            with os.fdopen(fd, "w", encoding="utf-8") as f:
                 json.dump(surface, f, ensure_ascii=False, indent=2)
             print(f"✓ référence structurelle enregistrée : {args.sauver_verifier_reference}",
                   file=sys.stderr)

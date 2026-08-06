@@ -22,11 +22,12 @@ mais non monté. Détection via /proc/mounts — agnostique du mode d'ouverture
 import hashlib
 import json
 import os
+import sys
 from urllib.parse import urlparse
 
 _CONF_PATH = "/opt/diwall/diwall.conf"
 
-_CHAMPS_CHECKSUM = ("username", "password", "totp_cle")
+_CHAMPS_CHECKSUM = ("username", "password", "totp_cle", "origines_autorisees")
 
 
 class SecretsFermesError(Exception):
@@ -41,7 +42,11 @@ class SecretsFermesError(Exception):
 class SecretsChecksumError(SecretsFermesError):
     """Le checksum SHA256 du fichier d'identifiants ne correspond pas aux données lues.
 
-    Indique une corruption silencieuse (FUSE) ou une modification non autorisée.
+    Audit 06/08/2026 (C-15b) : détecte une corruption silencieuse du
+    support (FUSE), pas une modification malveillante intentionnelle — qui
+    aurait recalculé le checksum en même temps que la valeur. L'ancien
+    libellé (« modification non autorisée ») promettait une garantie
+    d'authenticité que ce mécanisme d'intégrité ne tient pas.
     Code de sortie recommandé : 42 (hérité de SecretsFermesError).
     """
 
@@ -76,6 +81,20 @@ class SecretsNonConfigureError(Exception):
     CODE_SORTIE = 43
 
 
+def resoudre_chemin_reel(chemin: str) -> str:
+    """Résout un chemin en chemin réel : liens symboliques suivis, `~/` développé.
+
+    Point de passage unique pour toute résolution de chemin de sécurité liée
+    au répertoire chiffré. Un lien symbolique placé à l'intérieur d'un
+    répertoire chiffré monté et pointant vers un fichier sur disque nu n'est
+    accepté par aucun contrôle qui passe par cette fonction plutôt que par
+    `os.path.abspath` (audit 06/08/2026, F-01 — trois réimplémentations
+    indépendantes de `realpath` dans `lib/journal.py`, une résolution par
+    `abspath` ici même qui ne suivait pas les liens, jamais harmonisées).
+    """
+    return os.path.realpath(os.path.expanduser(chemin))
+
+
 def _lire_conf() -> dict:
     conf_path = os.path.expanduser(os.environ.get("DIWALL_CONF", _CONF_PATH))
     if os.path.isfile(conf_path):
@@ -86,7 +105,7 @@ def _lire_conf() -> dict:
 
 def _chemin_secrets() -> str:
     if "DIWALL_SECRETS_DIR" in os.environ:
-        return os.path.expanduser(os.environ["DIWALL_SECRETS_DIR"])
+        return resoudre_chemin_reel(os.environ["DIWALL_SECRETS_DIR"])
     if "DIWALL_CONF" in os.environ:
         conf_path = os.path.expanduser(os.environ["DIWALL_CONF"])
         if os.path.isfile(conf_path):
@@ -97,10 +116,10 @@ def _chemin_secrets() -> str:
                 # chemin relatif résolu par rapport au répertoire du .diwall.conf
                 if not os.path.isabs(os.path.expanduser(secrets_dir)):
                     secrets_dir = os.path.join(os.path.dirname(conf_path), secrets_dir)
-                return os.path.realpath(os.path.expanduser(secrets_dir))
+                return resoudre_chemin_reel(secrets_dir)
     conf = _lire_conf()
     if "secrets_dir" in conf:
-        return os.path.expanduser(conf["secrets_dir"])
+        return resoudre_chemin_reel(conf["secrets_dir"])
     conf_path_effectif = os.path.expanduser(os.environ.get("DIWALL_CONF", _CONF_PATH))
     raise SecretsNonConfigureError(
         f"Aucune configuration du répertoire chiffré active.\n"
@@ -187,6 +206,50 @@ def _verifier_repertoire(secrets_dir: str) -> None:
             )
 
 
+def _verifier_cible_montee(chemin_resolu: str, description: str = "fichier secrets") -> None:
+    """Lève SecretsFermesError si le répertoire de `chemin_resolu` (déjà
+    résolu par `resoudre_chemin_reel`) n'est pas un point de montage FUSE
+    actif — même contrôle que le montage d'un fichier `--secrets` explicite,
+    factorisé pour servir aussi la résolution par nom d'hôte
+    (`_resoudre_et_verifier` ci-dessous). Un lien symbolique dont la cible
+    réelle vit hors de tout montage FUSE (disque nu) est refusé ici ; un lien
+    qui redirige vers un *autre* répertoire monté (ex. un répertoire chiffré
+    voisin dans le même coffre) reste accepté — c'est le motif d'usage réel
+    observé (`allsys.io.json`, session 80).
+    """
+    repertoire = os.path.dirname(chemin_resolu)
+    if not _repertoire_est_monte(repertoire):
+        if not os.path.isdir(repertoire):
+            raise SecretsFermesError(
+                f"Répertoire du {description} introuvable — répertoire chiffré non monté ?\n"
+                f"  Fichier    : {chemin_resolu}\n"
+                f"  Répertoire : {repertoire}\n"
+                f"  Montez le répertoire chiffré contenant ce fichier avant d'exécuter."
+            )
+        raise SecretsFermesError(
+            f"Le répertoire du {description} n'est pas un point de montage actif.\n"
+            f"  Fichier    : {chemin_resolu}\n"
+            f"  Répertoire : {repertoire}\n"
+            f"  Seuls les points de montage actifs sont autorisés (répertoire chiffré gocryptfs, tmpfs…).\n"
+            f"  Refusé : disque nu persistant (ex. /tmp, ~/Documents)."
+        )
+
+
+def _resoudre_et_verifier(chemin: str) -> str:
+    """Résout `chemin` en chemin réel et vérifie que sa cible reste sous un
+    point de montage FUSE actif.
+
+    Un lien symbolique placé dans le répertoire chiffré et pointant vers un
+    fichier sur disque nu est ainsi refusé sur sa cible réelle, jamais ouvert
+    (audit 06/08/2026, F-01) — même contrôle que
+    `_verifier_montage_fichier_secrets`, appliqué ici à la résolution par nom
+    d'hôte plutôt qu'à un `--secrets` explicite.
+    """
+    reel = resoudre_chemin_reel(chemin)
+    _verifier_cible_montee(reel, "fichier de credentials")
+    return reel
+
+
 def _trouver_fichier_secrets(secrets_dir: str, domaine: str, port: int | None = None) -> str:
     """Résout le chemin du fichier JSON de credentials dans secrets_dir.
 
@@ -197,10 +260,10 @@ def _trouver_fichier_secrets(secrets_dir: str, domaine: str, port: int | None = 
     if port is not None:
         chemin = os.path.join(secrets_dir, f"{domaine}_{port}.json")
         if os.path.isfile(chemin):
-            return chemin
+            return _resoudre_et_verifier(chemin)
     chemin = os.path.join(secrets_dir, f"{domaine}.json")
     if os.path.isfile(chemin):
-        return chemin
+        return _resoudre_et_verifier(chemin)
 
     # Recherche récursive (followlinks=False pour confiner le parcours au répertoire chiffré)
     cible_port = f"{domaine}_{port}.json" if port is not None else None
@@ -215,7 +278,7 @@ def _trouver_fichier_secrets(secrets_dir: str, domaine: str, port: int | None = 
     candidats = par_port if par_port else par_base
 
     if len(candidats) == 1:
-        return candidats[0]
+        return _resoudre_et_verifier(candidats[0])
     if len(candidats) > 1:
         liste = "\n  ".join(sorted(candidats))
         raise FileNotFoundError(
@@ -247,9 +310,13 @@ def _verifier_checksum(data: dict, chemin: str) -> None:
         json.dumps(champs, sort_keys=True).encode("utf-8")
     ).hexdigest()
     if calcule != attendu:
+        # Audit 06/08/2026 (F-03) : os.path.basename sur tout chemin de
+        # fichier d'identifiants dans un message d'exception — le chemin
+        # complet expose le nom d'utilisateur local et l'arborescence du
+        # coffre ; même traitement appliqué à chaque site de ce module.
         raise SecretsChecksumError(
             f"Intégrité du fichier d'identifiants compromise : checksum invalide.\n"
-            f"  Fichier   : {chemin}\n"
+            f"  Fichier   : {os.path.basename(chemin)}\n"
             f"  Attendu   : {attendu}\n"
             f"  Calculé   : {calcule}\n"
             f"Possible corruption FUSE silencieuse. Vérifiez le fichier d'identifiants."
@@ -283,7 +350,7 @@ def lire_credential(domaine: str, cle: str, port: int | None = None) -> str:
     _verifier_checksum(data, chemin)
     if cle not in data:
         raise KeyError(
-            f"Clé '{cle}' absente du répertoire chiffré '{domaine}' ({chemin})\n"
+            f"Clé '{cle}' absente du répertoire chiffré '{domaine}' ({os.path.basename(chemin)})\n"
             f"Clés disponibles : {list(data.keys())}"
         )
     return data[cle]
@@ -303,7 +370,7 @@ def verifier_cles(domaine: str, cles, port: int | None = None) -> None:
     manquantes = [c for c in cles if c not in data]
     if manquantes:
         raise KeyError(
-            f"Clé(s) {manquantes} absente(s) du répertoire chiffré '{domaine}' ({chemin})\n"
+            f"Clé(s) {manquantes} absente(s) du répertoire chiffré '{domaine}' ({os.path.basename(chemin)})\n"
             f"Clés disponibles : {list(data.keys())}"
         )
 
@@ -333,7 +400,7 @@ def _verifier_origines_autorisees(data: dict, chemin: str, url_page: str | None 
     if origines is None:
         raise SecretsOriginesManquantesError(
             f"Fichier secrets sans clé 'origines_autorisees' — obligatoire depuis le 05/08/2026.\n"
-            f"  Fichier : {chemin}\n"
+            f"  Fichier : {os.path.basename(chemin)}\n"
             f"  Ajoutez : \"origines_autorisees\": [\"hostname.exemple\"]\n"
             f"  Sans cette clé, --secrets rompt le liage domaine que lire_credential "
             f"assure par défaut — refus tant qu'elle n'est pas déclarée."
@@ -344,14 +411,18 @@ def _verifier_origines_autorisees(data: dict, chemin: str, url_page: str | None 
         if domaine not in autorisees:
             raise SecretsOrigineNonAutoriseeError(
                 f"Origine '{domaine}' absente de 'origines_autorisees' du fichier secrets.\n"
-                f"  Fichier     : {chemin}\n"
+                f"  Fichier     : {os.path.basename(chemin)}\n"
                 f"  Autorisées  : {sorted(autorisees)}\n"
                 f"  Refus de lecture — possible redirection vers un domaine tiers."
             )
 
 
-def _verifier_montage_fichier_secrets(chemin: str) -> None:
+def _verifier_montage_fichier_secrets(chemin: str) -> str:
     """Vérifie T1 (montage strict) pour un fichier de secrets explicite.
+
+    Retourne le chemin réel résolu — l'appelant doit ouvrir CE chemin, pas
+    le chemin d'origine, pour ne pas rouvrir entre validation et lecture la
+    fenêtre que la résolution vient de fermer.
 
     Factorisé depuis lire_credential_fichier/verifier_cles_fichier (chantier
     qualité 05/08/2026) — bloc dupliqué verbatim entre les deux. Le répertoire
@@ -361,27 +432,40 @@ def _verifier_montage_fichier_secrets(chemin: str) -> None:
     bloque pas (même logique que _repertoire_est_monte). Lève aussi
     FileNotFoundError si le fichier lui-même est absent une fois le montage
     validé.
+
+    Audit 06/08/2026 (F-01) : la version précédente calculait le répertoire
+    à contrôler avec `os.path.dirname(os.path.abspath(chemin))` —
+    `abspath` ne résout pas les liens symboliques, alors que la lecture qui
+    suivait, si. Un lien placé dans le répertoire chiffré monté et pointant
+    vers un fichier sur disque nu était donc accepté : le contrôle validait
+    le répertoire du lien, la lecture consommait sa cible. `chemin` est
+    désormais résolu en premier ; le contrôle et l'ouverture portent tous
+    deux sur la cible réelle.
     """
-    repertoire = os.path.dirname(os.path.abspath(chemin))
-    if not _repertoire_est_monte(repertoire):
-        if not os.path.isdir(repertoire):
-            raise SecretsFermesError(
-                f"Répertoire du fichier secrets introuvable — répertoire chiffré non monté ?\n"
-                f"  Fichier    : {chemin}\n"
-                f"  Répertoire : {repertoire}\n"
-                f"  Montez le répertoire chiffré contenant ce fichier avant d'exécuter."
-            )
-        raise SecretsFermesError(
-            f"Le répertoire du fichier secrets n'est pas un point de montage actif.\n"
-            f"  Fichier    : {chemin}\n"
-            f"  Répertoire : {repertoire}\n"
-            f"  Seuls les points de montage actifs sont autorisés (répertoire chiffré gocryptfs, tmpfs…).\n"
-            f"  Refusé : disque nu persistant (ex. /tmp, ~/Documents)."
-        )
+    chemin = resoudre_chemin_reel(chemin)
+    _verifier_cible_montee(chemin, "fichier secrets")
     if not os.path.isfile(chemin):
         raise FileNotFoundError(
-            f"Fichier secrets introuvable : {chemin}"
+            f"Fichier secrets introuvable : {os.path.basename(chemin)}"
         )
+    # Audit 06/08/2026 (F-07) : T1 vérifie le montage du répertoire, jamais
+    # le mode du fichier lui-même. Un fichier d'identifiants laissé lisible
+    # par le groupe ou par tous (constaté : 0664) était accepté sans le
+    # moindre signal. Avertissement seul, pas de refus — le mode d'un
+    # fichier hérité d'une copie/synchronisation n'est pas toujours sous le
+    # contrôle direct de l'opérateur au moment de l'usage.
+    try:
+        mode = os.stat(chemin).st_mode & 0o777
+        if mode & 0o077:
+            print(
+                f"⚠ diwall : fichier secrets lisible au-delà du propriétaire "
+                f"({oct(mode)}) : {os.path.basename(chemin)} — "
+                f"recommandé : chmod 600",
+                file=sys.stderr,
+            )
+    except OSError:
+        pass
+    return chemin
 
 
 def lire_credential_fichier(chemin: str, cle: str, url_page: str | None = None) -> str:
@@ -393,14 +477,14 @@ def lire_credential_fichier(chemin: str, cle: str, url_page: str | None = None) 
     Vérifie que son domaine figure dans 'origines_autorisees' du fichier ;
     la clé elle-même est obligatoire, url_page ou non.
     """
-    _verifier_montage_fichier_secrets(chemin)
+    chemin = _verifier_montage_fichier_secrets(chemin)
     with open(chemin, encoding="utf-8") as f:
         data = json.load(f)
     _verifier_checksum(data, chemin)
     _verifier_origines_autorisees(data, chemin, url_page)
     if cle not in data:
         raise KeyError(
-            f"Clé '{cle}' absente du fichier secrets ({chemin})\n"
+            f"Clé '{cle}' absente du fichier secrets ({os.path.basename(chemin)})\n"
             f"Clés disponibles : {list(data.keys())}"
         )
     return data[cle]
@@ -416,14 +500,14 @@ def verifier_cles_fichier(chemin: str, cles) -> None:
     lire_credential_fichier, seul moment où page.url (post-navigation,
     post-redirection éventuelle) est connu.
     """
-    _verifier_montage_fichier_secrets(chemin)
+    chemin = _verifier_montage_fichier_secrets(chemin)
     with open(chemin, encoding="utf-8") as f:
         data = json.load(f)
     _verifier_origines_autorisees(data, chemin)
     manquantes = [c for c in cles if c not in data]
     if manquantes:
         raise KeyError(
-            f"Clé(s) {manquantes} absente(s) du fichier secrets ({chemin})\n"
+            f"Clé(s) {manquantes} absente(s) du fichier secrets ({os.path.basename(chemin)})\n"
             f"Clés disponibles : {list(data.keys())}"
         )
 

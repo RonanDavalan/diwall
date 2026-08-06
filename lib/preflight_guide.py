@@ -43,7 +43,10 @@ def _ecrire_marqueur():
         repertoire = os.path.dirname(_MARQUEUR_PATH)
         os.makedirs(repertoire, mode=0o700, exist_ok=True)
         os.chmod(repertoire, 0o700)
-        fd = os.open(_MARQUEUR_PATH, os.O_CREAT | os.O_WRONLY | os.O_TRUNC, 0o600)
+        # Audit 06/08/2026 (F-18) : O_NOFOLLOW ajouté — même motif que D-09
+        # sur _sauver_session (shot.py), jamais appliqué ici. Un lien
+        # symbolique pré-placé au chemin du marqueur ne sera pas suivi.
+        fd = os.open(_MARQUEUR_PATH, os.O_CREAT | os.O_WRONLY | os.O_TRUNC | os.O_NOFOLLOW, 0o600)
         with os.fdopen(fd, "w", encoding="utf-8") as f:
             json.dump({"version_validee": GUIDE_VERSION_ATTENDUE}, f)
     except OSError:

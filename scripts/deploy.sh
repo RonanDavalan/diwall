@@ -22,6 +22,7 @@ CODE_FILES=(
     lib/repertoire_chiffre.py
     lib/vector.py
     lib/preflight_guide.py
+    lib/securite_url.py
 )
 
 # Répertoires de code — mode 755 (lisibles par tous)

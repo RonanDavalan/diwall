@@ -71,10 +71,15 @@ def _boussole(operation_id=None):
 # concaténée telle quelle dans les deux blobs. Pas de f-string : les deux
 # blobs JS sont truffés d'accolades qu'une interpolation .format()/f-string
 # casserait sans échappement systématique de chaque '{'/'}'.
+# Audit 06/08/2026 (F-16) : pwd, passwd, pass, mdp, api_key, apikey,
+# credential ajoutés — un champ nommé 'pwd' ou 'mdp' (nommage francophone
+# plausible sur les cibles Diwall) n'était masqué sur aucun des trois
+# canaux qui dérivent de ce prédicat unique (D-13) : masquage visuel,
+# exclusion SoM, rédaction a11y.
 _DW_EST_SENSIBLE_JS = """
     const dwEstSensible = (el) => el.type === 'password' ||
-        /password|token|secret|otp|totp/i.test(el.name || '') ||
-        /password|token|secret|otp|totp/i.test(el.id || '') ||
+        /password|pwd|passwd|pass|mdp|token|secret|api_key|apikey|credential|otp|totp/i.test(el.name || '') ||
+        /password|pwd|passwd|pass|mdp|token|secret|api_key|apikey|credential|otp|totp/i.test(el.id || '') ||
         /password/i.test(el.autocomplete || '');
 """
 
@@ -348,14 +353,41 @@ _RESTAURER_SECRETS_JS = """() => {
 }"""
 
 
+# Audit 06/08/2026 (F-09) : accumulateur des échecs de masquage de capture,
+# vidé en tête de main(). _prendre_capture est appelée depuis plusieurs
+# fonctions imbriquées (executer_actions, _injecter_som, _capture_periodique)
+# sans acheminement direct vers la boussole assemblée dans main() — ce
+# compteur évite de threader une valeur de retour à travers chaque
+# signature intermédiaire, même motif que valeurs_secrets_resolues.
+_CAPTURES_MASQUAGE_ECHOUE = []
+
+
 def _prendre_capture(page, path, full_page=True, screenshot_timeout=120_000):
-    """Point unique pour toute capture PNG — masquage des secrets garanti."""
+    """Point unique pour toute capture PNG — masquage des secrets garanti.
+
+    Audit 06/08/2026 (F-09) : si le masquage échoue (page.evaluate lève), la
+    version précédente prenait quand même la capture, sans masquage et sans
+    signal — même défaut que E-07 a corrigé pour _snapshot_a11y, jamais
+    appliqué symétriquement au canal image, qui est pourtant celui que le
+    masquage existe pour protéger. Repli sûr ici : ne pas prendre la
+    capture, signaler l'échec pour que l'appelant le porte en boussole.
+    """
     try:
         page.evaluate(_MASQUER_SECRETS_JS)
     except Exception:
-        pass
+        _CAPTURES_MASQUAGE_ECHOUE.append(path)
+        return
     try:
         page.screenshot(path=path, full_page=full_page, timeout=screenshot_timeout)
+        # Audit 06/08/2026 (F-05) : page.screenshot() écrit à l'umask du
+        # processus (0664 constaté) — la confidentialité reposait entièrement
+        # sur le mode du répertoire parent, aucune défense en profondeur.
+        # Incohérent avec _sauver_session (0600 explicite) et archiver_preuves
+        # (chmod 0600 sur la copie) : même discipline appliquée ici.
+        try:
+            os.chmod(path, 0o600)
+        except OSError:
+            pass
     finally:
         try:
             page.evaluate(_RESTAURER_SECRETS_JS)
@@ -363,24 +395,10 @@ def _prendre_capture(page, path, full_page=True, screenshot_timeout=120_000):
             pass
 
 
-def _valider_schema_url(url):
-    """Rejette les URL dont le schéma n'est pas http ou https, ou qui portent
-    un userinfo (audit 05/08/2026, C-07 : user:password@host survivait en
-    clair jusqu'au journal — --http-credentials traite ce cas correctement,
-    scopé par origine)."""
-    if not url:
-        return
-    parsed = urlparse(url)
-    scheme = parsed.scheme.lower()
-    if scheme not in {"http", "https"}:
-        raise ValueError(
-            f"URL scheme '{scheme}' interdit — seuls http et https sont acceptés. URL: {url}"
-        )
-    if parsed.username or parsed.password:
-        raise ValueError(
-            "URL avec identifiants embarqués (user:password@host) interdite — "
-            "utilisez --http-credentials, scopé par origine et jamais journalisé en clair."
-        )
+# Audit 06/08/2026 (F-02) : extraite vers lib/securite_url.py — c'était la
+# seule des deux copies (shot.py/rpa.py) à contrôler le userinfo. Alias
+# conservé pour ne pas toucher les appelants existants dans ce fichier.
+from lib.securite_url import valider_schema_url as _valider_schema_url
 
 # ── Détection passive de WAF (v1.16.0, item C) ────────────────────────────────
 # Signal non fatal — jamais d'exception. Diwall perçoit la friction, il ne
@@ -715,7 +733,18 @@ def _journaliser_run(result, actions, intention, cible_url, resultat, erreur=Non
     captures = []
     if result.get("capture"):
         captures.append(result["capture"])
-    for c in result.get("captures_intermediaires") or []:
+    # Audit 06/08/2026 (F-04) : deux structures inversées. captures_intermediaires
+    # (action "capturer") est une liste de CHAÎNES — la version précédente
+    # cherchait un dict avec clé "chemin" dessus, condition toujours fausse
+    # sur cette liste. stream_captures (captures périodiques pendant une
+    # attente) EST une liste de dicts {"chemin": ...} et n'était jamais
+    # parcourue du tout. La capture authentifiée la plus utile
+    # (ex. capture_som_apres_login) passait par captures_intermediaires et
+    # ne quittait donc jamais /tmp/diwall/, hors du dispositif D-02/E-02.
+    for chemin in result.get("captures_intermediaires") or []:
+        if isinstance(chemin, str) and chemin:
+            captures.append(chemin)
+    for c in result.get("stream_captures") or []:
         chemin = c.get("chemin") if isinstance(c, dict) else None
         if chemin:
             captures.append(chemin)
@@ -1095,6 +1124,17 @@ def _resoudre_valeur_secrets(a, valeur, page, secrets_chemin, type_action, valeu
     return valeur
 
 
+# Audit 06/08/2026 (F-08) : compteur d'occurrences rédigées par
+# _rediger_valeurs_secrets, vidé en tête de main() — même motif que
+# _CAPTURES_MASQUAGE_ECHOUE (F-09). Sur une liste de comptes, l'identifiant
+# masqué redevient identifiable *parce qu'il est le seul masqué* — la
+# décision retenue n'est pas de revenir sur le seuil de rédaction (un faux
+# positif reste préférable à une fuite), mais de signaler qu'une vue trouée
+# est en cours de lecture plutôt que de laisser le lecteur le découvrir par
+# élimination.
+_CHAMPS_REDIGES = [0]
+
+
 def _rediger_valeurs_secrets(obj, valeurs):
     """Parcourt récursivement obj (dict/list/str) et remplace, dans toute
     chaîne, chaque occurrence exacte d'une valeur de `valeurs` par un
@@ -1112,6 +1152,7 @@ def _rediger_valeurs_secrets(obj, valeurs):
     if isinstance(obj, str):
         for v in valeurs:
             if v and v in obj:
+                _CHAMPS_REDIGES[0] += obj.count(v)
                 obj = obj.replace(v, "<secret_redige>")
         return obj
     if isinstance(obj, dict):
@@ -1165,6 +1206,11 @@ def executer_actions(page, actions, output_dir, timeout, mode_llm="local",
     # seul flag posé sur l'action (même discipline que stealth_actif corrigé
     # en v1.16.0/FR-79 : ne jamais confondre l'intention et l'application réelle).
     repli_js_utilise = False
+    # Audit 06/08/2026 (F-17) : même discipline — reflète un appel réel au
+    # mode claude de cliquer_visuel (capture envoyée hors machine, API
+    # Anthropic), jamais le seul flag --llm claude qui peut n'avoir jamais
+    # déclenché l'action.
+    vision_externe_utilise = False
     if t_debut is None:
         t_debut = time.time()
 
@@ -1409,6 +1455,8 @@ def executer_actions(page, actions, output_dir, timeout, mode_llm="local",
 
             from lib.vision import localiser_element
             result = localiser_element(tmp, description, mode_llm)
+            if mode_llm == "claude":
+                vision_externe_utilise = True
 
             tag_modele = result.get("modele")
             if tag_modele and not any(
@@ -1586,7 +1634,8 @@ def executer_actions(page, actions, output_dir, timeout, mode_llm="local",
     if actions_executees > 0:
         respect["indice_agressivite"] = round(actions_ecriture / actions_executees, 3)
     return (intermediaires, stream_captures, evaluations, modeles_appeles, respect,
-            latences_actions, dernier_code_http, repli_js_utilise)
+            latences_actions, dernier_code_http, repli_js_utilise,
+            vision_externe_utilise)
 
 
 # Audit 05/08/2026 (D-10) : constaté en production — diwall.conf
@@ -1621,6 +1670,8 @@ def _conf_navigation():
 
 def main():
     args = parse_args()
+    _CAPTURES_MASQUAGE_ECHOUE.clear()  # F-09 — état propre à chaque run
+    _CHAMPS_REDIGES[0] = 0  # F-08 — état propre à chaque run
 
     # ── --version (v1.18.0) : zéro Playwright, zéro autre argument requis ─────
     if args.version:
@@ -1822,6 +1873,20 @@ def main():
                 session = _charger_session(args.reprendre_session)
                 viewport = session.get("viewport", {"width": args.largeur, "height": args.hauteur})
                 url_cible = args.url if args.url else session["url"]
+                if not args.url:
+                    # Audit 06/08/2026 (F-15) : args.url est déjà validé plus
+                    # haut (schéma + userinfo), mais quand --reprendre-session
+                    # est utilisé sans --url, url_cible vient de session["url"]
+                    # — seul chemin de navigation qui échappait au contrôle.
+                    try:
+                        _valider_schema_url(url_cible)
+                    except ValueError as e:
+                        print(json.dumps({
+                            "succes": False, "erreur": "url_scheme_interdit",
+                            "message": str(e), "horodatage": horodatage,
+                            "boussole": _boussole(operation_id),
+                        }))
+                        sys.exit(2)
             else:
                 viewport = {"width": args.largeur, "height": args.hauteur}
                 url_cible = args.url
@@ -1964,7 +2029,8 @@ def main():
             # dernière occasion de sauvegarder la session pour un checkpoint.
             try:
                 (interm, stream_captures, evaluations, modeles_appeles, respect,
-                 latences_actions, dernier_code_http_actions, repli_js_utilise) = executer_actions(
+                 latences_actions, dernier_code_http_actions, repli_js_utilise,
+                 vision_externe_utilise) = executer_actions(
                     page, actions, args.output_dir, args.timeout, args.llm,
                     interval_capture_default=args.interval_capture,
                     modeles_appeles=modeles_appeles,
@@ -2121,6 +2187,8 @@ def main():
             result["boussole"]["waf_ignore_actif"] = True
         if repli_js_utilise:
             result["boussole"]["repli_js_utilise"] = True
+        if vision_externe_utilise:
+            result["boussole"]["vision_externe"] = True
         # v1.22.0, Axe D — porte la valeur employée, pas un booléen : un agent
         # qui relit une sortie doit savoir sous quelle condition la page a été
         # jugée prête. Absente quand la navigation a suivi le défaut.
@@ -2137,6 +2205,8 @@ def main():
             result["boussole"]["som_hors_viewport"] = hors_vp_som
         if a11y_redaction_echouee:
             result["boussole"]["a11y_redaction_echouee"] = True
+        if _CAPTURES_MASQUAGE_ECHOUE:
+            result["boussole"]["capture_masquage_echoue"] = True
         try:
             result["etat"] = _construire_etat(
                 auth_status, respect, derive_session, erreurs_js,
@@ -2148,6 +2218,8 @@ def main():
         except Exception:
             pass  # etat est un confort de lecture, jamais un bloquant (item A)
         result = _rediger_valeurs_secrets(result, valeurs_secrets_resolues)
+        if _CHAMPS_REDIGES[0]:
+            result["boussole"]["champs_rediges"] = _CHAMPS_REDIGES[0]
         print(json.dumps(result, ensure_ascii=False))
         _journaliser_run(result, actions, args.intention, url_finale, "succes",
                          operation_id=operation_id, source_scenario=args.source_scenario,
@@ -2177,9 +2249,16 @@ def main():
                 "boussole": _boussole(operation_id),
             }
             result = _rediger_valeurs_secrets(result, valeurs_secrets_resolues)
+            if _CHAMPS_REDIGES[0]:
+                result["boussole"]["champs_rediges"] = _CHAMPS_REDIGES[0]
             print(json.dumps(result, ensure_ascii=False))
+            # Audit 06/08/2026 (F-03) : erreur= reprend result["message"], déjà
+            # rédigé ci-dessus — reconstruire séparément depuis str(e) aurait
+            # écrit sur le canal persistant (journal) une valeur que le canal
+            # éphémère (stdout) venait de rédiger, exactement l'asymétrie que
+            # ce correctif ferme.
             _journaliser_run(result, actions, args.intention, url_cible, "echec",
-                             erreur=f"SecretsFermesError: {e}", operation_id=operation_id,
+                             erreur=f"SecretsFermesError: {result['message']}", operation_id=operation_id,
                              source_scenario=args.source_scenario, chainage=chainage,
                              secret_resolu=bool(valeurs_secrets_resolues),
                              secrets_chemin=getattr(args, "secrets", None))
@@ -2220,9 +2299,13 @@ def main():
             result["pages_visitees_avant_echec"] = progress.get("pages_visitees", 0)
         result["boussole"] = _boussole(operation_id)
         result = _rediger_valeurs_secrets(result, valeurs_secrets_resolues)
+        if _CHAMPS_REDIGES[0]:
+            result["boussole"]["champs_rediges"] = _CHAMPS_REDIGES[0]
         print(json.dumps(result, ensure_ascii=False))
+        # Audit 06/08/2026 (F-03) : erreur= reprend result["message"] déjà
+        # rédigé — voir le commentaire jumeau sur la branche SecretsFermesError.
         _journaliser_run(result, actions, args.intention, url_cible, "echec",
-                         erreur=f"{type(e).__name__}: {e}", operation_id=operation_id,
+                         erreur=f"{result['erreur']}: {result['message']}", operation_id=operation_id,
                          source_scenario=args.source_scenario, chainage=chainage,
                          secret_resolu=bool(valeurs_secrets_resolues),
                          secrets_chemin=getattr(args, "secrets", None))

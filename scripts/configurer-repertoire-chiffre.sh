@@ -17,27 +17,35 @@ set -euo pipefail
 CONF="${DIWALL_CONF:-/opt/diwall/diwall.conf}"
 MODE_CHIFFRE=1
 
-for arg in "$@"; do
-    case "$arg" in
-        --sans-chiffrement) MODE_CHIFFRE=0 ;;
-        --gocryptfs) MODE_CHIFFRE=1 ;;   # conservé : ancien drapeau, sans effet nouveau
-        --config) shift; CONF="$1" ;;
+# Audit 06/08/2026 (C-10) : `for arg in "$@"; do ... shift ... done` — shift
+# à l'intérieur d'un for sur "$@" ne modifie pas la liste itérée : --config
+# ne fonctionnait que placé en premier argument. install.sh a déjà la
+# bonne forme, reprise ici.
+while [[ $# -gt 0 ]]; do
+    case "$1" in
+        --sans-chiffrement) MODE_CHIFFRE=0; shift ;;
+        --gocryptfs) MODE_CHIFFRE=1; shift ;;   # conservé : ancien drapeau, sans effet nouveau
+        --config) CONF="$2"; shift 2 ;;
+        *) echo "Option inconnue : $1" >&2; exit 1 ;;
     esac
 done
 
 # ── Lire la configuration ─────────────────────────────────────────────────────
+# Audit 06/08/2026 (C-09) : $CONF interpolé dans une chaîne Python entre
+# apostrophes — un chemin contenant une apostrophe injectait du code Python.
+# Passé désormais en argument positionnel (sys.argv[1]).
 if [ -f "$CONF" ]; then
     SECRETS_DIR=$(python3 -c "
 import json, os, sys
-conf = json.load(open('$CONF'))
+conf = json.load(open(sys.argv[1]))
 print(os.path.expanduser(conf.get('secrets_dir', '~/Vaults/Diwall')))
-" 2>/dev/null || echo "$HOME/Secrets/Diwall")
+" "$CONF" 2>/dev/null || echo "$HOME/Secrets/Diwall")
     SECRETS_CRYPT_DIR=$(python3 -c "
 import json, os, sys
-conf = json.load(open('$CONF'))
+conf = json.load(open(sys.argv[1]))
 default = os.path.expanduser(conf.get('secrets_dir', '~/Vaults/Diwall')) + '.crypt'
 print(os.path.expanduser(conf.get('secrets_crypt_dir', default)))
-" 2>/dev/null || echo "${SECRETS_DIR}.crypt")
+" "$CONF" 2>/dev/null || echo "${SECRETS_DIR}.crypt")
 else
     SECRETS_DIR="${DIWALL_SECRETS_DIR:-$HOME/Secrets/Diwall}"
     SECRETS_CRYPT_DIR="${DIWALL_SECRETS_CRYPT_DIR:-${SECRETS_DIR}.crypt}"

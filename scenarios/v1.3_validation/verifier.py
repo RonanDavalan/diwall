@@ -123,18 +123,28 @@ def test_c_nom_inconnu():
 
 
 def test_d_tentative_liste_rouge():
-    profil, stderr = _charger_capturant_stderr(
-        ICI / "test_v1_3_d_tentative_liste_rouge.yaml"
-    )
-    return _verdict("d) tentative d'ajout d'un nom de liste rouge", [
-        ("profil.actif == True", profil.actif is True),
-        ("warning stderr mentionne 'git_push'", "git_push" in stderr),
-        ("auto_confirmer == {'ecriture_capture_tmp'}",
-         profil.auto_confirmer == frozenset({"ecriture_capture_tmp"})),
-        ("'git_push' absent de auto_confirmer",
-         "git_push" not in profil.auto_confirmer),
-        ("est_auto_confirme('git_push') == False",
-         profil.est_auto_confirme("git_push") is False),
+    # Audit 06/08/2026 (F-18/C-14) : LISTE_ROUGE_INVIOLABLE est désormais
+    # appliquée au chargement — un nom de la liste rouge dans auto_confirmer
+    # fait échouer le chargement du profil (sys.exit(1), cohérent avec le
+    # traitement déjà en vigueur pour un YAML invalide) plutôt que d'être
+    # silencieusement écarté avec un simple avertissement. Avant ce
+    # correctif, la constante était définie et documentée comme un verrou
+    # inviolable sans le moindre effet sur l'exécution — exactement la
+    # false affordance que ce test vérifie maintenant close.
+    buf = io.StringIO()
+    code_sortie = None
+    with redirect_stderr(buf):
+        try:
+            charger_profil(ICI / "test_v1_3_d_tentative_liste_rouge.yaml")
+        except SystemExit as e:
+            code_sortie = e.code
+    stderr = buf.getvalue()
+
+    return _verdict("d) tentative d'ajout d'un nom de liste rouge — échec dur", [
+        ("charger_profil lève SystemExit(1)", code_sortie == 1),
+        ("message stderr mentionne 'git_push'", "git_push" in stderr),
+        ("message stderr mentionne le verrou inviolable",
+         "LISTE_ROUGE_INVIOLABLE" in stderr or "inviolable" in stderr.lower()),
         ("'git_push' reste dans LISTE_ROUGE_INVIOLABLE",
          "git_push" in LISTE_ROUGE_INVIOLABLE),
         ("LISTE_BLANCHE et LISTE_ROUGE disjointes",
