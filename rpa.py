@@ -39,6 +39,7 @@ __version__ = "1.23.0"
 import argparse
 import json
 import os
+import resource
 import socket
 import subprocess
 import sys
@@ -350,6 +351,13 @@ def _verifier_valeur_str(idx, ev, valeur_obtenue, cle):
 
 
 def main():
+    # Audit GLM 06/08/2026 : verifier_cles/verifier_cles_fichier (plus bas)
+    # chargent le fichier secrets complet en mémoire pour pré-valider les
+    # clés. Même protection que shot.py:1703, appliquée avant tout appel.
+    try:
+        resource.setrlimit(resource.RLIMIT_CORE, (0, 0))
+    except (ValueError, resource.error):
+        pass
     p = argparse.ArgumentParser(description="Diwall RPA — exécuteur de scénarios")
     p.add_argument("--version", action="store_true",
                    help="Affiche la version installée et quitte immédiatement, sans Playwright (v1.18.0).")
