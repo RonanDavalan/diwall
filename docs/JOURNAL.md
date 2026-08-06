@@ -4,6 +4,148 @@ History of decisions and discoveries by session, in reverse chronological order.
 
 ---
 
+## 2026-08-06 — Four of this pass's findings were the previous pass's findings, unfixed
+
+A third review of the same code, the same day as the second, found nineteen
+new things. Four of them turned out to be exact repeats of findings from the
+first review — same file, same line, same defect — carried forward twice as
+"worth hardening eventually" and never actually revisited. That repetition
+was the most useful thing this pass produced: it meant a fix aimed at the
+one case in front of it, rather than at every place built the same way, was
+the dominant failure mode across all three reviews, not an occasional one.
+The response was to stop treating each finding as its own fix and instead
+group them by what they actually shared, so the same mistake could only be
+made once per shared mechanism rather than once per occurrence.
+
+**A check for web addresses carrying embedded login credentials existed in
+one of the tool's two places that build one, not both.** The stronger of
+the two rejects an address whose scheme isn't right and one carrying a
+username or password baked into it; the weaker, in a second program that
+hands work off to the first, only checked the scheme. An address with
+embedded credentials passed the weak check, was placed on the command line
+of the process handing off the work, and only then reached the strong
+check and got rejected — after a brief window where it was visible to
+anything inspecting that process's command line on the same machine. The
+two checks are now one, called from every place an address enters the tool
+from outside, including a resume-a-previous-session path that had never
+called either.
+
+**A safeguard against reading credentials from an unlocked location
+computed which folder to check without following symbolic links, while the
+read that came right after did.** A link placed inside the correct,
+unlocked location and pointing at a file anywhere else on disk passed the
+check on its own location, and then had its actual target read regardless
+of where that turned out to be. Two independent code paths had grown this
+same gap — one checking a credentials file supplied directly, the other
+resolving one by hostname — and both are fixed the same way now: resolve
+the link first, check the result, read that. A legitimate link already in
+active use, pointing at a different but equally protected location within
+the same encrypted store, keeps working exactly as before; only a target
+that lands outside any protected location is refused.
+
+**A record meant to prove a credentials file hasn't been tampered with
+didn't cover the field controlling which sites it can be used against.**
+That field was added after the tamper check was first written, and never
+folded into what the check actually covers — so an edit to which sites a
+credentials file is authorised for could not trip an alarm meant to catch
+exactly that kind of edit.
+
+**An error message written to the permanent operations log wasn't put
+through the same redaction its own output already gets on every other
+channel.** A resolved credential is stripped from the tool's JSON output
+before it's printed; the error text handed to the log was rebuilt
+separately from the raw underlying exception and skipped that step. On the
+one error actually seen this way, the message named the exact file the
+credential had come from — and that filename carries the account it
+belongs to. Fixed by reusing the already-redacted text instead of
+rebuilding it, and every message elsewhere that names a stored file now
+gives its name alone, not the folder path that gets there — the full path
+was quietly exposing which local account the tool runs under.
+
+**The existing redaction of a resolved credential has no minimum length by
+design, and that turned the redaction itself into a tell.** On a list where
+every other row shows a genuine value, the one row blanked out is
+identifiable simply by being the only one masked. Loosening the threshold
+would trade a full leak for a partial one, so instead the output now
+separately reports how many values were blanked on a given run — enough for
+a reader to know in advance that the view in front of them has holes,
+without adding a second way to guess which row they cover.
+
+**The most useful screenshot of an authenticated run never left the
+temporary working folder.** Two different in-progress structures — extra
+screenshots taken mid-scenario, and ones taken automatically during a long
+wait — feed the same archiving step through two different shapes, and that
+step only recognised one of them; the other passed a check that always
+silently found nothing, on every single run. The screenshot taken right
+after a successful sign-in is the one that reliably followed the shape
+nobody was reading. Both shapes are now recognised, and a masking failure
+found the same way — the browser call that blanks sensitive on-screen
+fields can be refused mid-navigation, and the previous code took the
+picture anyway, unmasked — now takes no picture at all on that path, with a
+note in the output explaining why.
+
+**Files and folders this tool writes on the operator's behalf are usually
+owner-only by design, and that discipline had gaps.** A screenshot's own
+permissions followed the operating system's default rather than an
+explicit setting, since the underlying browser call ignores the containing
+folder's mode entirely; the folders holding a run's archived evidence
+inherited whatever the system happened to leave behind the first time they
+were created, sometimes readable by more than the owner, and a later run
+reusing that same folder never corrected it. Both are now set explicitly on
+every write, including a one-time correction of folders already created
+under the old, looser default. A saved reference file, used to detect
+whether a page's behaviour changed between runs, stores whatever a
+diagnostic script actually returned from the page — unlike every other
+channel this tool writes to disk, that value went through no filter at
+all. It now passes through the same one the operations log already uses,
+and is written owner-only.
+
+**Chaining one test scenario into another accepted any file path the
+calling scenario supplied**, including one reaching outside the folder
+scenarios are meant to live in — a scenario shared by someone else could
+name an arbitrary file elsewhere on the machine running it. Restricted to
+the intended folder; naming a scenario's location directly on the command
+line, a normal and different use case, is unaffected.
+
+**A named list of actions this tool must never take without a human
+present had existed since an earlier release, and nothing in the code
+actually consulted it.** A configuration file could name one of those
+actions and the tool would silently treat it as an unrecognised setting
+rather than refuse it outright — a lock with no bolt in it. It now refuses
+outright, on the same footing as a malformed configuration file.
+
+**Smaller fixes carried in the same pass:** a background process's use of
+a local fallback queue didn't correct that folder's permissions if the
+folder already existed from an earlier run, and the queue file itself
+didn't refuse to follow a symbolic link placed at its path; a second
+program shelled out for a piece of information the main one already reads
+without a shell; three small setup scripts built a one-off command by
+pasting a file path directly into program source rather than passing it as
+an argument, so a path containing a stray quote could misbehave; two of
+those same scripts parsed their own command-line options in a way that
+silently ignored a flag placed anywhere but first; and a check for whether
+a folder is actively mounted searched for the folder's name as a substring
+of the whole mount table rather than matching the exact entry, which could
+return a false "yes" from an unrelated folder whose name happened to
+contain it.
+
+The newest of the shared checks above lived only in a new file, and the
+script that copies code into the running install hadn't been told about
+it — caught before publishing rather than after, since publishing it as
+written would have left the very next invocation of the installed copy
+failing on a missing import. Two of the existing validation tests turned
+out to depend on exactly the behaviour these fixes closed off — one by
+chaining a scenario from outside its intended folder, the other by relying
+on the enforcement gap in the never-consult list above — and were rewritten
+to check the new, intended behaviour instead of the old one. Thirteen
+suites replayed clean after that, save the same two pre-existing, unrelated
+failures already on record. Deployed, and the two most consequential fixes
+— the shared address check and the encrypted-directory link check — were
+then run again for real against a live target, against the installed copy
+this time, not the source tree.
+
+---
+
 ## 2026-08-06 — Fixing a fix is not the same act as writing the code it touched
 
 The previous entry closed a security pass with a set of thirteen fixes. This
