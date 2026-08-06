@@ -4,6 +4,29 @@ History of decisions and discoveries by session, in reverse chronological order.
 
 ---
 
+## 2026-08-06 — A protection written for one program that touches credentials was missing from a second one
+
+The tool that pre-validates a scenario before running it loads the entire
+decrypted credentials file into memory to check that the keys it needs are
+present, then hands the actual run off to a second program. The safeguard
+against core dumps — refusing to let the operating system write a crash
+snapshot containing whatever secrets happen to be in memory — had only ever
+been applied to the second program, the one that actually uses the
+credentials. The first program, which also holds the full file in memory for
+that brief validation window, never got the same protection. One line,
+fixed.
+
+The static check written to catch this class of gap the first time it
+surfaces was tried in a form that would have matched every file that merely
+imports the credentials module, including three that only read local
+configuration and never touch a credential value — a check that would flag
+files it was never meant to flag, and consequently would never pass. Caught
+before being relied on, by running it against the real codebase rather than
+trusting that it was correct because its surrounding details (paths, naming
+conventions, line numbers) checked out. Corrected to match only the specific
+calls that actually load credential values, and re-run to confirm it now
+fails on the unprotected file and passes once that file is fixed.
+
 ## 2026-08-06 — Four of this pass's findings were the previous pass's findings, unfixed
 
 A third review of the same code, the same day as the second, found nineteen
