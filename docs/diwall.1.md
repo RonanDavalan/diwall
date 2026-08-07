@@ -113,6 +113,12 @@ instead of the default host-based lookup.
 : Refuse the **evaluer** action for the whole run — arbitrary JavaScript is
 not executed on the target page.
 
+**--no-filtre-evaluer**
+: Disable stdout neutralisation of **evaluer** return values, URLs and error
+messages — explicit debug runs only. Neutralisation is on by default; when
+disabled, `boussole.filtre_evaluer_actif: false` is set in the output so the
+operator can audit it from the JSON itself.
+
 # FILES
 
 **/etc/diwall/diwall.conf**

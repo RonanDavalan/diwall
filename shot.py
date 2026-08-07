@@ -37,6 +37,14 @@ __version__ = "1.23.0"
 # Permet d'importer lib/ depuis le même répertoire que shot.py
 sys.path.insert(0, os.path.dirname(os.path.abspath(__file__)))
 
+from lib.sanitisation import (
+    _neutraliser_valeur_evaluer,
+    _sanitiser_url_journal,
+    sanitiser_urls_dans_chaine,
+    rediger_query_params_sensibles,
+    valider_actions_secrets as _valider_actions_secrets,
+)
+
 # Chantier crédibilité (05/08/2026) — trouvé par le cycle .deb réel sur une
 # machine où dpkg exécute les scripts postinst avec HOME=/root : sans ce
 # réglage, `playwright install chromium` (postinst / install.sh, exécutés en
@@ -985,6 +993,11 @@ def parse_args():
     p.add_argument("--no-evaluer", dest="no_evaluer", action="store_true",
                    help="Désactive l'action 'evaluer' — recommandé en production sur cibles "
                         "avec formulaires sensibles. (v1.15.1)")
+    p.add_argument("--no-filtre-evaluer", dest="no_filtre_evaluer", action="store_true",
+                   help="Désactive la neutralisation stdout des valeurs 'evaluer', URLs et "
+                        "messages d'erreur (LOT 1, CHANTIER_SANITISATION.md) — run de debug "
+                        "explicite uniquement. Actif (filtre ON) par défaut. Pose "
+                        "boussole.filtre_evaluer_actif: false dans la sortie quand désactivé.")
     p.add_argument("--version", action="store_true",
                    help="Affiche la version installée et quitte immédiatement, sans Playwright (v1.18.0).")
     p.add_argument("--guide-version", dest="guide_version", default=None,
@@ -1024,17 +1037,6 @@ def _capture_periodique(page, stream_dir, action_index, t_ms, screenshot_timeout
     chemin = os.path.join(stream_dir, f"{action_index}_{t_ms}.png")
     _prendre_capture(page, chemin, full_page=False, screenshot_timeout=screenshot_timeout)
     return {"action_index": action_index, "t_ms": t_ms, "chemin": chemin}
-
-
-def _valider_actions_secrets(actions):
-    """Vérifie que les actions remplir/remplir_som avec secret_cle utilisent depuis_secrets."""
-    for i, a in enumerate(actions):
-        if a.get("type") in {"remplir", "remplir_som"}:
-            if a.get("secret_cle") and a.get("valeur") not in {"depuis_secrets", "depuis_secrets_totp"}:
-                raise ValueError(
-                    f"Action #{i} ({a['type']}) : secret_cle défini mais valeur n'est pas "
-                    f"'depuis_secrets' ou 'depuis_secrets_totp' — credential en clair interdit"
-                )
 
 
 def charger_actions(source):
@@ -1673,6 +1675,25 @@ def main():
     _CAPTURES_MASQUAGE_ECHOUE.clear()  # F-09 — état propre à chaque run
     _CHAMPS_REDIGES[0] = 0  # F-08 — état propre à chaque run
 
+    # LOT 1e (CHANTIER_SANITISATION.md §1e) : --no-filtre-evaluer désactive la
+    # neutralisation stdout du LOT 1 pour un run de debug explicite. Défaut :
+    # filtre actif. Wrappers utilisés à la place d'un appel direct partout où
+    # le LOT 1 a inséré une neutralisation, pour que le seul point de bascule
+    # soit ce flag.
+    _filtre_evaluer_actif = not args.no_filtre_evaluer
+
+    def _filtrer_evaluer(valeur):
+        return _neutraliser_valeur_evaluer(valeur) if _filtre_evaluer_actif else valeur
+
+    def _filtrer_url(url):
+        return _sanitiser_url_journal(url) if _filtre_evaluer_actif else url
+
+    def _filtrer_url_query(url):
+        return rediger_query_params_sensibles(url) if _filtre_evaluer_actif else url
+
+    def _filtrer_chaine(texte):
+        return sanitiser_urls_dans_chaine(texte) if _filtre_evaluer_actif else texte
+
     # ── --version (v1.18.0) : zéro Playwright, zéro autre argument requis ─────
     if args.version:
         print(json.dumps({"outil": "shot.py", "version": __version__}))
@@ -2117,16 +2138,22 @@ def main():
 
             browser.close()
 
+        # LOT 1 (CHANTIER_SANITISATION.md §1b) : calculée une seule fois, à la
+        # sortie de la session Playwright, réutilisée pour tous les champs
+        # stdout qui exposent cette URL — le journal applique déjà ce filtre
+        # depuis lib/journal.py, stdout ne le faisait pas (G-01 à G-08).
+        url_finale_sanitisee = _filtrer_url(url_finale)
+
         result = {
             "succes": True,
             "http_status": http_status,
-            "url_finale": url_finale,
-            "erreurs_js": erreurs_js,
-            "erreurs_console": erreurs_console,
+            "url_finale": url_finale_sanitisee,
+            "erreurs_js": [_filtrer_evaluer(x) for x in erreurs_js],
+            "erreurs_console": [_filtrer_evaluer(x) for x in erreurs_console],
             "duree_ms": int((time.time() - t0) * 1000),
             "horodatage": horodatage,
             "diwall_meta": _construire_diwall_meta(
-                profil, horodatage, modeles_appeles, url_finale,
+                profil, horodatage, modeles_appeles, url_finale_sanitisee,
             ),
         }
         if not args.no_capture:
@@ -2140,7 +2167,10 @@ def main():
         if stream_captures:
             result["stream_captures"] = stream_captures
         if evaluations:
-            result["evaluations"] = evaluations
+            result["evaluations"] = [
+                {**e, "valeur": _filtrer_evaluer(e.get("valeur"))}
+                for e in evaluations
+            ]
         if capture_som:
             result["capture_som"] = capture_som
             result["elements_som"] = elements_som
@@ -2154,10 +2184,29 @@ def main():
             result["a11y_tree"] = a11y_tree
         if session_file:
             result["session_file"] = session_file
+        # Note derive_session (§1b) : url_sauvegardee/url_reprise gardent leur
+        # query brute côté fichier de session (jamais touché ici) — le signal
+        # de dérive (`?vue=login` remplaçant `?vue=domaine`) en dépend
+        # (_detecter_derive_session, D-05/E-03). Seule la sortie stdout est
+        # rédigée : rediger_query_params_sensibles rédige la valeur des
+        # paramètres sensibles (token, code, state...) et conserve le nom du
+        # paramètre et le signal fonctionnel — _sanitiser_url_journal, qui
+        # supprime toute la query, casserait ce signal (variante FR-55).
+        # Rédigé une seule fois : réutilisé aux deux points de sortie stdout
+        # (result["derive_session"] et boussole.session_derive plus bas), pour
+        # ne pas laisser fuir en clair sous une clé la valeur rédigée sous l'autre.
+        derive_session_sanitisee = None
         if derive_session:
-            result["derive_session"] = derive_session
+            derive_session_sanitisee = {
+                **derive_session,
+                "url_sauvegardee": _filtrer_url_query(derive_session["url_sauvegardee"]),
+                "url_reprise": _filtrer_url_query(derive_session["url_reprise"]),
+            }
+            result["derive_session"] = derive_session_sanitisee
         result["boussole"] = _boussole(operation_id)
-        result["boussole"]["url_courante"] = url_finale
+        if not _filtre_evaluer_actif:
+            result["boussole"]["filtre_evaluer_actif"] = False
+        result["boussole"]["url_courante"] = url_finale_sanitisee
         result["boussole"]["titre_page"] = titre_page
         # v1.22.0, Axe B — toujours présent (contrairement à session_derive,
         # conditionnel à --reprendre-session) : reflète la dernière navigation
@@ -2197,8 +2246,8 @@ def main():
         result["respect"] = respect
         result["boussole"]["respect"] = respect
         result["latences_actions"] = latences_actions
-        if args.reprendre_session and derive_session is not None:
-            result["boussole"]["session_derive"] = derive_session
+        if args.reprendre_session and derive_session_sanitisee is not None:
+            result["boussole"]["session_derive"] = derive_session_sanitisee
         if auth_status is not None:
             result["boussole"]["auth_status"] = auth_status
         if hors_vp_som > 0:
@@ -2213,7 +2262,7 @@ def main():
                 waf_bloquants=respect.get("waf_bloquants"),
                 erreurs_console=erreurs_console,
                 ignorer_waf=args.ignorer_waf,
-                mode_conseille=_calculer_mode_conseille(url_finale),
+                mode_conseille=_calculer_mode_conseille(url_finale_sanitisee),
             )
         except Exception:
             pass  # etat est un confort de lecture, jamais un bloquant (item A)
@@ -2221,7 +2270,7 @@ def main():
         if _CHAMPS_REDIGES[0]:
             result["boussole"]["champs_rediges"] = _CHAMPS_REDIGES[0]
         print(json.dumps(result, ensure_ascii=False))
-        _journaliser_run(result, actions, args.intention, url_finale, "succes",
+        _journaliser_run(result, actions, args.intention, url_finale_sanitisee, "succes",
                          operation_id=operation_id, source_scenario=args.source_scenario,
                          chainage=chainage, secret_resolu=bool(valeurs_secrets_resolues),
                          secrets_chemin=getattr(args, "secrets", None))
@@ -2235,28 +2284,36 @@ def main():
         # code de sortie 42 par symétrie avec Phase 7bis.
         from lib.repertoire_chiffre import SecretsFermesError
         if isinstance(e, SecretsFermesError):
+            # LOT 1 (§1b) : cette branche reçoit url_cible (args.url d'origine),
+            # pas url_finale — calculée localement, pas de variable de la
+            # branche succès (qui peut ne pas exister si l'échec est survenu
+            # avant sa construction).
+            url_cible_sanitisee = _filtrer_url(url_cible)
             result = {
                 "succes": False,
                 "erreur": "secrets_fermes",
-                "message": str(e),
+                "message": _filtrer_chaine(str(e)),
                 "code_sortie_recommande": SecretsFermesError.CODE_SORTIE,
                 "http_status": http_status,
                 "duree_ms": int((time.time() - t0) * 1000),
                 "horodatage": horodatage,
                 "diwall_meta": _construire_diwall_meta(
-                    profil, horodatage, modeles_appeles, url_cible,
+                    profil, horodatage, modeles_appeles, url_cible_sanitisee,
                 ),
                 "boussole": _boussole(operation_id),
             }
+            if not _filtre_evaluer_actif:
+                result["boussole"]["filtre_evaluer_actif"] = False
             result = _rediger_valeurs_secrets(result, valeurs_secrets_resolues)
             if _CHAMPS_REDIGES[0]:
                 result["boussole"]["champs_rediges"] = _CHAMPS_REDIGES[0]
             print(json.dumps(result, ensure_ascii=False))
             # Audit 06/08/2026 (F-03) : erreur= reprend result["message"], déjà
-            # rédigé ci-dessus — reconstruire séparément depuis str(e) aurait
-            # écrit sur le canal persistant (journal) une valeur que le canal
-            # éphémère (stdout) venait de rédiger, exactement l'asymétrie que
-            # ce correctif ferme.
+            # rédigé ci-dessus par _rediger_valeurs_secrets (credentials) et
+            # sanitiser_urls_dans_chaine (URLs, LOT 1 §1b) — reconstruire
+            # séparément depuis str(e) aurait écrit sur le canal persistant
+            # (journal) une valeur que le canal éphémère (stdout) venait de
+            # rédiger, exactement l'asymétrie que ces correctifs ferment.
             _journaliser_run(result, actions, args.intention, url_cible, "echec",
                              erreur=f"SecretsFermesError: {result['message']}", operation_id=operation_id,
                              source_scenario=args.source_scenario, chainage=chainage,
@@ -2278,15 +2335,20 @@ def main():
         except Exception:
             pass
 
+        # LOT 1 (§1b) : recalculée localement, ne réutilise pas la variable de
+        # la branche succès — l'exception peut survenir avant sa construction,
+        # avant la sortie du bloc `with sync_playwright()`.
+        url_finale_sanitisee = _filtrer_url(url_finale)
+
         result = {
             "succes": False,
             "erreur": type(e).__name__,
-            "message": str(e),
+            "message": _filtrer_chaine(str(e)),
             "http_status": http_status,
             "duree_ms": int((time.time() - t0) * 1000),
             "horodatage": horodatage,
             "diwall_meta": _construire_diwall_meta(
-                profil, horodatage, modeles_appeles, url_finale,
+                profil, horodatage, modeles_appeles, url_finale_sanitisee,
             ),
         }
         if capture_echec:
@@ -2298,12 +2360,16 @@ def main():
             result["actions_executees_avant_echec"] = progress["actions_executees"]
             result["pages_visitees_avant_echec"] = progress.get("pages_visitees", 0)
         result["boussole"] = _boussole(operation_id)
+        if not _filtre_evaluer_actif:
+            result["boussole"]["filtre_evaluer_actif"] = False
         result = _rediger_valeurs_secrets(result, valeurs_secrets_resolues)
         if _CHAMPS_REDIGES[0]:
             result["boussole"]["champs_rediges"] = _CHAMPS_REDIGES[0]
         print(json.dumps(result, ensure_ascii=False))
         # Audit 06/08/2026 (F-03) : erreur= reprend result["message"] déjà
-        # rédigé — voir le commentaire jumeau sur la branche SecretsFermesError.
+        # rédigé par _rediger_valeurs_secrets (credentials) et
+        # sanitiser_urls_dans_chaine (URLs, LOT 1 §1b) — voir le commentaire
+        # jumeau sur la branche SecretsFermesError.
         _journaliser_run(result, actions, args.intention, url_cible, "echec",
                          erreur=f"{result['erreur']}: {result['message']}", operation_id=operation_id,
                          source_scenario=args.source_scenario, chainage=chainage,

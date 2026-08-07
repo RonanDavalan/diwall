@@ -160,7 +160,11 @@ def _repertoire_est_monte(secrets_dir: str) -> bool:
 
     Agnostique du mode d'ouverture : Plasma Vault, script, montage manuel —
     tous produisent une entrée FUSE dans /proc/mounts.
-    Retourne True si incapable de lire /proc/mounts (ne pas bloquer le run).
+
+    LOT 3 (CHANTIER_SANITISATION.md, G-22, audit 07/08/2026) : incapable de
+    lire /proc/mounts → traité comme non monté (fail-closed). Le comportement
+    précédent (True — « ne pas bloquer le run ») inversait le sens voulu :
+    une incapacité à vérifier le montage n'est pas une preuve de montage.
     """
     chemin = os.path.realpath(os.path.expanduser(secrets_dir))
     try:
@@ -176,7 +180,7 @@ def _repertoire_est_monte(secrets_dir: str) -> bool:
                     return True
         return False
     except OSError:
-        return True
+        return False
 
 
 def _repertoire_initialise(crypt_dir: str) -> bool:
@@ -451,17 +455,19 @@ def _verifier_montage_fichier_secrets(chemin: str) -> str:
     # Audit 06/08/2026 (F-07) : T1 vérifie le montage du répertoire, jamais
     # le mode du fichier lui-même. Un fichier d'identifiants laissé lisible
     # par le groupe ou par tous (constaté : 0664) était accepté sans le
-    # moindre signal. Avertissement seul, pas de refus — le mode d'un
-    # fichier hérité d'une copie/synchronisation n'est pas toujours sous le
-    # contrôle direct de l'opérateur au moment de l'usage.
+    # moindre signal.
+    # LOT 3 (CHANTIER_SANITISATION.md, audit 07/08/2026, « Priorité 3 ») :
+    # avertissement seul remplacé par un refus — aligne ce contrôle sur la
+    # même politique stricte que _verifier_origines_autorisees (même famille
+    # SecretsFermesError). Le mode d'un fichier hérité d'une copie/
+    # synchronisation n'est plus toléré silencieusement.
     try:
         mode = os.stat(chemin).st_mode & 0o777
         if mode & 0o077:
-            print(
-                f"⚠ diwall : fichier secrets lisible au-delà du propriétaire "
+            raise SecretsFermesError(
+                f"Fichier secrets lisible au-delà du propriétaire "
                 f"({oct(mode)}) : {os.path.basename(chemin)} — "
-                f"recommandé : chmod 600",
-                file=sys.stderr,
+                f"corrigez avec : chmod 600"
             )
     except OSError:
         pass

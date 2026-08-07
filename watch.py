@@ -46,6 +46,8 @@ CLAUDE_MODEL = "claude-haiku-4-5-20251001"
 # Permet d'importer lib/ depuis le même répertoire que watch.py
 sys.path.insert(0, os.path.dirname(os.path.abspath(__file__)))
 
+from lib.sanitisation import _sanitiser_url_journal
+
 PROMPT_DEFAUT = (
     "Tu reçois deux captures d'écran : la première est la référence (état de référence), "
     "la seconde est l'état actuel. Réponds uniquement en JSON avec les champs suivants : "
@@ -177,7 +179,7 @@ def notifier_ntfy(ntfy_url, url, analyse, priorite="basse"):
             ntfy_url,
             data=(analyse or "Changement visuel détecté.").encode("utf-8"),
             headers={
-                "Title": f"Diwall — changement détecté : {url}",
+                "Title": f"Diwall — changement détecté : {_sanitiser_url_journal(url)}",
                 "Priority": ntfy_priority,
             },
             timeout=10,
@@ -211,7 +213,7 @@ def sauver_reference(url, timeout, profil=None, capture_path=None, nom=None):
         data = capturer(url, sortie, timeout)
 
     meta = {
-        "url": url,
+        "url": _sanitiser_url_journal(url),
         "horodatage": horodatage,
         "http_status": data.get("http_status"),
         "erreurs_js": data.get("erreurs_js", []),

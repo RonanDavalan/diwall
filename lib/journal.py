@@ -17,15 +17,18 @@ Spécification : _CADRE/SPECIFICATIONS/35_JOURNAL_OPERATIONS.md
 import fcntl
 import grp
 import json
-import math
 import os
-import re
 import shutil
 import sys
 import time
 import uuid
 from datetime import datetime, timezone
 from urllib.parse import urlparse
+
+from lib.sanitisation import (
+    _neutraliser_valeur_evaluer,
+    _sanitiser_url_journal,
+)
 
 
 def _journal_path():
@@ -414,125 +417,11 @@ def enregistrer_operation(outil, version, cible_url, resultat, actions,
         print(f"⚠ journal : opération non journalisée ({e})", file=sys.stderr)
 
 
-# Audit 05/08/2026 (D-06) : le filtre C-06 cherchait des mots, alors que les
-# secrets ont des formes — un JWT réel ne contient jamais la chaîne littérale
-# "jwt", et PHPSESSID/clés API passaient sans qu'aucun mot ne matche. 'sess'
-# (substring, pas de \b : PHPSESSID n'a pas de séparateur avant 'sess'),
-# 'csrf'/'xsrf'/'auth' ajoutés.
-# Audit 06/08/2026 (E-05) : le seuil base64 remonte de 20 à 32 caractères et
-# se double d'un plancher d'entropie — sans ça, un sélecteur CSS
-# (#btn-sauvegarder-barre) ou un nom de fichier (capture_...png) matchaient
-# aussi. Sur `diagnostic_dom.json`, la redaction ne porte plus sur la chaîne
-# entière d'une structure JSON (un dict contenant "type":"password" perdait
-# tout l'inventaire des <input>, pas seulement ce champ) mais uniquement sur
-# les feuilles qui, individuellement, portent une forme ou un mot-clé de
-# secret — et les mots-clés ne s'appliquent qu'aux feuilles qui ressemblent
-# à un jeton isolé (ni espace ni ponctuation JSON), pour ne pas happer un
-# libellé ordinaire ("Authentification à deux facteurs").
-_MOTIFS_SENSIBLES_EVALUER = re.compile(r"token|session|password|bearer|jwt|sess|csrf|xsrf|auth", re.IGNORECASE)
-_BASE64_LONGUE = re.compile(r"[A-Za-z0-9+/=_-]{32,}")
-# Forme d'un JWT : trois segments base64url séparés par des points — aucun
-# des deux motifs ci-dessus ne le capte, les points cassent _BASE64_LONGUE
-# en tronçons et "jwt" n'apparaît jamais dans le jeton lui-même.
-_MOTIF_JWT = re.compile(r"[A-Za-z0-9_-]{8,}\.[A-Za-z0-9_-]{8,}\.[A-Za-z0-9_-]+")
-# Ponctuation JSON ou espace : une feuille qui en contient n'est pas un
-# jeton isolé (un mot-clé qui matche dedans est un mot ordinaire, pas un
-# secret collé sans séparateur).
-_PONCTUATION_OU_ESPACE = re.compile(r'[\s{}\[\]":,]')
-_PROFONDEUR_MAX_EVALUER = 8
-
-
-def _entropie_shannon(texte):
-    """Entropie de Shannon en bits/caractère — distingue un jeton aléatoire
-    (~4.5-6 bits/car. sur l'alphabet base64) d'une chaîne structurée
-    (nom de fichier, sélecteur CSS, timestamp), nettement plus répétitive."""
-    if not texte:
-        return 0.0
-    freq = {}
-    for c in texte:
-        freq[c] = freq.get(c, 0) + 1
-    n = len(texte)
-    return -sum((c / n) * math.log2(c / n) for c in freq.values())
-
-
-_SEUIL_ENTROPIE_BASE64 = 3.5
-
-
-def _forme_secrete(texte):
-    """Vrai si `texte` porte une forme de secret : JWT, ou segment base64
-    long avec une entropie suffisante pour exclure les chaînes structurées."""
-    if _MOTIF_JWT.search(texte):
-        return True
-    for m in _BASE64_LONGUE.finditer(texte):
-        if _entropie_shannon(m.group(0)) >= _SEUIL_ENTROPIE_BASE64:
-            return True
-    return False
-
-
-def _ressemble_jeton_isole(texte):
-    """Vrai si `texte` ne contient ni espace ni ponctuation JSON — condition
-    pour appliquer les mots-clés (`_MOTIFS_SENSIBLES_EVALUER`) : un libellé
-    ordinaire ("Authentification à deux facteurs") contient des espaces et
-    ne doit pas être traité comme un jeton collé (ex. PHPSESSID=abc123)."""
-    return bool(texte) and not _PONCTUATION_OU_ESPACE.search(texte)
-
-
-def _neutraliser_feuille_evaluer(valeur):
-    texte = str(valeur)
-    if _forme_secrete(texte):
-        return "<valeur_filtree>"
-    if _ressemble_jeton_isole(texte) and _MOTIFS_SENSIBLES_EVALUER.search(texte):
-        return "<valeur_filtree>"
-    return texte[:500]
-
-
-def _neutraliser_structure_evaluer(valeur, profondeur=0):
-    """Parcourt récursivement dict/list et ne rédige que les feuilles à
-    risque (audit 06/08/2026, E-05) — la version précédente stringifiait la
-    structure entière avant de décider, et perdait tout un inventaire
-    `diagnostic_dom` (6 évaluations sur 6, dont 1 filtrée à tort) pour un
-    seul champ `"type":"password"` noyé dedans."""
-    if profondeur > _PROFONDEUR_MAX_EVALUER:
-        return "<structure_tronquee>"
-    if isinstance(valeur, dict):
-        return {k: _neutraliser_structure_evaluer(v, profondeur + 1) for k, v in valeur.items()}
-    if isinstance(valeur, list):
-        return [_neutraliser_structure_evaluer(v, profondeur + 1) for v in valeur]
-    if isinstance(valeur, str):
-        return _neutraliser_feuille_evaluer(valeur)
-    return valeur  # int/float/bool/None : pas de forme de secret possible
-
-
-def _neutraliser_valeur_evaluer(valeur):
-    """Audit 05/08/2026 (C-06, D-06), affiné 06/08/2026 (E-05) :
-    valeur_retournee était le seul champ du journal à échapper à la
-    doctrine « zéro credential » de ce module (voir docstring en tête de
-    fichier). Les structures (dict/list — le cas courant de `evaluer` sur
-    un inventaire DOM) sont parcourues feuille par feuille ; seules les
-    feuilles qui portent une forme de secret (JWT, base64 à haute entropie)
-    ou un mot-clé sur un jeton isolé sont rédigées.
-    """
-    if valeur is None:
-        return None
-    if isinstance(valeur, (dict, list)):
-        return _neutraliser_structure_evaluer(valeur)
-    return _neutraliser_feuille_evaluer(valeur)
-
-
-def _sanitiser_url_journal(url):
-    """Conserve uniquement scheme://host/path — supprime toute query string,
-    fragment, et userinfo (audit 05/08/2026, C-07 : p.netloc inclut
-    'user:password@', qui survivait en clair dans le journal)."""
-    if not url:
-        return url
-    try:
-        p = urlparse(url)
-        netloc_sans_userinfo = p.hostname or ""
-        if p.port:
-            netloc_sans_userinfo += f":{p.port}"
-        return f"{p.scheme}://{netloc_sans_userinfo}{p.path}"
-    except Exception:
-        return "[url non parseable]"
+# Constantes et fonctions de neutralisation (_MOTIFS_SENSIBLES_EVALUER,
+# _neutraliser_valeur_evaluer, _sanitiser_url_journal, etc.) : déplacées vers
+# lib/sanitisation.py (LOT 1, CHANTIER_SANITISATION.md) pour être partagées
+# avec shot.py et rpa.py — stdout/stderr en bénéficient désormais aussi,
+# pas seulement ce journal. Réimportées en tête de fichier, pas redéfinies.
 
 
 def _fallback_path():

@@ -46,6 +46,14 @@ import sys
 
 sys.path.insert(0, os.path.dirname(os.path.abspath(__file__)))
 
+from lib.sanitisation import (
+    _neutraliser_valeur_evaluer,
+    _sanitiser_url_journal,
+    sanitiser_urls_dans_chaine,
+    rediger_query_params_sensibles,
+    valider_actions_secrets,
+)
+
 
 def _boussole():
     # Audit 06/08/2026 (F-14/C-13) : shell=True sans nécessité — la commande
@@ -93,23 +101,27 @@ _jsonschema_absent_warned = False
 def _valider_schema(scenario: dict, chemin_scenario: str) -> None:
     """Valide le scénario contre scenarios/schema.json.
 
-    Auto-active si jsonschema est installé : exit 1 et diagnostic structuré
-    sur stderr si la validation échoue. Émet un warning unique sur stderr
-    et continue sans valider si jsonschema est absent ou si le schéma est
+    exit 1 et diagnostic structuré sur stderr si la validation échoue. Émet
+    un warning unique sur stderr et continue sans valider si le schéma est
     introuvable.
+
+    LOT 3 (CHANTIER_SANITISATION.md, G-21, audit 07/08/2026) : jsonschema
+    est une dépendance déclarée de requirements.txt, pas optionnelle — son
+    absence à l'exécution signale une installation cassée, pas un mode
+    dégradé légitime. exit 1 dur plutôt qu'un warning suivi d'une validation
+    silencieusement désactivée.
     """
     global _jsonschema_absent_warned
     try:
         import jsonschema
     except ImportError:
-        if not _jsonschema_absent_warned:
-            print(
-                "⚠ jsonschema absent — validation des scénarios désactivée. "
-                "Installer via : /opt/diwall/venv/bin/pip install jsonschema",
-                file=sys.stderr,
-            )
-            _jsonschema_absent_warned = True
-        return
+        print(
+            "✗ jsonschema absent — installation cassée (dépendance déclarée de "
+            "requirements.txt). Installer via : "
+            "/opt/diwall/venv/bin/pip install jsonschema",
+            file=sys.stderr,
+        )
+        sys.exit(1)
 
     if not os.path.isfile(_SCHEMA_PATH):
         if not _jsonschema_absent_warned:
@@ -334,18 +346,25 @@ def _echouer_assertion(message):
     sys.exit(1)
 
 
-def _verifier_valeur_str(idx, ev, valeur_obtenue, cle):
+def _verifier_valeur_str(idx, ev, valeur_obtenue, cle, filtre_actif=True):
     """Vérifie que la valeur évaluée est une chaîne — requis par les
     assertions 'contient' et 'motif'. Factorisé — bloc dupliqué à l'identique
     entre ces deux branches, seule la clé affichée diffère.
     """
     if not isinstance(valeur_obtenue, str):
+        # LOT 1 (§1c) : même filtre que les trois branches d'assertion — un
+        # `evaluer` mal typé (objet/nombre au lieu de string) affichait la
+        # valeur brute via !r, hors du périmètre explicite du plan mais même
+        # canal (stderr) et même défaut (G-01 à G-08). filtre_actif : LOT 1e,
+        # bascule --no-filtre-evaluer.
+        valeur_affichee = _neutraliser_valeur_evaluer(valeur_obtenue) if filtre_actif else valeur_obtenue
         _echouer_assertion(
             f"Assertion impossible action #{idx} (evaluer) :\n"
             f"  script   : {ev.get('script')}\n"
             f"  clé      : \"{cle}\"\n"
             f"  problème : valeur retournée de type "
-            f"{type(valeur_obtenue).__name__} ({valeur_obtenue!r}), pas str.\n"
+            f"{type(valeur_obtenue).__name__} "
+            f"({valeur_affichee!r}), pas str.\n"
             f"             Utilisez \"attendu\" pour comparer int ou bool."
         )
 
@@ -417,6 +436,10 @@ def main():
                         "Propagé à shot.py.")
     p.add_argument("--no-evaluer", dest="no_evaluer", action="store_true",
                    help="Désactive l'action evaluer sur ce run. Propagé à shot.py. (v1.15.1)")
+    p.add_argument("--no-filtre-evaluer", dest="no_filtre_evaluer", action="store_true",
+                   help="Désactive la neutralisation stdout des valeurs 'evaluer', URLs et "
+                        "messages d'erreur (LOT 1, CHANTIER_SANITISATION.md) — run de debug "
+                        "explicite uniquement. Actif (filtre ON) par défaut. Propagé à shot.py.")
     p.add_argument("--sauver-verifier-reference", dest="sauver_verifier_reference", default=None,
                    metavar="FICHIER",
                    help="Écrit un sous-ensemble structurel (http_status, dom_stats, "
@@ -433,6 +456,14 @@ def main():
                         "enregistré dans FICHIER (session + index d'action). Crée FICHIER "
                         "au premier run, le supprime à la fin réussie du scénario. (v1.17.0)")
     args = p.parse_args()
+    # LOT 1e (CHANTIER_SANITISATION.md §1e) : bascule locale à rpa.py, pour
+    # les points de neutralisation propres à ce fichier (assertions,
+    # --replay-verifier, --sauver-verifier-reference) — le sous-processus
+    # shot.py reçoit le même flag séparément (cmd, plus bas).
+    _filtre_evaluer_actif = not args.no_filtre_evaluer
+
+    def _filtrer_evaluer(valeur):
+        return _neutraliser_valeur_evaluer(valeur) if _filtre_evaluer_actif else valeur
 
     if args.version:
         print(json.dumps({"outil": "rpa.py", "version": __version__}))
@@ -487,6 +518,18 @@ def main():
 
     # Linter SoM : vérifie les id entiers avant Playwright (v1.9.2).
     _linter_som(actions, chemin_scenario)
+
+    # LOT 4 (CHANTIER_SANITISATION.md, G-17, audit 07/08/2026) : même contrôle
+    # que shot.py (valider_actions_secrets, lib/sanitisation.py), appliqué ici
+    # avant que `actions` ne soit sérialisé en JSON dans l'argv du
+    # sous-processus shot.py (cmd += ["--actions", json.dumps(actions)] plus
+    # bas) — un argv transite en clair par /proc/<pid>/cmdline, avant même
+    # que shot.py ait la moindre chance de valider. Même patron que F-02
+    # (valider_schema_url, plus bas) pour 'url'.
+    try:
+        valider_actions_secrets(actions)
+    except ValueError as e:
+        _sortir_erreur("action_secret_en_clair", message=str(e), exit_code=1)
 
     if args.url:
         scenario["url"] = args.url
@@ -648,6 +691,8 @@ def main():
         cmd.append("--ignore-tls-errors")
     if args.no_evaluer:
         cmd.append("--no-evaluer")
+    if args.no_filtre_evaluer:
+        cmd.append("--no-filtre-evaluer")
     # Journal d'opérations (v1.4) : transmettre l'intention à shot.py, qui
     # journalise le run. L'argument CLI prime sur le champ 'intention' du
     # scénario. rpa.py ne journalise pas lui-même (un seul run = celui de
@@ -763,9 +808,8 @@ def main():
             # divulguait un chemin de fichier de session ; cette référence
             # peut divulguer les jetons de session eux-mêmes.
             if surface.get("evaluations"):
-                from lib.journal import _neutraliser_valeur_evaluer
                 for e in surface["evaluations"]:
-                    e["valeur"] = _neutraliser_valeur_evaluer(e.get("valeur"))
+                    e["valeur"] = _filtrer_evaluer(e.get("valeur"))
             fd = os.open(args.sauver_verifier_reference, os.O_CREAT | os.O_WRONLY | os.O_TRUNC, 0o600)
             with os.fdopen(fd, "w", encoding="utf-8") as f:
                 json.dump(surface, f, ensure_ascii=False, indent=2)
@@ -778,6 +822,13 @@ def main():
             except (FileNotFoundError, json.JSONDecodeError) as e:
                 _sortir_erreur("reference_illisible", message=str(e))
             actuelle = _extraire_surface_verifiable(sortie)
+            # LOT 1 (§1c) : miroir exact du filtre appliqué ci-dessus pour
+            # --sauver-verifier-reference — sans lui, --replay-verifier
+            # affichait sur stderr (verdict/diffs) la valeur brute que
+            # l'enregistrement de référence neutralisait déjà.
+            if actuelle.get("evaluations"):
+                for e in actuelle["evaluations"]:
+                    e["valeur"] = _filtrer_evaluer(e.get("valeur"))
             diffs = _comparer_surface_verifiable(reference, actuelle)
             verdict = "regression" if diffs else "stable"
             print(json.dumps({
@@ -811,28 +862,28 @@ def main():
                     f"Assertion échouée action #{idx} (evaluer) :\n"
                     f"  script  : {ev.get('script')}\n"
                     f"  attendu : {json.dumps(action['attendu'], ensure_ascii=False)}\n"
-                    f"  obtenu  : {json.dumps(valeur_obtenue, ensure_ascii=False)}"
+                    f"  obtenu  : {json.dumps(_filtrer_evaluer(valeur_obtenue), ensure_ascii=False)}"
                 )
 
         elif "contient" in action:
-            _verifier_valeur_str(idx, ev, valeur_obtenue, "contient")
+            _verifier_valeur_str(idx, ev, valeur_obtenue, "contient", filtre_actif=_filtre_evaluer_actif)
             if action["contient"] not in valeur_obtenue:
                 _echouer_assertion(
                     f"Assertion échouée action #{idx} (evaluer) :\n"
                     f"  script   : {ev.get('script')}\n"
                     f"  contient : {json.dumps(action['contient'], ensure_ascii=False)}\n"
-                    f"  obtenu   : {json.dumps(valeur_obtenue, ensure_ascii=False)}"
+                    f"  obtenu   : {json.dumps(_filtrer_evaluer(valeur_obtenue), ensure_ascii=False)}"
                 )
 
         elif "motif" in action:
             import re
-            _verifier_valeur_str(idx, ev, valeur_obtenue, "motif")
+            _verifier_valeur_str(idx, ev, valeur_obtenue, "motif", filtre_actif=_filtre_evaluer_actif)
             if not re.search(action["motif"], valeur_obtenue):
                 _echouer_assertion(
                     f"Assertion échouée action #{idx} (evaluer) :\n"
                     f"  script : {ev.get('script')}\n"
                     f"  motif  : {json.dumps(action['motif'], ensure_ascii=False)}\n"
-                    f"  obtenu : {json.dumps(valeur_obtenue, ensure_ascii=False)}"
+                    f"  obtenu : {json.dumps(_filtrer_evaluer(valeur_obtenue), ensure_ascii=False)}"
                 )
 
     sys.exit(0)
