@@ -139,7 +139,7 @@ sudo /opt/diwall/venv/bin/playwright install chromium
 # 5. Implementar / Desplegar
 bash ~/git/Diwall/Diwall/scripts/deploy.sh
 
-# 6. Crea tu directorio de credenciales cifradas.
+# 6. Cree su directorio de credenciales cifradas.
 mkdir -p ~/Vaults/<your-project>/Diwall
 # Cree el archivo `~/Vaults/<su-proyecto>/Diwall/<nombre_de_host>.json` con sus credenciales.
 ```
@@ -508,7 +508,7 @@ print('sha256:' + hashlib.sha256(json.dumps(fields, sort_keys=True).encode()).he
 "
 ```
 
-Agrega el valor devuelto al archivo de credenciales:
+Agregue el valor devuelto al archivo de credenciales:
 
 ```json
 {
@@ -563,7 +563,7 @@ se haya pasado la bandera; `boussole.http_auth_requise: true` distingue claramen
 
 ---
 
-## 5. Escribe y ejecuta un escenario de automatización robótica de procesos (RPA)
+## 5. Escriba y ejecute un escenario de automatización robótica de procesos (RPA)
 
 ### 5a. Protocolo de 3 pasos
 
@@ -594,7 +594,7 @@ se haya pasado la bandera; `boussole.http_auth_requise: true` distingue claramen
 - Las superposiciones bloqueantes (avisos de cookies, ventanas modales)
 - SPA o recarga HTTP completa
 
-**Paso 2: Escribe el escenario.**
+**Paso 2: Escriba el escenario.**
 
 ```json
 {

@@ -227,7 +227,7 @@ DIWALL_SECRETS_DIR=~/Vaults/MyProject \
 Methode 2 – Projektdatei `.diwall.conf` (empfohlen für wiederkehrende Projekte):
 
 ```bash
-# Erstelle die Datei im Projektstammverzeichnis.
+# Erstellen Sie die Datei im Projektstammverzeichnis.
 echo '{"secrets_dir": "../MyProject-secrets"}' > ~/git/MyProject/.diwall.conf
 
 # Then prefix each invocation (or export at the start of the shell session)

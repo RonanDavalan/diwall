@@ -284,7 +284,7 @@ El archivo de credenciales se llama `<hostname>.json`, donde `hostname` es el re
 
 Abra la imagen PNG con anotaciones (`capture_som`) para identificar los ID de campo.
 
-**Paso 3** — Escribe el escenario.
+**Paso 3** — Escriba el escenario.
 
 ```bash
 cat > /tmp/login.json << 'EOF'

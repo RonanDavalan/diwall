@@ -123,7 +123,7 @@ wollen: er legt das Repository dorthin, wo `deploy.sh` Ihre Änderungen nach
 oben mit einem einzigen Befehl und leistet dasselbe.
 
 ```bash
-# 1. Erstelle einen Systembenutzer und ein Verzeichnis.
+# 1. Erstellen Sie einen Systembenutzer und ein Verzeichnis.
 sudo useradd --system --no-create-home --shell /bin/false diwall
 sudo mkdir -p /opt/diwall
 sudo chown root:diwall /opt/diwall
@@ -132,7 +132,7 @@ sudo chown root:diwall /opt/diwall
 git clone https://github.com/ronandavalan/diwall.git ~/git/Diwall/Diwall
 cd ~/git/Diwall/Diwall
 
-# 3. Erstelle eine Python-virtuelle Umgebung.
+# 3. Erstellen Sie eine virtuelle Python-Umgebung.
 sudo /usr/bin/python3 -m venv /opt/diwall/venv
 sudo /opt/diwall/venv/bin/pip install -r requirements.txt
 
@@ -924,7 +924,7 @@ Oder warten Sie auf ein Element, das spezifisch für die neue Ansicht ist:
 {"type": "attendre_selecteur_present", "selecteur": "[data-testid='dashboard-main']"}
 ```
 
-Verwende niemals eine Klick-Aktion als alleiniges Indiz dafür, dass die Navigation abgeschlossen ist, ohne ein entsprechendes Signal vom Document Object Model (DOM).
+Verwenden Sie niemals eine Klick-Aktion als alleiniges Indiz dafür, dass die Navigation abgeschlossen ist, ohne ein entsprechendes Signal vom Document Object Model (DOM).
 
 ### 7e. CSS-Dialog oder showModal()
 
