@@ -219,7 +219,7 @@ def _verifier_cible_montee(chemin_resolu: str, description: str = "fichier secre
     réelle vit hors de tout montage FUSE (disque nu) est refusé ici ; un lien
     qui redirige vers un *autre* répertoire monté (ex. un répertoire chiffré
     voisin dans le même coffre) reste accepté — c'est le motif d'usage réel
-    observé (`allsys.io.json`, session 80).
+    observé (`__HOST_SERVICE__.json`, session 80).
     """
     repertoire = os.path.dirname(chemin_resolu)
     if not _repertoire_est_monte(repertoire):
