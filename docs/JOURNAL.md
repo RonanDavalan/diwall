@@ -4,6 +4,41 @@ History of decisions and discoveries by session, in reverse chronological order.
 
 ---
 
+## 2026-08-07 — Documentation catch-up on the security hardening chantier
+
+A pre-publication documentation audit found that the previous session's
+security hardening had shipped one new CLI flag and four new error codes
+without updating the operator/agent-facing docs. `--no-filtre-evaluer` (and
+the `filtre_evaluer_actif` compass key it sets) is now in the operational
+manual's flag reference. The four error codes — a rejected URL scheme or
+userinfo, a plaintext credential caught in a scenario action, a malformed
+actions file, and a sensitive/traversal path on the checkpoint and
+structural-diff flags — are now in the LLM guide's error-routing table, with
+one paragraph each in the notice that actually handles the underlying
+feature. The mandatory guide-read token moved from 1.0 to 1.1 accordingly,
+synchronized across every citation in four languages and the three
+enforcement points (the runtime check, the installer's smoke test, and the
+release preflight).
+
+Same audit closed the last open item of an earlier documentation chantier
+(session 63): the operator guide now opens with an ASCII diagram of the
+capture loop — browser, the three parallel views Diwall extracts from the
+DOM, and the compass — instead of describing it in prose alone.
+
+A partner project (Sillage) hardcodes this same guide-read token in two of
+its own documents. Both were found and corrected in the partner's own
+repository, in the same session, so the token bump does not silently break
+its next Diwall invocation.
+
+Two full package-installation cycles (fresh purge-and-install, and upgrade
+in place over the previously active version) were run to validate the
+above — both green, including a persistent-permission checksum before and
+after the upgrade.
+
+Commit: `7c05cc4`
+
+---
+
 ## 2026-08-07 — Filesystem permissions and hardening, closed with a real install cycle
 
 Two more lots of the sanitisation project landed: tighter file permissions
