@@ -1,6 +1,6 @@
 # Diwall — FAQ for LLMs
 
-Version 1.8 — July 2026 (v1.23.0) — version table through v1.22.0, `--guide-version` current token 1.0
+Version 1.8 — July 2026 (v1.23.0) — version table through v1.22.0, `--guide-version` current token 1.1
 
 Answers to technical questions raised by language models during real Diwall sessions.
 No attribution — these are recurring questions, not individual testimonies.
@@ -24,7 +24,7 @@ incident that motivated it.
 ```bash
 cat /opt/diwall/docs/GUIDE_LLM.md
 # read it, find "<!-- notice-version: X.Y -->" near the top, then:
-/opt/diwall/venv/bin/python3 /opt/diwall/shot.py --url <url> --guide-version 1.0
+/opt/diwall/venv/bin/python3 /opt/diwall/shot.py --url <url> --guide-version 1.1
 ```
 
 You will not be asked again on this machine, as this OS user, until

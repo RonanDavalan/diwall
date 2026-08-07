@@ -136,11 +136,11 @@ répertoire contient les commandes exactes avec les chemins réels.
 
 Capturer une page avec des éléments numérotés et l'arborescence d'accessibilité :
 
-    diwall-shot --url https://example.com --som --a11y --guide-version 1.0
+    diwall-shot --url https://example.com --som --a11y --guide-version 1.1
 
 Consultez uniquement l'état d'une page, sans générer d'image :
 
-diwall-shot --url https://example.com --mode fast --guide-version 1.0
+diwall-shot --url https://example.com --mode fast --guide-version 1.1
 
 Accédez à un panneau d'administration qui actualise les statistiques en continu :
 

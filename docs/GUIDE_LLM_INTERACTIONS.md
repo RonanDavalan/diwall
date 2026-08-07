@@ -1,12 +1,25 @@
 # Diwall — Interactions guide (SoM, selectors, dialogs, assertions)
 
-<!-- notice-version: 1.0 -->
-Version 1.0 — August 2026. First published edition. This number counts
-revisions of this notice, not releases of Diwall. Notable in the current text:
-`--wait-until` for never-idle targets, and `repli_js` second-level escalation on `cliquer`.
+<!-- notice-version: 1.1 -->
+Version 1.1 — August 2026. This number counts revisions of this notice, not
+releases of Diwall. Notable in the current text: `actions_invalides` error
+code documented. Prior (v1.0): `--wait-until` for never-idle targets, and
+`repli_js` second-level escalation on `cliquer`.
 
 Load this notice when: timeout on `cliquer`, CSS/showModal dialog, SoM IDs, strict mode
 violation, nth-match error, evaluer assertions, DOM mutations.
+
+---
+
+## `actions_invalides` — malformed or schema-rejected actions file
+
+`shot.py --actions FILE` (Mode B) fires this before Playwright launches when
+the file is not valid JSON, or fails validation against
+`scenarios/schema.json` (unknown action `type`, missing required key, wrong
+value type). The `message` field carries the underlying JSON/schema error —
+read it, it names the offending key. Fix the file and relaunch; this is a
+build-time error, not a runtime one, so nothing was executed against the
+target.
 
 ---
 

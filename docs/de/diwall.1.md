@@ -131,11 +131,11 @@ Verzeichnis enthält die genauen Befehle mit vollständigen Pfaden.
 
 Erfassen Sie eine Seite mit nummerierten Elementen und dem Accessibility-Baum:
 
-    diwall-shot --url https://example.com --som --a11y --guide-version 1.0
+    diwall-shot --url https://example.com --som --a11y --guide-version 1.1
 
 Zeigen Sie nur den Zustand einer Seite an, ohne ein Bild zu erzeugen:
 
-diwall-shot --url https://example.com --mode fast --guide-version 1.0
+diwall-shot --url https://example.com --mode fast --guide-version 1.1
 
 Erreichen Sie ein Administrationspanel, das Statistiken kontinuierlich aktualisiert:
 

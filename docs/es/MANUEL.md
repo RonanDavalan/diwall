@@ -41,7 +41,7 @@ No hay descripciones arquitectónicas. Comandos que funcionan.
 ```bash
 # Prueba completa con un solo comando (aproximadamente 3 segundos).
 /opt/diwall/venv/bin/python3 /opt/diwall/shot.py \
-  --url https://example.com --mode fast --guide-version 1.0
+  --url https://example.com --mode fast --guide-version 1.1
 ```
 
 Resultado esperado: JSON en stdout con `"succes": true`.
@@ -998,11 +998,11 @@ produce ese silencio, así que ningún valor de tiempo de espera puede ser lo su
 ```bash
 # shot.py — reconocimiento directo
 /opt/diwall/venv/bin/python3 /opt/diwall/shot.py \
-  --url http://target.local/ --wait-until load --som --a11y --guide-version 1.0
+  --url http://target.local/ --wait-until load --som --a11y --guide-version 1.1
 
 # rpa.py — se propagó a shot.py, por lo que los escenarios alcanzan los mismos objetivos.
 /opt/diwall/venv/bin/python3 /opt/diwall/rpa.py \
-  --scenario ./admin_login.json --wait-until load --guide-version 1.0
+  --scenario ./admin_login.json --wait-until load --guide-version 1.1
 ```
 
 Un escenario puede incluirlo como una propiedad raíz, permaneciendo así autocontenido:

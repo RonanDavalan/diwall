@@ -1,8 +1,8 @@
 # Diwall — LLM Guide (index)
 
-<!-- notice-version: 1.0 -->
-Version 1.0 — August 2026. First published edition. This number is the guide's
-own: it counts revisions of this text, not releases of Diwall.
+<!-- notice-version: 1.1 -->
+Version 1.1 — August 2026. Counts revisions, not Diwall releases. Added: 4
+security-hardening error codes below; `--no-filtre-evaluer` in `MANUEL.md`.
 
 **You are a language model. This is the entry point. Read it fully, then load
 the notice that matches your task.**
@@ -28,7 +28,7 @@ see Security below.)
 (`<!-- notice-version: X.Y -->`), same convention as the three notices.
 
 ```bash
-/opt/diwall/venv/bin/python3 /opt/diwall/shot.py --url <url> --guide-version 1.0
+/opt/diwall/venv/bin/python3 /opt/diwall/shot.py --url <url> --guide-version 1.1
 ```
 
 Accepted once → a local marker (`~/.config/diwall/guide_state.json`) is
@@ -188,18 +188,18 @@ navigation cap, session drift) worth your attention, not a refusal. Read
 
 | Symptom | Notice |
 |---|---|
-| Timeout on click/fill, `showModal()`, strict mode, SoM mismatch, Shadow DOM, `evaluer` assertion | `GUIDE_LLM_INTERACTIONS.md` |
+| Timeout on click/fill, `showModal()`, strict mode, SoM mismatch, Shadow DOM, `evaluer` assertion, `actions_invalides` (malformed `--actions` file) | `GUIDE_LLM_INTERACTIONS.md` |
 | Initial navigation times out despite a generous `--timeout` (live-stats/polling target) → `--wait-until load` | `GUIDE_LLM_INTERACTIONS.md` |
-| `exit 42`/`43` (encrypted directory), `--secrets`, `--http-credentials`, `--reprendre-session`, SPA nav, auth expiry | `GUIDE_LLM_SESSIONS.md` |
-| Screenshot timeout, `watch.py` diff, long operations, `journal.py` | `GUIDE_LLM_MONITORING.md` |
+| `exit 42`/`43` (encrypted directory), `--secrets`, `--http-credentials`, `--reprendre-session`, SPA nav, auth expiry, `url_scheme_interdit`, `action_secret_en_clair` (plaintext credential) | `GUIDE_LLM_SESSIONS.md` |
+| Screenshot timeout, `watch.py` diff, long operations, `journal.py`, `chemin_sensible_refuse` (`--checkpoint`/`--replay-verifier` path) | `GUIDE_LLM_MONITORING.md` |
 
 ## Notice index — load on demand
 
 | Notice | Load when | Version |
 |---|---|---|
-| `GUIDE_LLM_INTERACTIONS.md` | Interaction/DOM errors, `--wait-until`, Shadow DOM, iframes | v1.0 |
-| `GUIDE_LLM_SESSIONS.md` | Encrypted directory, `--secrets`, `--http-credentials`, sessions, SPA, MFA, `--checkpoint` | v1.0 |
-| `GUIDE_LLM_MONITORING.md` | `watch.py`, pixel diff, `--replay-verifier`, `mode_conseille`, journal | v1.0 |
+| `GUIDE_LLM_INTERACTIONS.md` | Interaction/DOM errors, `--wait-until`, Shadow DOM, iframes | v1.1 |
+| `GUIDE_LLM_SESSIONS.md` | Encrypted directory, `--secrets`, `--http-credentials`, sessions, SPA, MFA, `--checkpoint` | v1.1 |
+| `GUIDE_LLM_MONITORING.md` | `watch.py`, pixel diff, `--replay-verifier`, `mode_conseille`, journal | v1.1 |
 
 > Version column is canonical — reload a notice if your copy shows lower. If in doubt: load INTERACTIONS first (most frequent errors).
 

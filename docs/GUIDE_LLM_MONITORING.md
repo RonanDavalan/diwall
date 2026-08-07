@@ -1,9 +1,11 @@
 # Diwall — Monitoring guide (watch.py, long ops, screenshot timeouts, journal)
 
-<!-- notice-version: 1.0 -->
-Version 1.0 — August 2026. First published edition. This number counts
-revisions of this notice, not releases of Diwall. Notable in the current text:
-`latences_actions` per-action timing, and the `journal.py --erreurs` filter
+<!-- notice-version: 1.1 -->
+Version 1.1 — August 2026. This number counts revisions of this notice, not
+releases of Diwall. Notable in the current text: `chemin_sensible_refuse`
+error code documented for `--checkpoint`/`--sauver-verifier-reference`/
+`--replay-verifier`. Prior (v1.0): `latences_actions` per-action timing, and
+the `journal.py --erreurs` filter
 
 Load this notice when: watch.py, pixel diff, long-running operations, `--screenshot-timeout`,
 interval_capture, journal.py, FN7/FN8/FN9.
@@ -298,6 +300,14 @@ construction (timestamps, `operation_id`, `duree_ms`, `boussole.ip_locale`).
 `elements_som` is compared by **count only**, not content — SoM element
 identity across runs is not guaranteed stable (see `--som-rafraichir` below
 for why).
+
+**`chemin_sensible_refuse` (`rpa.py`, exit 2):** `--checkpoint`,
+`--sauver-verifier-reference`, or `--replay-verifier` was pointed at a `..`
+traversal or a system-sensitive location (Diwall's own install directories,
+`/etc`, `/root`, `/boot`, `/sys`, `/proc`). Fix: pass a path under a
+directory you control — these three flags write or read arbitrary files at
+the path given, so the check exists to stop a scenario-supplied path from
+reaching outside the working area.
 
 ### Writing reference-safe assertions (v1.19.0)
 

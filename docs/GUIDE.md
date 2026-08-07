@@ -23,6 +23,24 @@ the model captures the interface with a real browser (headless Chromium),
 and you have access to the same PNG captures and accessibility trees.
 You no longer take the model at its word — you observe the same state it does.
 
+```
+ Browser (headless Chromium)
+        │  Playwright drives it — click, fill, navigate
+        ▼
+ shot.py / rpa.py
+        │  reads the resulting DOM state through parallel views
+        ├──▶ capture_som   PNG, interactive elements numbered
+        ├──▶ elements_som  JSON list — id, tag, text
+        ├──▶ a11y_tree     accessibility tree, text
+        └──▶ session file  cookies only (--sauver-session)
+        │
+        ▼
+ boussole + JSON on stdout — same state you would see in a browser
+        │
+        ▼
+ You (the model): read → analyse → decide → act → loop
+```
+
 ### What you delegate
 
 Diwall lets you delegate **repetitive and anxiety-inducing visual verification**:
@@ -104,7 +122,7 @@ regression. Run it directly:
 ```bash
 /opt/diwall/venv/bin/python3 /opt/diwall/rpa.py \
   --scenario /opt/diwall/scenarios/exemples/depannage_local.json \
-  --guide-version 1.0
+  --guide-version 1.1
 ```
 
 ### Case 2 — comparing hardware components across shops

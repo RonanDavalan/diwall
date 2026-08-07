@@ -42,7 +42,7 @@ Keine architektonischen Beschreibungen. Befehle, die funktionieren.
 ```bash
 # Vollständiger Test mit einem Befehl (~3 Sekunden).
 /opt/diwall/venv/bin/python3 /opt/diwall/shot.py \
-  --url https://example.com --mode fast --guide-version 1.0
+  --url https://example.com --mode fast --guide-version 1.1
 ```
 
 Erwartetes Ergebnis: JSON auf stdout mit `"succes": true`.
@@ -1011,11 +1011,11 @@ Symptom: `TimeoutError` beim ersten Navigieren und das Auslösen von `--timeout`
 ```bash
 # shot.py — direkte Aufklärung
 /opt/diwall/venv/bin/python3 /opt/diwall/shot.py \
-  --url http://target.local/ --wait-until load --som --a11y --guide-version 1.0
+  --url http://target.local/ --wait-until load --som --a11y --guide-version 1.1
 
 # rpa.py — weitergegeben an shot.py, sodass Szenarien die gleichen Ziele erreichen.
 /opt/diwall/venv/bin/python3 /opt/diwall/rpa.py \
-  --scenario ./admin_login.json --wait-until load --guide-version 1.0
+  --scenario ./admin_login.json --wait-until load --guide-version 1.1
 ```
 
 Ein Szenario kann dies stattdessen als eine Stammeigenschaft enthalten und so für sich allein stehen:

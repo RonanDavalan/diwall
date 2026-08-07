@@ -44,7 +44,7 @@ No architectural descriptions. Commands that work.
 ```bash
 # Full test in one command (~3 s)
 /opt/diwall/venv/bin/python3 /opt/diwall/shot.py \
-  --url https://example.com --mode fast --guide-version 1.0
+  --url https://example.com --mode fast --guide-version 1.1
 ```
 
 Expected result: JSON on stdout with `"succes": true`.
@@ -1065,11 +1065,11 @@ produces that silence, so no timeout value can ever be large enough.
 ```bash
 # shot.py — direct reconnaissance
 /opt/diwall/venv/bin/python3 /opt/diwall/shot.py \
-  --url http://target.local/ --wait-until load --som --a11y --guide-version 1.0
+  --url http://target.local/ --wait-until load --som --a11y --guide-version 1.1
 
 # rpa.py — propagated to shot.py, so scenarios reach the same targets
 /opt/diwall/venv/bin/python3 /opt/diwall/rpa.py \
-  --scenario ./admin_login.json --wait-until load --guide-version 1.0
+  --scenario ./admin_login.json --wait-until load --guide-version 1.1
 ```
 
 A scenario can carry it as a root property instead, staying self-contained:
@@ -1316,6 +1316,8 @@ to avoid. Example `/etc/logrotate.d/diwall`:
 | `--som-rafraichir` | off | Stable SoM resolution by attribute instead of live re-indexing (v1.17.0, section 7j) |
 | `--ignorer-waf` | off | A detected WAF block degrades `niveau_confiance` but no longer forces `pret_a_agir: false` on its own (v1.17.2, section 3e) |
 | `--http-credentials` | off | Resolves HTTP Basic Auth credentials from the credentials file, scoped to the target's origin (v1.21.0, section 4g) |
+| `--no-evaluer` | off | Refuses the **evaluer** action for the whole run — recommended in production against targets with sensitive forms (v1.15.1) |
+| `--no-filtre-evaluer` | off | Disables stdout neutralisation of **evaluer** return values, URLs and error messages — explicit debug runs only. Neutralisation is on by default; when disabled, `boussole.filtre_evaluer_actif: false` is set in the output so the operator can audit it from the JSON itself (v1.23.0) |
 
 ### rpa.py
 

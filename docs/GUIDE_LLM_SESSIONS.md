@@ -1,15 +1,16 @@
 # Diwall — Sessions guide (encrypted directory, credentials, SPA, MFA, multi-page)
 
-<!-- notice-version: 1.0 -->
-Version 1.0 — August 2026. First published edition. This number counts
-revisions of this notice, not releases of Diwall.
-Notable in the current text: `dernier_code_http` in boussole,
-disambiguates real session expiry from a masked server error on the same
-login redirect. Prior (v1.21.0): `--http-credentials`: username/password
-fallback, confirmed against a real Caddy target. Fixed a false claim that
-`--secrets` accumulates across repeated flags (it does not); clarified that
-its filename is arbitrary, never hostname-derived — both found via a real
-field session (Qwen3.6 Plus, ticketing-platform check-in documentation, 14/07/2026)
+<!-- notice-version: 1.1 -->
+Version 1.1 — August 2026. This number counts revisions of this notice, not
+releases of Diwall. Notable in the current text: `action_secret_en_clair`
+and `url_scheme_interdit` error codes documented under Security rules.
+Prior (v1.0): `dernier_code_http` in boussole, disambiguates real session
+expiry from a masked server error on the same login redirect. Prior
+(v1.21.0): `--http-credentials`: username/password fallback, confirmed
+against a real Caddy target. Fixed a false claim that `--secrets`
+accumulates across repeated flags (it does not); clarified that its
+filename is arbitrary, never hostname-derived — both found via a real field
+session (Qwen3.6 Plus, ticketing-platform check-in documentation, 14/07/2026)
 
 Load this notice when: credentials, `--secrets`, session persistence, SPA navigation,
 multi-page flows, MFA/TOTP, auth_indicator, --no-capture.
@@ -32,6 +33,20 @@ USER=$(jq -r '.username' ~/Vaults/.../file.json)    # NEVER
 
 Values never appear in shell, bash history, process list, or any log.
 Also forbidden: using `curl`, `wget`, or any HTTP client for authentication.
+
+**`action_secret_en_clair` (`rpa.py`, exit 1):** a scenario action carries a
+plaintext value on a `password`/`secret`-looking selector or field instead of
+`"valeur": "depuis_secrets"` + `"secret_cle": "..."`. Checked before the
+scenario ever reaches Playwright's argv. Fix: replace the plaintext value
+with the `depuis_secrets` form above — this is the only accepted shape,
+scenario JSON or not, test tenant or not.
+
+**`url_scheme_interdit` (`shot.py`/`rpa.py`, exit 2):** the target URL —
+`--url`, a scenario's `url` field, or the URL restored by
+`--reprendre-session` — uses a scheme other than `http`/`https` (e.g.
+`file://`, `javascript:`), or carries userinfo (`user:pass@host`). Fix:
+pass a plain `http(s)://host/path` URL; resolve credentials through
+`depuis_secrets`, never through the URL itself.
 
 ---
 
