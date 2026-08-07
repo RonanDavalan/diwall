@@ -32,6 +32,29 @@ Commit: `2ce3e64`
 
 ---
 
+## 2026-08-07 — Partner sync: Sillage's own docs corrected for the vault->secrets rename
+
+Closing item of the vault-vocabulary chantier: Sillage's own project
+documentation cited Diwall's pre-04/08/2026 contract (`depuis_vault`,
+`vault_cle`, `VaultFermeError`, and the generic word describing Diwall's
+encrypted directory) in 25 files across its two private repositories.
+Corrected in both — none of it touches this repository, cited here for the
+record since the partner-synchronization law requires the correction to be
+tracked, not silently done elsewhere.
+
+The correction stayed narrow on purpose. Sillage runs several of its own,
+entirely unrelated systems that happen to share the word "vault"/"coffre" —
+a credential-signing vault for its own licence infrastructure, a local
+Plasma Vault holding machine configuration, a testers' prompt/response
+archive. None of those are Diwall's contract, and none were touched. The one
+thing this session corrected across both repositories, deliberately, was
+wherever Sillage's prose was actually describing Diwall's own mechanism.
+
+Not pushed — this note documents work committed in Sillage's own
+repositories, not in this one.
+
+---
+
 ## 2026-08-07 — Site: vault vocabulary sweep, credential guide renamed, guide-version token synchronized
 
 Companion pass to the vocabulary decision already landed in this repository
