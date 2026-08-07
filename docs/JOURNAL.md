@@ -4,6 +4,33 @@ History of decisions and discoveries by session, in reverse chronological order.
 
 ---
 
+## 2026-08-07 — Six independent audits kept finding the same leak under different names
+
+A redaction function existed and worked correctly — but only one of the two
+channels that carry Diwall's output called it. The persistent operations log
+redacted a cookie value, a bearer token, a URL's query string before writing
+it to disk. Standard output — what the LLM agent actually reads — did not.
+An `evaluer` action that read `document.cookie` on an authenticated page, an
+OAuth callback URL with a `?code=...` parameter, an exception message that
+happened to quote a URL: all three reached the agent's context in the clear,
+even though the exact same value would have been redacted one line later, on
+its way to the log file.
+
+The fix is a small shared module both programs now import, so the two
+channels can no longer drift apart. A new flag makes the difference
+observable from the output itself: neutralization is on unless a debug run
+explicitly turns it off, and when it does, the JSON output says so.
+
+A related pair of checks was tightened at the same time. A file holding
+credentials that turned out to be readable beyond its owner used to print a
+warning and continue; it now refuses to proceed. A missing dependency that
+should never be missing on a real installation used to degrade silently into
+running unchecked; it now stops with a clear message instead. And a form
+field whose name looks like a password or token field is now rejected before
+any value is typed into it — regardless of whether the scenario declared it
+as a credential — closing a path where a plaintext secret could still slip
+through an unmarked field.
+
 ## 2026-08-06 — A protection written for one program that touches credentials was missing from a second one
 
 The tool that pre-validates a scenario before running it loads the entire
