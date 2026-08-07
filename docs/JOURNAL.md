@@ -4,6 +4,64 @@ History of decisions and discoveries by session, in reverse chronological order.
 
 ---
 
+## 2026-08-07 — FR/DE/ES retranslated for the security-hardening catch-up, two more translation bugs found
+
+Retranslation pass for the three documents the previous entry's English
+catch-up touched — `--no-filtre-evaluer` in the manual, the four new error
+codes, the agentic-loop diagram. Segment-level pipeline, three segments
+rejected by the model and arbitrated by hand across all three languages.
+
+Two translation defects survived every automated net and were found only by
+rendering the man page for real (`man -l`), not by grepping the output: the
+`--mode fast|full` description translated "fast"/"full" as ordinary
+adjectives (rapide/schnell in the body prose, this project's third recorded
+instance of this exact failure class — literal option values aren't covered
+by the options-name filter, only the flag itself is), and the French exit-code
+list silently lost the `**1**` heading, merging two return codes' descriptions
+into one paragraph.
+
+A real bug in the private translation tooling surfaced in the process:
+`entree_ordonnee()` only ever searched the `ordre` list, never
+`traduits_hors_pdf` — so the similarity gate crashed on the manual page in
+all three languages, every time it ran, since the manual moved out of the
+main PDF ordering in session 64. Fixed.
+
+Not committed here — private tooling lives outside this repository.
+
+Commit: `2ce3e64`
+
+---
+
+## 2026-08-07 — Site: vault vocabulary sweep, credential guide renamed, guide-version token synchronized
+
+Companion pass to the vocabulary decision already landed in this repository
+(`depuis_vault` → `depuis_secrets` and neighbors): the public site carried the
+same old vocabulary in far more places than the code did, because none of it
+had been touched since the decision. `guides/the-credential-vault` renamed to
+`guides/the-credential-directory` in all four languages, with new slugs and
+the translation pipeline's slug table updated in the same commit as the file
+rename. The security-architecture page (`trust.md`) was missing the
+guarantees the recent hardening chantier actually added — credential
+rejection inside `evaluer`, default stdout/log redaction, `600`/`700`
+permissions on captures and proof archives — added and checked against the
+live deployment, not just asserted. The `--guide-version` token, three
+releases stale on the site (`4.1`, current value `1.1`), was resynchronized
+across 108 citations in 56 files.
+
+Two files carrying the same old vocabulary were missed by a `content/`-scoped
+search entirely: `static/llms.txt` and `static/instructions.md`, served
+verbatim by Hugo and only found by grepping the compiled `public/` tree
+afterward. Worth remembering for the next sweep of this kind — a static
+asset does not show up in a content-directory search.
+
+Decision: no version bump — the site lives outside this repository, no
+Diwall code changed. Committed and validated (`preflight-publication.sh`
+green, Hugo build clean, zero dangling link to the old slug) in the site's
+own repository, not pushed — publication waits on written validation across
+sessions 83-86, per the "two channels publish together" law.
+
+---
+
 ## 2026-08-07 — Documentation catch-up on the security hardening chantier
 
 A pre-publication documentation audit found that the previous session's
