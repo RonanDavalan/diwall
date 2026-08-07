@@ -23,6 +23,24 @@ das Modell erfasst die Benutzeroberfläche mit einem echten Browser (headless Ch
 und Sie haben Zugriff auf dieselben PNG-Aufnahmen und Accessibility-Bäume.
 Sie müssen dem Modell nicht mehr blind vertrauen – Sie beobachten denselben Zustand wie es.
 
+```
+ Browser (headless Chromium)
+        │  Playwright drives it — click, fill, navigate
+        ▼
+ shot.py / rpa.py
+        │  reads the resulting DOM state through parallel views
+        ├──▶ capture_som   PNG, interactive elements numbered
+        ├──▶ elements_som  JSON list — id, tag, text
+        ├──▶ a11y_tree     accessibility tree, text
+        └──▶ session file  cookies only (--sauver-session)
+        │
+        ▼
+ boussole + JSON on stdout — same state you would see in a browser
+        │
+        ▼
+ You (the model): read → analyse → decide → act → loop
+```
+
 ### Was Sie delegieren
 
 Diwall ermöglicht es Ihnen, **wiederholende und stressauslösende visuelle Überprüfungen** auszulagern:

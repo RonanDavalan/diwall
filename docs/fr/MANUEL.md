@@ -455,6 +455,18 @@ export DIWALL_CONF=~/git/MyProject/.diwall.conf
 /opt/diwall/venv/bin/python3 /opt/diwall/shot.py --url https://target.local/ --som
 ```
 
+**Contenu du fichier `--secrets` — `origines_autorisees` obligatoire depuis le
+05/08/2026** (rupture, sans période de compatibilité) : un fichier sans cette clé est refusé avant toute lecture.
+
+```json
+{"username": "operator", "password": "secret", "origines_autorisees": ["target.local"]}
+```
+
+`origines_autorisees` liste les noms d'hôte auxquels ce fichier peut être utilisé.
+Utilisez le même format en minuscules, sans schéma et sans port que `domaine_depuis_url()`. Une lecture
+d'une page dont le domaine ne figure pas dans la liste est refusée
+(`SecretsOrigineNonAutoriseeError`).
+
 Contenu de `~/git/MyProject/.diwall.conf` :
 
 ```json
@@ -720,13 +732,13 @@ Si la protection échoue : rpa.py s'arrête avant que la suppression ne soit ex�
 /opt/diwall/venv/bin/python3 /opt/diwall/shot.py \
   --url https://app.example.com/login/ \
   --actions /tmp/login.json \
-  --sauver-session /tmp/session.json \
+  --sauver-session /tmp/diwall/session.json \
   --som
 
 # Appels suivants — réutiliser la session (pas de nouvelle connexion).
 /opt/diwall/venv/bin/python3 /opt/diwall/shot.py \
   --url https://app.example.com/dashboard/ \
-  --reprendre-session /tmp/session.json \
+  --reprendre-session /tmp/diwall/session.json \
   --som
 ```
 
@@ -1186,6 +1198,33 @@ Champs dans chaque entrée :
 | `duree_ms` | Durée en ms |
 | `intention` | Étiquette transmise via `--intention` ou champ de scénario `intention` |
 
+### 9a. Rotation des journaux (G-36, CHANTIER_SANITISATION.md)
+
+Diwall ne fournit pas de configuration `logrotate` — `/var/log/diwall/operations.jsonl`
+et grandit indéfiniment jusqu'à ce que l'administrateur en installe une. `lib/journal.py` ouvre
+et ferme le fichier à chaque écriture (pas de descripteur de fichier persistant entre
+les exécutions), spécifiquement pour que le comportement par défaut de `logrotate` (renommer
+le fichier actuel, créer un nouveau fichier) fonctionne correctement sans aucune option spéciale : la prochaine écriture rouvre le chemin et trouve le nouvel inode.
+
+Ne pas ajouter ``copytruncate`` à une configuration de logrotate pour Diwall, car c'est
+inutile ici (contrairement aux outils qui maintiennent un descripteur de fichier ouvert
+pendant toute leur durée de vie) et cela réintroduit une fenêtre de perte d'écriture que cette conception a été conçue pour éviter. Exemple ``/etc/logrotate.d/diwall``:
+
+```
+/var/log/diwall/operations.jsonl {
+    weekly
+    rotate 8
+    compress
+    delaycompress
+    missingok
+    notifempty
+    create 0640 diwall diwall
+}
+```
+
+`journal.py` (le lecteur) suit déjà les fichiers rotatifs de manière transparente.
+(`operations.jsonl`, `.1`, `.2.gz`, ...) — aucune étape supplémentaire n'est nécessaire après la rotation.
+
 ---
 
 ## 10. Options de ligne de commande — référence
@@ -1194,7 +1233,7 @@ Champs dans chaque entrée :
 
 | Flag | Default | Description |
 |---|---|---|
-| `--version` | — | Affiche la version installée et se termine immédiatement — aucun argument Playwright ni autre n'est requis (v1.18.0) |
+| `--version` | — | Affiche la version installée et se termine immédiatement — aucun Playwright, aucun autre argument requis (v1.18.0) |
 | `--guide-version X.Y` | — | Preuve de lecture de `docs/GUIDE_LLM.md` — requis sauf si un marqueur local valide existe déjà (v1.18.0, section 1) |
 | `--url URL` | required | URL à capturer |
 | `--actions FILE` | — | Fichier JSON des actions séquentielles |
@@ -1210,7 +1249,7 @@ Champs dans chaque entrée :
 | `--mode fast\|full` | — | `fast` = `--no-capture --a11y`. `full` = comportement par défaut |
 | `--no-capture` | off | Ignore la capture PNG et le marquage |
 | `--llm local\|claude` | `local` | Moteur LLM pour `cliquer_visuel` |
-| `--secrets FILE` | — | Chemin explicite vers un fichier d'identifiants |
+| `--secrets FILE` | — | Chemin explicite vers un fichier d'informations d'identification |
 | `--auth-indicator SEL` | — | Sélecteur CSS présent uniquement dans la session authentifiée |
 | `--auth-indicator-negative SEL` | — | Sélecteur CSS présent uniquement en dehors de la session authentifiée |
 | `--intention TEXT` | — | Étiquette commerciale enregistrée dans le journal |
@@ -1219,7 +1258,9 @@ Champs dans chaque entrée :
 | `--interval-capture N` | 0 | Captures périodiques toutes les N secondes pendant `attendre`, `pause` |
 | `--som-rafraichir` | off | Résolution stable du marquage par attribut au lieu de la réindexation en direct (v1.17.0, section 7j) |
 | `--ignorer-waf` | off | Un bloc WAF détecté dégrade `niveau_confiance` mais ne force plus automatiquement `pret_a_agir: false` (v1.17.2, section 3e) |
-| `--http-credentials` | off | Résout les identifiants HTTP Basic Auth à partir du fichier d'identifiants, limités à l'origine de la cible (v1.21.0, section 4g) |
+| `--http-credentials` | off | Résout les informations d'identification HTTP Basic Auth à partir du fichier d'informations d'identification, limitées à l'origine de la cible (v1.21.0, section 4g) |
+| `--no-evaluer` | off | Refuse l'action **evaluer** pour toute l'exécution — recommandé en production pour les cibles avec des formulaires sensibles (v1.15.1) |
+| `--no-filtre-evaluer` | off | Désactive la neutralisation de la sortie standard (**stdout**) des valeurs de retour, des URL et des messages d'erreur de **evaluer** — uniquement pour les exécutions de débogage explicites. La neutralisation est activée par défaut ; lorsqu'elle est désactivée, `boussole.filtre_evaluer_actif: false` est défini dans la sortie afin que l'opérateur puisse l'auditer directement à partir du fichier JSON (v1.23.0) |
 
 ### rpa.py
 

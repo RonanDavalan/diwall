@@ -66,8 +66,8 @@ guide. C'est le seul endroit où Diwall n'est pas une option facultative.
 Différent de **--guide-version** ; les deux numéros ne sont pas liés.
 
 **--mode** *fast*|*full*
-: *rapide* est **--no-capture --a11y**: sans PNG, environ deux secondes plus rapide,
-suffisant pour lire l'état. *complet* est le mode par défaut et capture le rendu.
+: *fast* est **--no-capture --a11y**: sans PNG, environ deux secondes plus rapide,
+suffisant pour lire l'état. *full* est le mode par défaut et capture le rendu.
 
 **--som**
 : Numérotez les éléments interactifs visibles dans la capture, afin que les actions puissent
@@ -93,6 +93,9 @@ au lieu de la recherche par défaut basée sur l'hôte.
 
 **--no-evaluer**
 : Refuser l'action **evaluer** pour toute la session — le code JavaScript arbitraire n'est pas exécuté sur la page cible.
+
+**--no-filtre-evaluer**
+: Désactiver la neutralisation de la sortie standard des valeurs de retour de **evaluer**, des URL et des messages d'erreur — uniquement pour les exécutions de débogage explicites. La neutralisation est activée par défaut ; lorsqu'elle est désactivée, `boussole.filtre_evaluer_actif: false` est défini dans la sortie afin que l'opérateur puisse l'auditer directement à partir du JSON.
 
 # FICHIERS
 
@@ -121,6 +124,7 @@ répertoire contient les commandes exactes avec les chemins réels.
 **0**
 : L'exécution est terminée. Notez qu'un code HTTP 404 ou 403 sur la cible est signalé dans le JSON, et non comme une erreur de la commande.
 
+**1**
 : L'exécution a échoué, ou la vérification préalable n'a pas été satisfaisante (*guide_non_lu*) .
 
 **2**
@@ -140,7 +144,7 @@ Capturer une page avec des éléments numérotés et l'arborescence d'accessibil
 
 Consultez uniquement l'état d'une page, sans générer d'image :
 
-diwall-shot --url https://example.com --mode fast --guide-version 1.1
+    diwall-shot --url https://example.com --mode fast --guide-version 1.1
 
 Accédez à un panneau d'administration qui actualise les statistiques en continu :
 

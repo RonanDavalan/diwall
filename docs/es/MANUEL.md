@@ -460,6 +460,18 @@ export DIWALL_CONF=~/git/MyProject/.diwall.conf
 /opt/diwall/venv/bin/python3 /opt/diwall/shot.py --url https://target.local/ --som
 ```
 
+**Contenido del archivo `--secrets` — `origines_autorisees` obligatorio desde el
+05/08/2026** (cambio disruptivo, sin período de compatibilidad): un archivo sin esta clave se rechaza antes de cualquier lectura.
+
+```json
+{"username": "operator", "password": "secret", "origines_autorisees": ["target.local"]}
+```
+
+`origines_autorisees` enumera los nombres de host contra los cuales este archivo puede ser utilizado.
+El formato es el mismo que en `domaine_depuis_url()`: minúsculas, sin esquema y sin puerto. Una lectura
+contra una página cuyo dominio no está en la lista será rechazada
+(`SecretsOrigineNonAutoriseeError`).
+
 Contenido de `~/git/MyProject/.diwall.conf`:
 
 ```json
@@ -723,13 +735,13 @@ Si la protección falla: rpa.py se detiene antes de que se ejecute la eliminaci�
 /opt/diwall/venv/bin/python3 /opt/diwall/shot.py \
   --url https://app.example.com/login/ \
   --actions /tmp/login.json \
-  --sauver-session /tmp/session.json \
+  --sauver-session /tmp/diwall/session.json \
   --som
 
 # Invocaciones posteriores: reutilizar la sesión (sin volver a iniciar sesión).
 /opt/diwall/venv/bin/python3 /opt/diwall/shot.py \
   --url https://app.example.com/dashboard/ \
-  --reprendre-session /tmp/session.json \
+  --reprendre-session /tmp/diwall/session.json \
   --som
 ```
 
@@ -1187,6 +1199,31 @@ Campos en cada entrada:
 | `duree_ms` | Duración en ms |
 | `intention` | Etiqueta pasada a través de `--intention` o el campo de escenario `intention` |
 
+### 9a. Rotación de registros (G-36, CHANTIER_SANITISATION.md)
+
+Diwall no incluye una configuración de logrotate — `/var/log/diwall/operations.jsonl`
+crece sin límite hasta que el administrador instala una. `lib/journal.py` abre
+y cierra el archivo en cada escritura (sin un descriptor de archivo persistente entre
+ejecuciones), específicamente para que el comportamiento **predeterminado** de logrotate (renombrar
+el archivo actual, crear uno nuevo) funcione correctamente sin ninguna opción especial: la siguiente escritura vuelve a abrir la ruta y encuentra el nuevo inode.
+
+No agregue ``copytruncate`` a la configuración de logrotate de Diwall; es innecesario aquí (a diferencia de las herramientas que mantienen un descriptor de archivo abierto durante toda su vida útil) y reintroduce una ventana de pérdida de escritura que este diseño se diseñó para evitar. Ejemplo: ``/etc/logrotate.d/diwall``
+
+```
+/var/log/diwall/operations.jsonl {
+    weekly
+    rotate 8
+    compress
+    delaycompress
+    missingok
+    notifempty
+    create 0640 diwall diwall
+}
+```
+
+`journal.py` (el lector) ya sigue los archivos rotados de forma transparente.
+(`operations.jsonl`, `.1`, `.2.gz`, ...) — no se necesita ningún paso adicional después de la rotación.
+
 ---
 
 ## 10. Flags de la línea de comandos: referencia
@@ -1200,7 +1237,7 @@ Campos en cada entrada:
 | `--url URL` | required | URL para capturar |
 | `--actions FILE` | — | Archivo JSON de acciones secuenciales |
 | `--output-dir DIR` | `/tmp/diwall` | Directorio de salida PNG |
-| `--timeout MS` | 10000 | Tiempo de espera de Playwright por acción (ms) |
+| `--timeout MS` | 10000 | Tiempo de espera por acción de Playwright (ms) |
 | `--screenshot-timeout MS` | 120000 | Tiempo de espera para `page.screenshot()` (ms). Distinto de `--timeout` |
 | `--largeur PX` | 1280 | Ancho del viewport |
 | `--hauteur PX` | 720 | Altura del viewport |
@@ -1221,6 +1258,8 @@ Campos en cada entrada:
 | `--som-rafraichir` | off | Resolución estable del SoM por atributo en lugar de reindexación en vivo (v1.17.0, sección 7j) |
 | `--ignorer-waf` | off | Un bloqueo WAF detectado degrada `niveau_confiance` pero ya no fuerza automáticamente `pret_a_agir: false` (v1.17.2, sección 3e) |
 | `--http-credentials` | off | Resuelve las credenciales de HTTP Basic Auth del archivo de credenciales, con alcance al origen del objetivo (v1.21.0, sección 4g) |
+| `--no-evaluer` | off | Rechaza la acción **evaluer** para toda la ejecución; recomendado en producción contra objetivos con formularios sensibles (v1.15.1) |
+| `--no-filtre-evaluer` | off | Deshabilita la neutralización de stdout de los valores de retorno, las URL y los mensajes de error de **evaluer**; solo ejecuciones de depuración explícitas. La neutralización está habilitada por defecto; cuando se deshabilita, `boussole.filtre_evaluer_actif: false` se establece en la salida para que el operador pueda auditarla desde el propio JSON (v1.23.0) |
 
 ### rpa.py
 

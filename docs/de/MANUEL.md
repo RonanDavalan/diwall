@@ -465,6 +465,18 @@ export DIWALL_CONF=~/git/MyProject/.diwall.conf
 /opt/diwall/venv/bin/python3 /opt/diwall/shot.py --url https://target.local/ --som
 ```
 
+**Inhalt der Datei `--secrets` — `origines_autorisees` obligatorisch seit dem
+05/08/2026** (Breaking Change, keine Übergangsfrist): Eine Datei ohne diesen Schlüssel wird vor jedem Lesevorgang verweigert.
+
+```json
+{"username": "operator", "password": "secret", "origines_autorisees": ["target.local"]}
+```
+
+`origines_autorisees` listet die Hostnamen auf, gegen die diese Datei verwendet werden darf –
+im gleichen Kleinbuchstabenformat ohne Schema und Port wie `domaine_depuis_url()`. Ein Zugriff
+auf eine Seite, deren Domain nicht in der Liste enthalten ist, wird verweigert
+(`SecretsOrigineNonAutoriseeError`).
+
 Inhalt von `~/git/MyProject/.diwall.conf` :
 
 ```json
@@ -730,13 +742,13 @@ Wenn die Sicherheitsprüfung fehlschlägt: rpa.py stoppt, bevor die Löschung au
 /opt/diwall/venv/bin/python3 /opt/diwall/shot.py \
   --url https://app.example.com/login/ \
   --actions /tmp/login.json \
-  --sauver-session /tmp/session.json \
+  --sauver-session /tmp/diwall/session.json \
   --som
 
 # Nachfolgende Aufrufe – Wiederverwendung der Sitzung (kein erneutes Anmelden).
 /opt/diwall/venv/bin/python3 /opt/diwall/shot.py \
   --url https://app.example.com/dashboard/ \
-  --reprendre-session /tmp/session.json \
+  --reprendre-session /tmp/diwall/session.json \
   --som
 ```
 
@@ -1200,6 +1212,29 @@ Felder in jedem Eintrag:
 | `duree_ms` | Dauer in ms |
 | `intention` | Label, das über `--intention` oder das Feld "Szenario" `intention` übergeben wird |
 
+### 9a. Protokolldrehung (G-36, CHANTIER_SANITISATION.md)
+
+Diwall liefert keine Logrotate-Konfiguration — `/var/log/diwall/operations.jsonl`
+wächst unbegrenzt, bis der Administrator eine solche installiert. `lib/journal.py` öffnet
+und schließt die Datei bei jedem Schreibvorgang (kein persistenter Dateideskriptor über mehrere Ausführungen), speziell damit das **Standard**verhalten von Logrotate (die aktuelle Datei umbenennen und eine neue erstellen) korrekt funktioniert, ohne dass spezielle Optionen erforderlich sind: der nächste Schreibvorgang öffnet den Pfad erneut und findet den neuen Inode.
+
+Fügen Sie keinen Eintrag ``copytruncate`` zu einer Diwall-Logrotate-Konfiguration hinzu – er ist hier unnötig (im Gegensatz zu Tools, die einen Dateideskriptor während ihrer gesamten Lebensdauer geöffnet halten) und führt ein Fenster für Datenverluste wieder ein, das dieses Design vermeiden soll. Beispiel: ``/etc/logrotate.d/diwall``:
+
+```
+/var/log/diwall/operations.jsonl {
+    weekly
+    rotate 8
+    compress
+    delaycompress
+    missingok
+    notifempty
+    create 0640 diwall diwall
+}
+```
+
+`journal.py` (der Leser) verfolgt bereits transparente rotierte Dateien automatisch.
+(`operations.jsonl`, `.1`, `.2.gz`, ...) – kein zusätzlicher Schritt erforderlich nach der Rotation.
+
 ---
 
 ## 10. Befehlszeilenparameter – Referenz
@@ -1219,7 +1254,7 @@ Felder in jedem Eintrag:
 | `--hauteur PX` | 720 | Viewport-Höhe |
 | `--som` | off | Aktiviert Set-of-Mark (Elementnummerierung) |
 | `--a11y` | off | Inkludiert den Accessibility-Baum in der JSON-Datei |
-| `--shadow-dom` | off | Durchsucht Shadow Roots für SoM (Angular, Lit, Stencil) |
+| `--shadow-dom` | off | Durchläuft Shadow Roots für SoM (Angular, Lit, Stencil) |
 | `--stealth` | off | playwright-stealth Stealth-Modus (v1.15.0) |
 | `--mode fast\|full` | — | `fast` = `--no-capture --a11y`. `full` = Standardverhalten |
 | `--no-capture` | off | Überspringt die PNG-Aufnahme und SoM |
@@ -1227,13 +1262,15 @@ Felder in jedem Eintrag:
 | `--secrets FILE` | — | Expliziter Pfad zu einer Datei mit Anmeldeinformationen |
 | `--auth-indicator SEL` | — | CSS-Selektor, der nur in einer authentifizierten Sitzung vorhanden ist |
 | `--auth-indicator-negative SEL` | — | CSS-Selektor, der nur außerhalb einer authentifizierten Sitzung vorhanden ist |
-| `--intention TEXT` | — | Geschäftlicher Label, der im Protokoll gespeichert wird |
+| `--intention TEXT` | — | Geschäftlicher Label, der im Protokoll aufgezeichnet wird |
 | `--sauver-session FILE` | — | Speichert Cookies nach den Aktionen |
 | `--reprendre-session FILE` | — | Setzt eine gespeicherte Sitzung fort |
-| `--interval-capture N` | 0 | Periodische Aufnahmen alle N Sekunden während `attendre`, `pause` |
+| `--interval-capture N` | 0 | Regelmäßige Aufnahmen alle N Sekunden während von `attendre`, `pause` |
 | `--som-rafraichir` | off | Stabile SoM-Auflösung durch Attribut anstelle von Live-Reindexierung (v1.17.0, Abschnitt 7j) |
-| `--ignorer-waf` | off | Ein erkannter WAF-Block beeinträchtigt `niveau_confiance`, erzwingt aber nicht mehr automatisch `pret_a_agir: false` (v1.17.2, Abschnitt 3e) |
+| `--ignorer-waf` | off | Ein erkannten WAF-Block beeinträchtigt `niveau_confiance`, erzwingt aber nicht mehr automatisch `pret_a_agir: false` (v1.17.2, Abschnitt 3e) |
 | `--http-credentials` | off | Löst HTTP Basic Auth-Anmeldeinformationen aus der Datei mit Anmeldeinformationen auf, beschränkt auf den Ursprung des Ziels (v1.21.0, Abschnitt 4g) |
+| `--no-evaluer` | off | Verweigert die Aktion **evaluer** für den gesamten Lauf – empfohlen in Produktionsumgebungen für Ziele mit sensiblen Formularen (v1.15.1) |
+| `--no-filtre-evaluer` | off | Deaktiviert die stdout-Neutralisierung von **evaluer**-Rückgabewerten, URLs und Fehlermeldungen – nur explizite Debug-Läufe. Die Neutralisierung ist standardmäßig aktiviert; wenn sie deaktiviert ist, wird `boussole.filtre_evaluer_actif: false` in der Ausgabe gesetzt, sodass der Bediener diese aus der JSON-Datei selbst überprüfen kann (v1.23.0) |
 
 ### rpa.py
 

@@ -62,8 +62,8 @@ guía. Este es el único lugar donde Diwall no es opcional.
 Es diferente de **--guide-version**; los dos números no están relacionados.
 
 **--mode** *fast*|*full*
-: *rápido* es **--no-capture --a11y**: sin PNG, aproximadamente dos segundos más rápido,
-suficiente para leer el estado. *completo* es el valor predeterminado y captura la renderización.
+: *fast* es **--no-capture --a11y**: sin PNG, aproximadamente dos segundos más rápido,
+suficiente para leer el estado. *full* es el valor predeterminado y captura la renderización.
 
 **--som**
 : Numera los elementos interactivos visibles en la captura, para que las acciones puedan
@@ -90,6 +90,9 @@ es el trato equitativo, no el disfraz.
 
 **--no-evaluer**
 : Rechazar la acción de **evaluar** para toda la ejecución; el código JavaScript arbitrario no se ejecuta en la página de destino.
+
+**--no-filtre-evaluer**
+: Desactivar la neutralización de la salida estándar (stdout) de los valores devueltos por **evaluer**, las URLs y los mensajes de error; solo para ejecuciones de depuración explícitas. La neutralización está activada por defecto; cuando se desactiva, `boussole.filtre_evaluer_actif: false` se establece en la salida para que el operador pueda auditarla directamente desde el JSON.
 
 # ARCHIVOS
 

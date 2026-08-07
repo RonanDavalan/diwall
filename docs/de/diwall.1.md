@@ -68,8 +68,8 @@ Anleitung. Dies ist der einzige Ort, an dem Diwall nicht optional ist.
 Unterscheidet sich von **--guide-version**; die beiden Zahlen stehen in keinem Zusammenhang miteinander.
 
 **--mode** *fast*|*full*
-: *schnell* ist **--no-capture --a11y**: ohne PNG-Unterstützung, etwa zwei Sekunden schneller,
-ausreichend, um den Status anzuzeigen. *vollständig* ist die Standardeinstellung und erfasst das Rendering.
+: *fast* ist **--no-capture --a11y**: ohne PNG-Unterstützung, etwa zwei Sekunden schneller,
+ausreichend, um den Status anzuzeigen. *full* ist die Standardeinstellung und erfasst das Rendering.
 
 **--som**
 : Nummeriere die sichtbaren interaktiven Elemente im Screenshot, sodass Aktionen sie anhand ihres Index und nicht anhand eines CSS-Selektors ansprechen können.
@@ -91,6 +91,9 @@ anstatt der standardmäßigen Host-basierten Suche.
 
 **--no-evaluer**
 : Verweigern Sie die Aktion "**evaluer**" für den gesamten Durchlauf – willkürlicher JavaScript-Code wird nicht auf der Zielseite ausgeführt.
+
+**--no-filtre-evaluer**
+: Deaktivieren der Standardausgabe-Neutralisierung von **evaluer**-Rückgabewerten, URLs und Fehlermeldungen – nur für explizite Debug-Läufe. Die Neutralisierung ist standardmäßig aktiviert; wenn sie deaktiviert ist, wird `boussole.filtre_evaluer_actif: false` in der Ausgabe gesetzt, damit der Operator sie anhand des JSON selbst überprüfen kann.
 
 # DATEIEN
 
@@ -135,7 +138,7 @@ Erfassen Sie eine Seite mit nummerierten Elementen und dem Accessibility-Baum:
 
 Zeigen Sie nur den Zustand einer Seite an, ohne ein Bild zu erzeugen:
 
-diwall-shot --url https://example.com --mode fast --guide-version 1.1
+    diwall-shot --url https://example.com --mode fast --guide-version 1.1
 
 Erreichen Sie ein Administrationspanel, das Statistiken kontinuierlich aktualisiert:
 
