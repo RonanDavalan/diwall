@@ -4,6 +4,47 @@ History of decisions and discoveries by session, in reverse chronological order.
 
 ---
 
+## 2026-08-07 — Filesystem permissions and hardening, closed with a real install cycle
+
+Two more lots of the sanitisation project landed: tighter file permissions
+on the data Diwall writes to disk (visual references, ChromaDB, the
+`--output` path), and a set of smaller hardening items — a regex timeout on
+assertion matching so a hostile page can't hang the process with a
+catastrophic-backtracking pattern, a decompression-bomb guard on image
+loading, path-traversal rejection on a couple of user-supplied filenames,
+and `--sortie-json` now honored by every `watch.py` mode instead of only
+one of them.
+
+Two items from the plan were deliberately not applied, and said so in the
+code rather than silently dropped. Lowering the base64-detection threshold
+turned out to re-flag exactly the kind of filename Diwall itself generates
+(`capture_<timestamp>`) as a false positive — the same regression a fix
+from the day before had corrected, this time caught before it shipped by
+testing against real generated filenames instead of trusting the plan's
+number. A second chmod, on a directory shared by every service account
+running Diwall, was left out for the same reason: applied literally it
+would have broken that sharing for no security gain, since the directory
+holding the actual sensitive files was already locked down.
+
+The real value of the session came from testing all of this against a
+genuine from-scratch package install rather than trusting code review
+alone. Two bugs surfaced that no amount of reading the diff would have
+caught: three library modules — including the one every write path
+depends on for redacting secrets from output — were missing from the
+package manifest, so a clean install would have failed on the very first
+run with an import error. And a file written by `watch.py` kept its old,
+looser permissions across repeated runs, because the underlying system
+call only applies a requested file mode when the file is created, not when
+it already exists and gets overwritten — a sibling file right next to it
+avoided the same trap only because it happened to reset its permissions
+explicitly after writing. Both are fixed now, and the same write pattern
+was checked everywhere else it appears in the codebase before calling the
+work done.
+
+Commit: `2dba4dd`
+
+---
+
 ## 2026-08-07 — A same-day follow-up audit, cross-checked before acting on it
 
 A second audit landed the same day as the fix above and found three more
