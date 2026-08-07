@@ -46,7 +46,11 @@ CLAUDE_MODEL = "claude-haiku-4-5-20251001"
 # Permet d'importer lib/ depuis le même répertoire que watch.py
 sys.path.insert(0, os.path.dirname(os.path.abspath(__file__)))
 
-from lib.sanitisation import _sanitiser_url_journal
+from lib.sanitisation import (
+    _sanitiser_url_journal,
+    _neutraliser_valeur_evaluer,
+    sanitiser_urls_dans_chaine,
+)
 
 PROMPT_DEFAUT = (
     "Tu reçois deux captures d'écran : la première est la référence (état de référence), "
@@ -123,14 +127,30 @@ def slug_url(url):
 
 
 def repertoire_reference(url, nom=None):
-    d = os.path.join(REFERENCES_DIR, slug_url(url))
+    base = os.path.join(REFERENCES_DIR, slug_url(url))
+    d = base
     if nom:
-        d = os.path.join(d, nom)
-    os.makedirs(d, exist_ok=True)
+        # G-09/G-25 (CHANTIER_SANITISATION.md, LOT 2/LOT 5) : --nom est une
+        # entrée opérateur ; rejeter tout composant de chemin avant de
+        # l'utiliser dans os.path.join, pas seulement le neutraliser.
+        base_nom = os.path.basename(nom)
+        if base_nom != nom or ".." in nom:
+            raise ValueError(f"--nom : valeur invalide : {nom!r}")
+        d = os.path.join(base, base_nom)
+    os.makedirs(d, mode=0o700, exist_ok=True)
+    os.chmod(d, 0o700)
+    # os.makedirs(mode=...) ne s'applique qu'au répertoire feuille — le
+    # répertoire intermédiaire (slug de l'URL, sans --nom) hérite de
+    # l'umask par défaut si créé au passage. Découvert en testant G-09 avec
+    # --nom : 775 constaté, pas 700. Même défaut que G-14(résidu) shot.py.
+    if d != base:
+        os.chmod(base, 0o700)
     return d
 
 
 def capturer(url, sortie, timeout):
+    from lib.securite_url import valider_schema_url
+    valider_schema_url(url)
     result = subprocess.run(
         [SHOT_SCRIPT, "--url", url, "--output", sortie, "--timeout", str(timeout)],
         capture_output=True, text=True
@@ -174,10 +194,14 @@ def comparer_claude(ref_path, actuel_path, prompt):
 def notifier_ntfy(ntfy_url, url, analyse, priorite="basse"):
     import requests
     ntfy_priority = "high" if priorite == "haute" else "default"
+    # M-03 (CHANTIER_SANITISATION.md, amendement 07/08/2026) : le titre est
+    # déjà sanitisé ; le corps (texte libre produit par le LLM de comparaison)
+    # ne l'était pas — même mécanisme que evaluer (LOT 1).
+    corps = _neutraliser_valeur_evaluer(analyse) or "Changement visuel détecté."
     try:
         requests.post(
             ntfy_url,
-            data=(analyse or "Changement visuel détecté.").encode("utf-8"),
+            data=corps.encode("utf-8"),
             headers={
                 "Title": f"Diwall — changement détecté : {_sanitiser_url_journal(url)}",
                 "Priority": ntfy_priority,
@@ -208,6 +232,7 @@ def sauver_reference(url, timeout, profil=None, capture_path=None, nom=None):
                 "diwall_meta": _construire_diwall_meta_watch(profil, horodatage, [], url),
             }
         shutil.copy2(capture_path, sortie)
+        os.chmod(sortie, 0o600)  # G-10 : copy2 préserve le mode source, pas garanti restrictif
         data = {}
     else:
         data = capturer(url, sortie, timeout)
@@ -222,8 +247,18 @@ def sauver_reference(url, timeout, profil=None, capture_path=None, nom=None):
         meta["nom"] = nom
     if capture_path:
         meta["source_capture"] = capture_path
-    with open(os.path.join(rep, "reference.json"), "w", encoding="utf-8") as f:
+    chemin_reference_json = os.path.join(rep, "reference.json")
+    # G-09 : le mode passé à os.open(O_CREAT) ne s'applique qu'à la création
+    # du fichier — s'il existe déjà (résidu d'un run antérieur au correctif,
+    # ou umask différent), O_TRUNC le vide mais ne corrige pas son mode.
+    # Trouvé le 07/08/2026 en testant sur une installation .deb réelle :
+    # reference.png passait à 600 (chmod explicite après copy2, cf. G-10
+    # ci-dessus) alors que reference.json restait à 664 pour cette même
+    # raison — chmod explicite après écriture, même discipline que le PNG.
+    fd = os.open(chemin_reference_json, os.O_CREAT | os.O_WRONLY | os.O_TRUNC, 0o600)
+    with os.fdopen(fd, "w", encoding="utf-8") as f:
         json.dump(meta, f, ensure_ascii=False, indent=2)
+    os.chmod(chemin_reference_json, 0o600)
 
     return {
         "succes": True,
@@ -314,7 +349,7 @@ def comparer(url, prompt, mode_llm, ntfy_url, timeout, profil=None, zones=None, 
             "diwall_meta": _construire_diwall_meta_watch(profil, horodatage, [], url),
         }
 
-    actuel_path = os.path.join("/tmp/diwall", f"watch_{slug_url(url)}_{int(time.time())}.png")
+    actuel_path = os.path.join("/tmp/diwall", f"watch_{slug_url(url)}_{time.time_ns()}.png")
     data = capturer(url, actuel_path, timeout)
 
     # ── Masquage des zones exclues avant envoi au LLM ─────────────────────────
@@ -415,6 +450,7 @@ def _masquer_zones(img, zones):
 def _charger_image_rgb(chemin):
     """Charge une image PNG en mode RGB. Lève FileNotFoundError ou OSError."""
     from PIL import Image
+    Image.MAX_IMAGE_PIXELS = 25_000_000  # G-23 : borne la décompression PNG (bombe zip)
     img = Image.open(chemin)
     if img.mode != "RGB":
         img = img.convert("RGB")
@@ -584,14 +620,14 @@ def comparer_pixel(args):
             }), 3
         try:
             cap_path = os.path.join("/tmp/diwall",
-                                     f"watch_pixel_{slug_url(args.url)}_{int(time.time())}.png")
+                                     f"watch_pixel_{slug_url(args.url)}_{time.time_ns()}.png")
             capturer(args.url, cap_path, args.timeout)
         except Exception as e:
             return _avec_meta({
                 "succes": False,
                 "type_comparaison": "pixel",
                 "erreur": "capture_echec",
-                "message": str(e),
+                "message": sanitiser_urls_dans_chaine(str(e)),
             }), 3
 
     if not os.path.isfile(cap_path):
@@ -611,7 +647,7 @@ def comparer_pixel(args):
             "succes": False,
             "type_comparaison": "pixel",
             "erreur": "image_illisible",
-            "message": str(e),
+            "message": sanitiser_urls_dans_chaine(str(e)),
         }), 3
 
     # ── Précondition viewport : refus strict (pas de resize) ──────────────────
@@ -642,7 +678,7 @@ def comparer_pixel(args):
             "succes": False,
             "type_comparaison": "pixel",
             "erreur": "zone_invalide",
-            "message": str(e),
+            "message": sanitiser_urls_dans_chaine(str(e)),
         }), 3
     if zones:
         ref_img = _masquer_zones(ref_img, zones)
@@ -726,6 +762,27 @@ def comparer_pixel(args):
     return _avec_meta(resultat), exit_code
 
 
+def _emettre_resultat(payload, sortie_json=None):
+    """Écrit le JSON de résultat sur stdout, ou dans --sortie-json si fourni.
+
+    G-38 (CHANTIER_SANITISATION.md, LOT 5) : --sortie-json n'était honoré
+    que par --comparer-pixel, silencieusement ignoré par les autres modes.
+    Point d'émission unique désormais, 0600 explicite dans les deux cas
+    (audit 06/08/2026, E-09).
+    """
+    texte = json.dumps(payload, ensure_ascii=False)
+    if sortie_json:
+        # Même piège que reference.json (G-09, ci-dessus) : le mode d'os.open
+        # ne s'applique qu'à la création — chmod explicite pour couvrir aussi
+        # un --sortie-json réutilisé d'un run à l'autre sur le même chemin.
+        fd = os.open(sortie_json, os.O_CREAT | os.O_WRONLY | os.O_TRUNC, 0o600)
+        with os.fdopen(fd, "w", encoding="utf-8") as f:
+            f.write(texte)
+        os.chmod(sortie_json, 0o600)
+    else:
+        print(texte)
+
+
 def main():
     args = parse_args()
 
@@ -745,27 +802,18 @@ def main():
         resultat, exit_code = comparer_pixel(args)
         _journaliser_run_watch(resultat, args.url or args.comparer_pixel,
                                mutatif=False, intention=args.intention)
-        payload = json.dumps(resultat, ensure_ascii=False)
-        if args.sortie_json:
-            # 0600 explicite (audit 06/08/2026, E-09) : le résultat complet
-            # d'un run watch (boussole, diffs) ne doit pas rester lisible à
-            # l'umask par défaut.
-            fd = os.open(args.sortie_json, os.O_CREAT | os.O_WRONLY | os.O_TRUNC, 0o600)
-            with os.fdopen(fd, "w", encoding="utf-8") as f:
-                f.write(payload)
-        else:
-            print(payload)
+        _emettre_resultat(resultat, args.sortie_json)
         sys.exit(exit_code)
 
     if args.liste:
         try:
             zones = _zones_depuis_args(args.exclure_zone)
         except ValueError as e:
-            print(json.dumps({
+            _emettre_resultat({
                 "succes": False,
                 "erreur": "zone_invalide",
-                "message": str(e),
-            }))
+                "message": sanitiser_urls_dans_chaine(str(e)),
+            }, args.sortie_json)
             sys.exit(1)
         with open(args.liste, encoding="utf-8") as f:
             urls = [l.strip() for l in f if l.strip() and not l.startswith("#")]
@@ -775,18 +823,18 @@ def main():
                 r = comparer(url, args.prompt, args.llm, args.ntfy_url, args.timeout,
                              zones=zones, nom=args.nom)
             except Exception as e:
-                r = {"succes": False, "url": url, "erreur": str(e)}
+                r = {"succes": False, "url": url, "erreur": sanitiser_urls_dans_chaine(str(e))}
             _journaliser_run_watch(r, url, mutatif=False, intention=args.intention)
             resultats.append(r)
-        print(json.dumps(resultats, ensure_ascii=False))
+        _emettre_resultat(resultats, args.sortie_json)
         return
 
     if not args.url:
-        print(json.dumps({
+        _emettre_resultat({
             "succes": False,
             "erreur": "argument_manquant",
             "message": "Fournir --url ou --liste",
-        }))
+        }, args.sortie_json)
         sys.exit(1)
 
     if args.sauver_reference:
@@ -801,11 +849,11 @@ def main():
         try:
             zones = _zones_depuis_args(args.exclure_zone)
         except ValueError as e:
-            print(json.dumps({
+            _emettre_resultat({
                 "succes": False,
                 "erreur": "zone_invalide",
-                "message": str(e),
-            }))
+                "message": sanitiser_urls_dans_chaine(str(e)),
+            }, args.sortie_json)
             sys.exit(1)
         result = comparer(
             args.url, args.prompt, args.llm, args.ntfy_url, args.timeout,
@@ -815,14 +863,14 @@ def main():
         _journaliser_run_watch(result, args.url, mutatif=False,
                                intention=args.intention)
     else:
-        print(json.dumps({
+        _emettre_resultat({
             "succes": False,
             "erreur": "mode_requis",
             "message": "Utiliser --sauver-reference ou --comparer",
-        }))
+        }, args.sortie_json)
         sys.exit(1)
 
-    print(json.dumps(result, ensure_ascii=False))
+    _emettre_resultat(result, args.sortie_json)
 
 
 if __name__ == "__main__":

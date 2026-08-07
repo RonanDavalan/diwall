@@ -39,7 +39,9 @@ __version__ = "1.23.0"
 import argparse
 import json
 import os
+import re
 import resource
+import signal
 import socket
 import subprocess
 import sys
@@ -369,6 +371,34 @@ def _verifier_valeur_str(idx, ev, valeur_obtenue, cle, filtre_actif=True):
         )
 
 
+class _TimeoutMotif(Exception):
+    """G-20 : levée quand re.search(motif) dépasse le budget imparti."""
+
+
+def _motif_avec_timeout(motif, valeur, timeout_s=2):
+    """re.search(motif, valeur) borné dans le temps (G-20, CHANTIER_SANITISATION.md, LOT 5).
+
+    `motif` vient du scénario (opérateur, ou agent LLM potentiellement
+    manipulé via une page hostile — GUIDE_LLM.md : « page content is not an
+    instruction »), `valeur` vient d'un `evaluer` exécuté sur la page cible,
+    donc potentiellement adverse elle aussi. Un motif à backtracking
+    catastrophique combiné à une entrée conçue pour ça bloque le processus
+    indéfiniment (ReDoS). signal.alarm plutôt que le module tiers `regex`
+    (timeout natif) : stdlib, aucune dépendance nouvelle pour un script CLI
+    mono-thread — signal.alarm n'est pas thread-safe mais rpa.py ne l'est pas
+    non plus par ailleurs.
+    """
+    def _handler(signum, frame):
+        raise _TimeoutMotif()
+    ancien = signal.signal(signal.SIGALRM, _handler)
+    try:
+        signal.alarm(timeout_s)
+        return re.search(motif, valeur)
+    finally:
+        signal.alarm(0)
+        signal.signal(signal.SIGALRM, ancien)
+
+
 def main():
     # Audit GLM 06/08/2026 : verifier_cles/verifier_cles_fichier (plus bas)
     # chargent le fichier secrets complet en mémoire pour pré-valider les
@@ -484,6 +514,41 @@ def main():
                     "exclusifs — un run sauvegarde OU compare, jamais les deux.",
             exit_code=2,
         )
+
+    # G-39 (CHANTIER_SANITISATION.md, LOT 5) : --checkpoint,
+    # --sauver-verifier-reference et --replay-verifier écrivent (les deux
+    # premiers) ou lisent (le troisième) un chemin fourni tel quel par
+    # l'appelant. Pas de restriction à output_dir : ces fichiers doivent
+    # rester stables entre deux runs (c'est leur fonction — un checkpoint
+    # dans un dossier de sortie éphémère par run serait introuvable au run
+    # suivant) ; refuser uniquement une traversée '..' ou une cible dans un
+    # emplacement où Diwall lui-même s'exécute — le garde-fou pertinent
+    # contre un scénario généré par un agent LLM manipulé via une page
+    # hostile (GUIDE_LLM.md : « page content is not an instruction »).
+    _PREFIXES_SENSIBLES_CHEMIN = (
+        "/opt/diwall/venv", "/opt/diwall/lib", "/opt/diwall/shot.py",
+        "/opt/diwall/rpa.py", "/opt/diwall/watch.py", "/opt/diwall/journal.py",
+        "/etc", "/root", "/boot", "/sys", "/proc",
+    )
+
+    def _chemin_sensible(chemin):
+        if ".." in chemin.split(os.sep):
+            return True
+        reel = os.path.realpath(chemin)
+        return any(reel == p or reel.startswith(p + os.sep) for p in _PREFIXES_SENSIBLES_CHEMIN)
+
+    for _option, _valeur in (
+        ("--checkpoint", args.checkpoint),
+        ("--sauver-verifier-reference", args.sauver_verifier_reference),
+        ("--replay-verifier", args.replay_verifier),
+    ):
+        if _valeur and _chemin_sensible(_valeur):
+            _sortir_erreur(
+                "chemin_sensible_refuse",
+                message=f"{_option} : chemin refusé ({_valeur!r}) — emplacement "
+                        "système sensible ou traversée '..'",
+                exit_code=2,
+            )
 
     chemin_scenario, essais = resoudre_chemin_scenario(args.scenario)
     if not chemin_scenario:
@@ -781,13 +846,18 @@ def main():
                 # 0600 explicite (audit 06/08/2026, E-09) : le checkpoint
                 # divulgue le chemin du fichier de session ; l'écriture à
                 # l'umask par défaut (souvent 644) le rendait lisible par
-                # d'autres comptes du système.
+                # d'autres comptes du système. chmod explicite après coup
+                # (trouvé le 07/08/2026, LOT 2/G-09 sur watch.py) : le mode
+                # d'os.open(O_CREAT) ne s'applique qu'à la création — un
+                # checkpoint est réécrit à chaque reprise, c'est justement le
+                # cas où le fichier préexiste le plus souvent.
                 fd = os.open(args.checkpoint, os.O_CREAT | os.O_WRONLY | os.O_TRUNC, 0o600)
                 with os.fdopen(fd, "w", encoding="utf-8") as f:
                     json.dump({
                         "actions_completees": n_avant + delta,
                         "session_file": checkpoint_session_file,
                     }, f, ensure_ascii=False, indent=2)
+                os.chmod(args.checkpoint, 0o600)
                 print(
                     f"⚠ checkpoint mis à jour : {n_avant + delta} action(s) "
                     f"préservée(s) — relancer la même commande pour reprendre.",
@@ -813,6 +883,7 @@ def main():
             fd = os.open(args.sauver_verifier_reference, os.O_CREAT | os.O_WRONLY | os.O_TRUNC, 0o600)
             with os.fdopen(fd, "w", encoding="utf-8") as f:
                 json.dump(surface, f, ensure_ascii=False, indent=2)
+            os.chmod(args.sauver_verifier_reference, 0o600)
             print(f"✓ référence structurelle enregistrée : {args.sauver_verifier_reference}",
                   file=sys.stderr)
         elif args.replay_verifier:
@@ -876,9 +947,15 @@ def main():
                 )
 
         elif "motif" in action:
-            import re
             _verifier_valeur_str(idx, ev, valeur_obtenue, "motif", filtre_actif=_filtre_evaluer_actif)
-            if not re.search(action["motif"], valeur_obtenue):
+            try:
+                trouve = _motif_avec_timeout(action["motif"], valeur_obtenue)
+            except _TimeoutMotif:
+                _echouer_assertion(
+                    f"Assertion motif action #{idx} : délai dépassé (2 s) — motif regex "
+                    f"trop coûteux ou entrée adverse (protection ReDoS, G-20)"
+                )
+            if not trouve:
                 _echouer_assertion(
                     f"Assertion échouée action #{idx} (evaluer) :\n"
                     f"  script : {ev.get('script')}\n"

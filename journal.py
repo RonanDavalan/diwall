@@ -24,8 +24,25 @@ import os
 import sys
 
 
+def _valider_chemin_env(chemin, nom_var):
+    """G-37 (CHANTIER_SANITISATION.md, LOT 5) : DIWALL_JOURNAL est une
+    variable d'environnement lue sans validation avant ce correctif —
+    miroir de lib/journal.py::_valider_chemin_env (outil CLI autonome, pas
+    d'import croisé pour une vérification aussi simple). Rejette un chemin
+    relatif ou un composant '..' (traversal).
+    """
+    if not os.path.isabs(chemin):
+        raise ValueError(f"{nom_var} : chemin relatif refusé ({chemin!r})")
+    if ".." in chemin.split(os.sep):
+        raise ValueError(f"{nom_var} : composant '..' interdit ({chemin!r})")
+
+
 def _journal_path():
-    return os.environ.get("DIWALL_JOURNAL", "/var/log/diwall/operations.jsonl")
+    chemin = os.environ.get("DIWALL_JOURNAL")
+    if chemin:
+        _valider_chemin_env(chemin, "DIWALL_JOURNAL")
+        return chemin
+    return "/var/log/diwall/operations.jsonl"
 
 
 def _skills_dir():

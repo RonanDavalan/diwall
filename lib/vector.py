@@ -50,7 +50,11 @@ EMBED_MODEL = os.environ.get("DIWALL_EMBED_MODEL", "nomic-embed-text")
 def get_client():
     """Retourne un client ChromaDB persistant. Requiert le paquet chromadb."""
     import chromadb
-    os.makedirs(DB_PATH, exist_ok=True)
+    # L-05 (CHANTIER_SANITISATION.md, LOT 2, amendement 07/08/2026) : même
+    # discipline que les autres répertoires sensibles du chantier — la base
+    # vectorielle peut indexer des documents privés (_CADRE/MEMOIRE/).
+    os.makedirs(DB_PATH, mode=0o700, exist_ok=True)
+    os.chmod(DB_PATH, 0o700)
     return chromadb.PersistentClient(path=DB_PATH)
 
 

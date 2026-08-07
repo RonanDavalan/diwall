@@ -86,8 +86,8 @@ def _boussole(operation_id=None):
 # exclusion SoM, rédaction a11y.
 _DW_EST_SENSIBLE_JS = """
     const dwEstSensible = (el) => el.type === 'password' ||
-        /password|pwd|passwd|pass|mdp|token|secret|api_key|apikey|credential|otp|totp/i.test(el.name || '') ||
-        /password|pwd|passwd|pass|mdp|token|secret|api_key|apikey|credential|otp|totp/i.test(el.id || '') ||
+        /password|pwd|passwd|pass|mdp|token|secret|api_key|apikey|credential|otp|totp|mfa|2fa|cvv|cvc|pan|ssn|iban/i.test(el.name || '') ||
+        /password|pwd|passwd|pass|mdp|token|secret|api_key|apikey|credential|otp|totp|mfa|2fa|cvv|cvc|pan|ssn|iban/i.test(el.id || '') ||
         /password/i.test(el.autocomplete || '');
 """
 
@@ -313,7 +313,7 @@ _SOM_TROUVER_JS_SHADOW = """(id) => {
 # _SOM_INJECTER_JS(_SHADOW) — ces fonctions ne sont utilisées que si
 # --som-rafraichir est actif ; le comportement par défaut est inchangé.
 _SOM_TROUVER_STABLE_JS = """(id) => {
-    const el = document.querySelector('[data-dw-som-id="' + id + '"]');
+    const el = document.querySelector('[data-dw-som-id="' + CSS.escape(String(id)) + '"]');
     if (!el) return null;
     const r = el.getBoundingClientRect();
     return {x: Math.round(r.left + r.width / 2), y: Math.round(r.top + r.height / 2), tag: el.tagName};
@@ -332,7 +332,7 @@ _SOM_TROUVER_STABLE_JS_SHADOW = """(id) => {
         } catch(ignore) {}
         return result;
     }
-    const sel = '[data-dw-som-id="' + id + '"]';
+    const sel = '[data-dw-som-id="' + CSS.escape(String(id)) + '"]';
     const matches = queryShadowAll(sel, document);
     const el = matches[0];
     if (!el) return null;
@@ -825,7 +825,11 @@ def _charger_session(chemin):
     (sans diwall_meta) : la détection de dérive sera désactivée pour ce run.
     """
     global _legacy_session_warned
-    with open(chemin, encoding="utf-8") as f:
+    # G-31 (CHANTIER_SANITISATION.md, LOT 5) : O_NOFOLLOW — même discipline
+    # que l'écriture (_sauver_session, ligne ci-dessus), ferme la fenêtre où
+    # le fichier de session serait remplacé par un lien symbolique avant lecture.
+    fd = os.open(chemin, os.O_RDONLY | os.O_NOFOLLOW)
+    with os.fdopen(fd, encoding="utf-8") as f:
         session = json.load(f)
     if "diwall_meta" not in session and not _legacy_session_warned:
         print(
@@ -1015,6 +1019,20 @@ def parse_args():
 
 
 def chemin_png(repertoire, prefixe="capture"):
+    # G-14 (résidu, CHANTIER_SANITISATION.md, LOT 5) : le plan demandait
+    # d'ajouter os.chmod(os.path.dirname(repertoire), 0o700) ici, comme
+    # _preparer_stream_dir le fait sur son propre parent. Écart volontaire,
+    # vérifié le 07/08/2026 : les 5 call sites de chemin_png() passent tous
+    # directement output_dir/args.output_dir — dont le parent immédiat est
+    # _OUTPUT_DIR_DEFAUT ("/tmp/diwall"), le répertoire RACINE partagé entre
+    # tous les runs et tous les comptes de service du groupe diwall
+    # (GUIDE_LLM.md : "sudo usermod -aG diwall <account>"). Contrairement à
+    # _preparer_stream_dir (dont le parent chmodé est un sous-dossier "stream"
+    # interne au run, jamais partagé), chmod 0700 ici casserait la création de
+    # sous-répertoires par tout autre compte du groupe. Le répertoire feuille
+    # (ci-dessous) est déjà 0700 depuis un audit antérieur — seuls les NOMS
+    # des répertoires d'autres runs resteraient visibles au groupe, jamais le
+    # contenu des PNG. Non appliqué ; signalé pour arbitrage.
     os.makedirs(repertoire, mode=0o700, exist_ok=True)
     os.chmod(repertoire, 0o700)  # corrige si le répertoire existait déjà avec de mauvaises permissions
     # time_ns() : résolution nanoseconde — élimine la collision de deux runs
@@ -1054,6 +1072,16 @@ def charger_actions(source):
     else:
         actions = data
     _valider_actions_secrets(actions)
+    # G-29 (CHANTIER_SANITISATION.md, LOT 5) : rpa.py valide tout scénario
+    # chargé contre scenarios/schema.json avant Playwright ; shot.py invoqué
+    # directement (--actions, hors rpa.py) ne validait rien. "url" n'est pas
+    # toujours présent dans le fichier chargé par shot.py (il vient souvent
+    # de --url CLI, séparément) — un placeholder suffit : jsonschema ne
+    # vérifie pas le format "uri" sans FormatChecker explicite (même
+    # comportement que rpa.py, qui ne le fournit pas non plus) ; seule la
+    # structure de 'actions' importe ici.
+    from lib.validation_scenario import valider_schema_scenario
+    valider_schema_scenario({"url": "https://placeholder.invalid/", "actions": actions})
     return actions
 
 
@@ -1532,6 +1560,11 @@ def executer_actions(page, actions, output_dir, timeout, mode_llm="local",
                 topic = lire_credential(domaine_depuis_url(page.url), "ntfy_topic")
             ntfy_lib.publier_attente(topic, page.url)
             code = ntfy_lib.attendre_code(topic, timeout_s=timeout_mfa)
+            # G-27 (CHANTIER_SANITISATION.md, LOT 5) : le code TOTP tapé au
+            # clavier n'était jamais ajouté à valeurs_secrets_resolues — s'il
+            # réapparaît ailleurs dans le résultat (evaluer, message d'erreur),
+            # _rediger_valeurs_secrets ne le rédigeait pas.
+            valeurs_secrets_resolues.add(str(code))
             coord = page.evaluate(_som_trouver, id_som)
             if coord is None:
                 raise ValueError(f"attendre_mfa_ntfy : élément SoM {id_som!r} non trouvé")
@@ -1858,7 +1891,17 @@ def main():
     # ── Chemin de sortie ──────────────────────────────────────────────────────
     if args.output:
         sortie = args.output if os.path.splitext(args.output)[1] else args.output + ".png"
-        os.makedirs(os.path.dirname(sortie) or ".", exist_ok=True)
+        # G-13 (CHANTIER_SANITISATION.md, LOT 5) : mode explicite plutôt que
+        # l'umask par défaut — ne recrée pas un répertoire déjà existant
+        # (mode appliqué à la création uniquement, chemin choisi par
+        # l'opérateur : jamais de chmod rétroactif sur un répertoire
+        # préexistant comme son $HOME). Limite connue, testée le 07/08/2026 :
+        # si --output force la création de plusieurs niveaux imbriqués à la
+        # fois, seul le niveau feuille reçoit ce mode (comportement natif
+        # d'os.makedirs) — les intermédiaires nouvellement créés héritent de
+        # l'umask. Sévérité réduite : seuls les noms des répertoires
+        # resteraient visibles au groupe, jamais le contenu du PNG.
+        os.makedirs(os.path.dirname(sortie) or ".", mode=0o700, exist_ok=True)
     else:
         sortie = chemin_png(args.output_dir)
 

@@ -40,6 +40,21 @@ from urllib.parse import parse_qsl, urlencode, urlparse, urlunparse
 # à un jeton isolé (ni espace ni ponctuation JSON), pour ne pas happer un
 # libellé ordinaire ("Authentification à deux facteurs").
 _MOTIFS_SENSIBLES_EVALUER = re.compile(r"token|session|password|bearer|jwt|sess|csrf|xsrf|auth", re.IGNORECASE)
+# G-30 (CHANTIER_SANITISATION.md, LOT 5, amendement 07/08/2026) demandait
+# d'abaisser ce seuil à 16-20 caractères. Non appliqué, écart signalé :
+# testé le 07/08/2026, un seuil de 16 ou 20 fait remonter en faux positif
+# exactement les deux exemples déjà cités par le commentaire E-05 ci-dessus
+# — "capture_...png" (préfixe réel produit par shot.py::chemin_png() : un
+# nom généré par `time.time_ns()` donne "capture_1786069867572488219",
+# 27 caractères, entropie 3.84 ≥ seuil 3.5) — et un troisième cas neuf,
+# "diwall-monter-secrets" (nom d'un script Diwall lui-même, entropie 3.69).
+# Le plancher d'entropie (E-05) ne suffit pas seul à les exclure sous 32.
+# Abaisser réintroduirait la régression que E-05 avait corrigée la veille
+# dans ce même fichier. Conservé à 32, arbitrage à soumettre à Ronan.
+# Limite résiduelle (documentation demandée par G-30) : un secret de 20-31
+# caractères base64 échappe à ce filtre — rattrapé seulement s'il porte par
+# ailleurs un mot-clé sensible sur un jeton isolé, ou s'il prend la forme
+# d'un JWT (_MOTIF_JWT, indépendant de cette longueur).
 _BASE64_LONGUE = re.compile(r"[A-Za-z0-9+/=_-]{32,}")
 # Forme d'un JWT : trois segments base64url séparés par des points — aucun
 # des deux motifs ci-dessus ne le capte, les points cassent _BASE64_LONGUE
@@ -191,8 +206,11 @@ def rediger_query_params_sensibles(url):
 # après rendu) — appliqué ici à la chaîne du sélecteur CSS d'une action de
 # scénario, avant tout lancement de Chromium. Même liste de mots-clés ; ne pas
 # la faire diverger de _DW_EST_SENSIBLE_JS sans revue des deux côtés.
+# Étendue le 07/08/2026 (LOT 5, G-33) : mfa|2fa|cvv|cvc|pan|ssn|iban, en
+# miroir de l'extension apportée à _DW_EST_SENSIBLE_JS le même jour.
 _MOTIFS_SENSIBLES_SELECTEUR = re.compile(
-    r"password|pwd|passwd|pass|mdp|token|secret|api_key|apikey|credential|otp|totp",
+    r"password|pwd|passwd|pass|mdp|token|secret|api_key|apikey|credential|otp|totp"
+    r"|mfa|2fa|cvv|cvc|pan|ssn|iban",
     re.IGNORECASE,
 )
 

@@ -1253,6 +1253,35 @@ Fields in each entry:
 | `duree_ms` | Duration in ms |
 | `intention` | Label passed via `--intention` or scenario `intention` field |
 
+### 9a. Log rotation (G-36, CHANTIER_SANITISATION.md)
+
+Diwall does not ship a logrotate configuration — `/var/log/diwall/operations.jsonl`
+grows unbounded until the administrator installs one. `lib/journal.py` opens
+and closes the file on every write (no persistent file descriptor across
+runs), specifically so the **default** logrotate behaviour (rename the
+current file, create a fresh one) works correctly without any special
+option: the next write reopens the path and finds the new inode.
+
+**Do not add `copytruncate`** to a Diwall logrotate config — it is
+unnecessary here (unlike tools that hold a file descriptor open across
+their lifetime) and reintroduces a write-loss window this design was built
+to avoid. Example `/etc/logrotate.d/diwall`:
+
+```
+/var/log/diwall/operations.jsonl {
+    weekly
+    rotate 8
+    compress
+    delaycompress
+    missingok
+    notifempty
+    create 0640 diwall diwall
+}
+```
+
+`journal.py` (the reader) already follows rotated files transparently
+(`operations.jsonl`, `.1`, `.2.gz`, …) — no extra step needed after rotation.
+
 ---
 
 ## 10. CLI flags — reference

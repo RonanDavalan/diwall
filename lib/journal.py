@@ -19,6 +19,7 @@ import grp
 import json
 import os
 import shutil
+import stat
 import sys
 import time
 import uuid
@@ -32,9 +33,26 @@ from lib.sanitisation import (
 )
 
 
+def _valider_chemin_env(chemin, nom_var):
+    """G-37 (CHANTIER_SANITISATION.md, LOT 5) : DIWALL_JOURNAL/DIWALL_PREUVES
+    sont des variables d'environnement lues sans validation avant ce
+    correctif. Rejette un chemin relatif ou portant un composant '..'
+    (traversal) — une valeur d'apparence légitime ne peut plus rediriger
+    l'écriture hors du répertoire visé. N'empêche pas un appelant qui
+    contrôle déjà entièrement la variable de pointer vers un chemin absolu
+    arbitraire : hors de portée d'une validation de forme, et ces variables
+    ne sont positionnées que par qui lance le processus Diwall lui-même.
+    """
+    if not os.path.isabs(chemin):
+        raise ValueError(f"{nom_var} : chemin relatif refusé ({chemin!r})")
+    if ".." in chemin.split(os.sep):
+        raise ValueError(f"{nom_var} : composant '..' interdit ({chemin!r})")
+
+
 def _journal_path():
     explicite = os.environ.get("DIWALL_JOURNAL")
     if explicite:
+        _valider_chemin_env(explicite, "DIWALL_JOURNAL")
         return explicite
     try:
         from lib.repertoire_chiffre import _lire_conf
@@ -50,6 +68,7 @@ def _journal_path():
 def _preuves_dir():
     explicite = os.environ.get("DIWALL_PREUVES")
     if explicite:
+        _valider_chemin_env(explicite, "DIWALL_PREUVES")
         return explicite
     return os.path.join(os.path.dirname(_journal_path()), "preuves")
 
@@ -309,8 +328,13 @@ def archiver_preuves(operation_id, captures, auth_status=None, secret_resolu=Fal
         try:
             if chemin and os.path.isfile(chemin):
                 dest = os.path.join(dest_dir, os.path.basename(chemin))
-                shutil.copy2(chemin, dest)
-                os.chmod(dest, 0o600)  # D-02 : 664 par défaut avant ce correctif
+                # G-35 (CHANTIER_SANITISATION.md, LOT 5) : copy2 crée dest à
+                # l'umask par défaut, chmod corrige après coup — fenêtre
+                # TOCTOU entre les deux (même défaut que watch.py, G-10).
+                # os.open pose le mode final dès la création, ferme la fenêtre.
+                fd = os.open(dest, os.O_CREAT | os.O_WRONLY | os.O_TRUNC | os.O_NOFOLLOW, 0o600)
+                with os.fdopen(fd, "wb") as f_dest, open(chemin, "rb") as f_src:
+                    shutil.copyfileobj(f_src, f_dest)
                 archivees.append(dest)
         except OSError as e:
             print(f"⚠ journal : preuve {chemin} non archivée ({e})",
@@ -471,6 +495,19 @@ def _ecrire_fallback(ligne, raison):
     """
     fb = _fallback_path()
     fb_dir = os.path.dirname(fb) or "."
+    # G-24 (CHANTIER_SANITISATION.md, LOT 5) : os.makedirs(exist_ok=True)
+    # suit un lien symbolique existant sans le signaler (os.path.isdir, sa
+    # vérification interne, résout les liens) — un dir-symlink pré-posé au
+    # chemin fb_dir (même modèle de menace que F-13 ci-dessous : compte
+    # local hostile plus rapide que le compte système diwall) redirigerait
+    # silencieusement l'écriture du fallback vers un répertoire contrôlé par
+    # l'attaquant. lstat expose le lien avant que makedirs ne le traverse.
+    try:
+        st = os.lstat(fb_dir)
+    except FileNotFoundError:
+        st = None
+    if st is not None and stat.S_ISLNK(st.st_mode):
+        raise OSError(f"{fb_dir} : lien symbolique refusé (pré-positionnement possible)")
     # Audit 06/08/2026 (F-13) : mode= sur makedirs ne s'applique pas si
     # fb_dir préexiste (cas courant — répertoire déjà créé par un run
     # précédent) ; O_NOFOLLOW sur l'open refuse un lien symbolique
@@ -516,7 +553,9 @@ def _ecrire_ligne(entree):
     if repertoire:
         os.makedirs(repertoire, mode=0o2770, exist_ok=True)
     try:
-        fd = os.open(path, os.O_CREAT | os.O_WRONLY | os.O_APPEND, 0o640)
+        # G-15 (CHANTIER_SANITISATION.md, LOT 5) : O_NOFOLLOW, incohérence
+        # avec _ecrire_fallback qui l'a déjà — même discipline anti-symlink.
+        fd = os.open(path, os.O_CREAT | os.O_WRONLY | os.O_APPEND | os.O_NOFOLLOW, 0o640)
         gid = _gid_diwall()
         if gid != -1:
             # os.chown retenté à chaque écriture, volontairement : après une
