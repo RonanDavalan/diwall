@@ -4,6 +4,39 @@ History of decisions and discoveries by session, in reverse chronological order.
 
 ---
 
+## 2026-08-07 — A same-day follow-up audit, cross-checked before acting on it
+
+A second audit landed the same day as the fix above and found three more
+real gaps: an exception message that listed every key name in a credentials
+file when one was missing (harmless on its own, but a name like "totp_key"
+tells a reader that two-factor authentication is configured before they've
+authenticated at all), four error paths that hadn't been wired into the new
+shared redaction module yet, and a script passed to the browser-evaluation
+action that could carry a hard-coded secret straight into the persistent
+log.
+
+The credentials-file fix took a narrower shape than first suggested,
+deliberately. A blanket keyword scan across an entire script would have
+flagged completely ordinary code — looking up a page element named
+"password" to read its state isn't the same as exposing one — so the check
+instead looks only for the *structural* shapes an actual secret takes: a
+JSON web token, or a long enough random-looking string. That misses a
+secret typed as a plain word, but it also doesn't reject legitimate scripts
+that merely mention a sensitive field by name.
+
+One thing found on the way: two independent outside reviews of the fix
+plan disagreed with an initial idea to group the follow-up work by which
+file it touched, pointing out that the file in question already had
+unrelated work scheduled in two other places — doing it a third way would
+have meant three separate passes over the same code instead of one. The
+plan was revised before anything was written.
+
+A separate finding from the same audit turned out to be a false alarm: a
+credentials file reported as world-writable was in fact a symlink, and a
+symlink's own permission bits are cosmetic on Linux — what matters is the
+permissions of the file it points to, which were already correctly
+restricted. Worth remembering for whoever runs the next one of these.
+
 ## 2026-08-07 — Six independent audits kept finding the same leak under different names
 
 A redaction function existed and worked correctly — but only one of the two
