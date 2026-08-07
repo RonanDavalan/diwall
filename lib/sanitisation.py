@@ -220,7 +220,13 @@ def valider_actions_secrets(actions):
     """
     valeurs_autorisees = {"depuis_secrets", "depuis_secrets_totp"}
     for i, a in enumerate(actions):
-        if a.get("type") not in {"remplir", "remplir_som"}:
+        t = a.get("type")
+        if t == "evaluer" and _forme_secrete(str(a.get("script") or "")):
+            raise ValueError(
+                f"Action #{i} (evaluer) : le script contient une forme de secret "
+                f"(JWT ou segment base64 à haute entropie) — credential en clair interdit"
+            )
+        if t not in {"remplir", "remplir_som"}:
             continue
         valeur = a.get("valeur")
         if a.get("secret_cle") and valeur not in valeurs_autorisees:
@@ -228,7 +234,7 @@ def valider_actions_secrets(actions):
                 f"Action #{i} ({a['type']}) : secret_cle défini mais valeur n'est pas "
                 f"'depuis_secrets' ou 'depuis_secrets_totp' — credential en clair interdit"
             )
-        if a.get("type") == "remplir" and valeur not in valeurs_autorisees and valeur is not None:
+        if t == "remplir" and valeur not in valeurs_autorisees and valeur is not None:
             selecteur = a.get("selecteur") or ""
             if _MOTIFS_SENSIBLES_SELECTEUR.search(selecteur):
                 raise ValueError(
@@ -236,3 +242,24 @@ def valider_actions_secrets(actions):
                     f"sensible — valeur doit être 'depuis_secrets' ou 'depuis_secrets_totp', "
                     f"indépendamment de secret_cle"
                 )
+
+
+# Résiduel LOT 1/LOT 4 (audit GLM 07/08/2026, M-05) : motif dédié aux NOMS de
+# clé d'un fichier secrets, distinct de _MOTIFS_SENSIBLES_EVALUER (teste des
+# valeurs) et _MOTIFS_SENSIBLES_SELECTEUR (teste un sélecteur CSS) — un nom
+# de clé qui matche ce motif n'est jamais listé, même quand la clé elle-même
+# est absente et que le message d'erreur énumère les clés disponibles.
+_MOTIFS_SENSIBLES_NOM_CLE = re.compile(
+    r"password|totp|api.?key|bearer|jwt|secret|token|cvv|cvc|pan|ssn|iban",
+    re.IGNORECASE,
+)
+
+
+def filtrer_noms_cles_sensibles(cles):
+    """Retire de `cles` (liste de noms) tout nom qui matche
+    `_MOTIFS_SENSIBLES_NOM_CLE`. Liste blanche inversée : un nom comme
+    `totp_cle` révèle que le MFA est configuré, `api_key` suggère un accès
+    API — ces noms ne doivent pas apparaître dans un message d'erreur
+    `Clés disponibles` (CHANTIER_SANITISATION.md, M-05), même si les
+    *valeurs* ne fuient jamais."""
+    return [c for c in cles if not _MOTIFS_SENSIBLES_NOM_CLE.search(str(c))]

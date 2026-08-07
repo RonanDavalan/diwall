@@ -26,6 +26,7 @@ from datetime import datetime, timezone
 from urllib.parse import urlparse
 
 from lib.sanitisation import (
+    _forme_secrete,
     _neutraliser_valeur_evaluer,
     _sanitiser_url_journal,
 )
@@ -121,7 +122,9 @@ def _neutraliser_actions_raw(actions):
     des chaînes plates). Masquage appliqué :
     - remplir / remplir_som avec valeur directe : remplacée par "<saisie>"
     - depuis_secrets et depuis_secrets_totp : conservés tels quels (pas de valeur réelle)
-    - evaluer : script tronqué à 500 caractères
+    - evaluer : script tronqué à 500 caractères, ou "<script_filtre>" si une
+      forme de secret (JWT, base64 haute entropie) y est détectée (résiduel
+      LOT 1/LOT 4, CHANTIER_SANITISATION.md, L-04, audit GLM 07/08/2026)
     - naviguer : url passée par _sanitiser_url_journal (F-11, 06/08/2026)
     - attendre_mfa_ntfy : copié tel quel (le topic vient du répertoire chiffré, pas de l'action)
     - tout le reste : copié tel quel
@@ -137,7 +140,7 @@ def _neutraliser_actions_raw(actions):
             if v not in ("depuis_secrets", "depuis_secrets_totp", None):
                 a2["valeur"] = "<saisie>"
         elif t == "evaluer" and "script" in a2:
-            a2["script"] = a2["script"][:500]
+            a2["script"] = "<script_filtre>" if _forme_secrete(str(a2["script"])) else a2["script"][:500]
         elif t == "naviguer" and "url" in a2:
             # Audit 06/08/2026 (F-11) : ce point d'entrée copiait l'action
             # "telle quelle" (docstring ci-dessus) — l'URL brute, query

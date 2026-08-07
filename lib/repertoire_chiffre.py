@@ -25,6 +25,8 @@ import os
 import sys
 from urllib.parse import urlparse
 
+from lib.sanitisation import filtrer_noms_cles_sensibles
+
 _CONF_PATH = "/opt/diwall/diwall.conf"
 
 _CHAMPS_CHECKSUM = ("username", "password", "totp_cle", "origines_autorisees")
@@ -355,7 +357,7 @@ def lire_credential(domaine: str, cle: str, port: int | None = None) -> str:
     if cle not in data:
         raise KeyError(
             f"Clé '{cle}' absente du répertoire chiffré '{domaine}' ({os.path.basename(chemin)})\n"
-            f"Clés disponibles : {list(data.keys())}"
+            f"Clés disponibles : {filtrer_noms_cles_sensibles(list(data.keys()))}"
         )
     return data[cle]
 
@@ -375,7 +377,7 @@ def verifier_cles(domaine: str, cles, port: int | None = None) -> None:
     if manquantes:
         raise KeyError(
             f"Clé(s) {manquantes} absente(s) du répertoire chiffré '{domaine}' ({os.path.basename(chemin)})\n"
-            f"Clés disponibles : {list(data.keys())}"
+            f"Clés disponibles : {filtrer_noms_cles_sensibles(list(data.keys()))}"
         )
 
 
@@ -491,7 +493,7 @@ def lire_credential_fichier(chemin: str, cle: str, url_page: str | None = None) 
     if cle not in data:
         raise KeyError(
             f"Clé '{cle}' absente du fichier secrets ({os.path.basename(chemin)})\n"
-            f"Clés disponibles : {list(data.keys())}"
+            f"Clés disponibles : {filtrer_noms_cles_sensibles(list(data.keys()))}"
         )
     return data[cle]
 
@@ -514,7 +516,7 @@ def verifier_cles_fichier(chemin: str, cles) -> None:
     if manquantes:
         raise KeyError(
             f"Clé(s) {manquantes} absente(s) du fichier secrets ({os.path.basename(chemin)})\n"
-            f"Clés disponibles : {list(data.keys())}"
+            f"Clés disponibles : {filtrer_noms_cles_sensibles(list(data.keys()))}"
         )
 
 

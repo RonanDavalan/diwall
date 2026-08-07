@@ -1775,7 +1775,7 @@ def main():
         except (json.JSONDecodeError, Exception) as e:
             print(json.dumps({
                 "succes": False, "erreur": "action_invalide",
-                "message": str(e), "horodatage": horodatage,
+                "message": _filtrer_chaine(str(e)), "horodatage": horodatage,
                 "boussole": _boussole(operation_id),
             }))
             sys.exit(1)
@@ -1785,7 +1785,7 @@ def main():
         except Exception as e:
             print(json.dumps({
                 "succes": False, "erreur": "actions_invalides",
-                "message": str(e), "horodatage": horodatage,
+                "message": _filtrer_chaine(str(e)), "horodatage": horodatage,
                 "boussole": _boussole(operation_id),
             }))
             sys.exit(1)
@@ -1804,7 +1804,7 @@ def main():
     except ValueError as e:
         print(json.dumps({
             "succes": False, "erreur": "url_scheme_interdit",
-            "message": str(e), "horodatage": horodatage, "boussole": _boussole(operation_id),
+            "message": _filtrer_chaine(str(e)), "horodatage": horodatage, "boussole": _boussole(operation_id),
         }))
         sys.exit(2)
 
@@ -1904,7 +1904,7 @@ def main():
                     except ValueError as e:
                         print(json.dumps({
                             "succes": False, "erreur": "url_scheme_interdit",
-                            "message": str(e), "horodatage": horodatage,
+                            "message": _filtrer_chaine(str(e)), "horodatage": horodatage,
                             "boussole": _boussole(operation_id),
                         }))
                         sys.exit(2)
