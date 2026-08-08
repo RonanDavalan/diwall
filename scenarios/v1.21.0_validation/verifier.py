@@ -108,6 +108,7 @@ def test_2_succes_avec_flag(secrets_dir):
     with open(chemin, "w", encoding="utf-8") as f:
         json.dump({"http_username": UTILISATEUR, "http_password": MOT_DE_PASSE,
                    "origines_autorisees": ["127.0.0.1"]}, f)
+    os.chmod(chemin, 0o600)
     try:
         r = subprocess.run(
             [PYTHON, SHOT, "--url", URL_FIXTURE, "--no-capture", "--http-credentials",
@@ -138,6 +139,7 @@ def test_3_mauvais_identifiants(secrets_dir):
     with open(chemin, "w", encoding="utf-8") as f:
         json.dump({"http_username": UTILISATEUR, "http_password": "mauvais_mot_de_passe",
                    "origines_autorisees": ["127.0.0.1"]}, f)
+    os.chmod(chemin, 0o600)
     try:
         r = subprocess.run(
             [PYTHON, SHOT, "--url", URL_FIXTURE, "--no-capture", "--http-credentials",

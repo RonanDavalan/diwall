@@ -9,6 +9,7 @@ from __future__ import annotations
 
 import json
 import os
+import re
 import subprocess
 import sys
 import tempfile
@@ -23,7 +24,9 @@ WATCH = os.path.join(RACINE, "watch.py")
 MONITOR = os.path.join(RACINE, "scripts", "monitor-verifier.sh")
 FIXTURE_DIR = os.path.join(RACINE, "scenarios", "interoperabilite", "fixture")
 PYTHON = sys.executable
-GUIDE_VERSION = "1.0"  # compteur propre au guide — voir docs/GUIDE_LLM.md notice-version
+GUIDE_LLM_MD = os.path.join(RACINE, "docs", "GUIDE_LLM.md")
+with open(GUIDE_LLM_MD, encoding="utf-8") as _f:
+    GUIDE_VERSION = re.search(r"<!-- notice-version: ([0-9]+\.[0-9]+) -->", _f.read()).group(1)
 
 
 def _verdict(nom, conditions):
