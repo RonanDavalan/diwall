@@ -42,7 +42,7 @@ Ne pas inclure de descriptions architecturales. Fournir uniquement les commandes
 ```bash
 # Test complet en une seule commande (environ 3 secondes).
 /opt/diwall/venv/bin/python3 /opt/diwall/shot.py \
-  --url https://example.com --mode fast --guide-version 1.1
+  --url https://example.com --mode fast --guide-version 1.2
 ```
 
 Résultat attendu : du JSON sur stdout avec `"succes": true`.
@@ -1009,11 +1009,11 @@ Symptôme : `TimeoutError` lors de la navigation initiale, et l'augmentation de 
 ```bash
 # shot.py — direct reconnaissance
 /opt/diwall/venv/bin/python3 /opt/diwall/shot.py \
-  --url http://target.local/ --wait-until load --som --a11y --guide-version 1.1
+  --url http://target.local/ --wait-until load --som --a11y --guide-version 1.2
 
 # rpa.py — propagé à shot.py, de sorte que les scénarios atteignent les mêmes cibles.
 /opt/diwall/venv/bin/python3 /opt/diwall/rpa.py \
-  --scenario ./admin_login.json --wait-until load --guide-version 1.1
+  --scenario ./admin_login.json --wait-until load --guide-version 1.2
 ```
 
 Un scénario peut également l'inclure comme propriété racine, ce qui le rend autonome :

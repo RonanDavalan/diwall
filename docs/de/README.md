@@ -32,7 +32,7 @@ Nummern erhalten wie wir:
 
 ```bash
 cd scenarios/interoperabilite/fixture && python3 -m http.server 8765 &
-diwall-shot --url http://127.0.0.1:8765/demo_som_en.html --som --guide-version 1.1
+diwall-shot --url http://127.0.0.1:8765/demo_som_en.html --som --guide-version 1.2
 ```
 
 `elements_som` kommt mit `{"id": 7, "tag": "BUTTON", "texte": "Sign in"}`.

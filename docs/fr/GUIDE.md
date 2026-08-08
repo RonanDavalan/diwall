@@ -118,7 +118,7 @@ régression. Exécutez-le directement :
 ```bash
 /opt/diwall/venv/bin/python3 /opt/diwall/rpa.py \
   --scenario /opt/diwall/scenarios/exemples/depannage_local.json \
-  --guide-version 1.1
+  --guide-version 1.2
 ```
 
 ### Cas 2 : comparaison des composants matériels entre différents magasins

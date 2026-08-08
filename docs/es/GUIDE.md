@@ -116,7 +116,7 @@ referencia tomada antes de la regresión. Ejecútelo directamente:
 ```bash
 /opt/diwall/venv/bin/python3 /opt/diwall/rpa.py \
   --scenario /opt/diwall/scenarios/exemples/depannage_local.json \
-  --guide-version 1.1
+  --guide-version 1.2
 ```
 
 ### Caso 2: Comparación de componentes de hardware entre diferentes tiendas

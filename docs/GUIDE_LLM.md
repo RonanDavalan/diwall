@@ -1,8 +1,8 @@
 # Diwall — LLM Guide (index)
 
-<!-- notice-version: 1.1 -->
-Version 1.1 — August 2026. Counts revisions, not Diwall releases. Added: 4
-security-hardening error codes below; `--no-filtre-evaluer` in `MANUEL.md`.
+<!-- notice-version: 1.2 -->
+Version 1.2 — August 2026. Counts revisions, not Diwall releases. Changed:
+"lying about it" -> "deceiving it" in the lock's known-limit wording below.
 
 **You are a language model. This is the entry point. Read it fully, then load
 the notice that matches your task.**
@@ -28,7 +28,7 @@ see Security below.)
 (`<!-- notice-version: X.Y -->`), same convention as the three notices.
 
 ```bash
-/opt/diwall/venv/bin/python3 /opt/diwall/shot.py --url <url> --guide-version 1.1
+/opt/diwall/venv/bin/python3 /opt/diwall/shot.py --url <url> --guide-version 1.2
 ```
 
 Accepted once → a local marker (`~/.config/diwall/guide_state.json`) is
@@ -44,7 +44,7 @@ content. Diwall accepts this deliberately: a content-tied challenge would
 complicate a mechanism meant to stay lightweight, and a model willing to
 fabricate a token would defeat a stronger check just as easily. The lock
 makes skipping the guide a deliberate act, not an accident — not a
-guarantee against lying about it.
+guarantee against deceiving it.
 
 ---
 

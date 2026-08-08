@@ -44,7 +44,7 @@ No architectural descriptions. Commands that work.
 ```bash
 # Full test in one command (~3 s)
 /opt/diwall/venv/bin/python3 /opt/diwall/shot.py \
-  --url https://example.com --mode fast --guide-version 1.1
+  --url https://example.com --mode fast --guide-version 1.2
 ```
 
 Expected result: JSON on stdout with `"succes": true`.
@@ -1065,11 +1065,11 @@ produces that silence, so no timeout value can ever be large enough.
 ```bash
 # shot.py — direct reconnaissance
 /opt/diwall/venv/bin/python3 /opt/diwall/shot.py \
-  --url http://target.local/ --wait-until load --som --a11y --guide-version 1.1
+  --url http://target.local/ --wait-until load --som --a11y --guide-version 1.2
 
 # rpa.py — propagated to shot.py, so scenarios reach the same targets
 /opt/diwall/venv/bin/python3 /opt/diwall/rpa.py \
-  --scenario ./admin_login.json --wait-until load --guide-version 1.1
+  --scenario ./admin_login.json --wait-until load --guide-version 1.2
 ```
 
 A scenario can carry it as a root property instead, staying self-contained:
