@@ -53,7 +53,16 @@ from lib.sanitisation import (
 # home). Fixe l'emplacement indépendamment de qui a lancé l'installation —
 # install.sh et postinst pointent tous les deux vers ce même chemin.
 # setdefault : un opérateur qui a déjà positionné la variable garde la main.
-os.environ.setdefault("PLAYWRIGHT_BROWSERS_PATH", "/opt/diwall/.cache/ms-playwright")
+#
+# Restreint à une exécution réelle depuis /opt/diwall/ (08/08/2026) : sur un
+# clone git ailleurs (développement, CI), ce chemin n'existe pas et
+# `playwright install` y installe Chromium sous son emplacement par défaut —
+# forcer ce chemin fixe fait alors chercher le navigateur là où il n'a jamais
+# été installé (BrowserType.launch: Executable doesn't exist). Trouvé sur le
+# tout premier run CI réel, masqué en local sur la machine de développement
+# où /opt/diwall/.cache/ existe déjà pour de vraies raisons de production.
+if os.path.dirname(os.path.abspath(__file__)) == "/opt/diwall":
+    os.environ.setdefault("PLAYWRIGHT_BROWSERS_PATH", "/opt/diwall/.cache/ms-playwright")
 
 
 def _boussole(operation_id=None):
