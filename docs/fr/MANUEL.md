@@ -1,6 +1,6 @@
 # Diwall — Manuel d'utilisation
 
-**Version 1.23.0 — Août 2026**
+**Version 1.23.1 — Août 2026**
 
 *Également disponible en français, allemand et espagnol sous `docs/fr/`, `docs/de/` et `docs/es/`.*
 
@@ -212,6 +212,14 @@ Toute sortie contient un objet `boussole` — lisez-le avant tout le reste :
 
 Si `boussole.url_courante` ne correspond pas à ce que vous attendez : arrêtez-vous
 et investiguez avant toute action mutante.
+
+`boussole.secrets_dir_effectif` et `boussole.secrets_dir_source` (v1.23.1)
+indiquent quel répertoire de secrets chiffrés a été effectivement utilisé pour cette exécution
+et d'où il provient (`env:DIWALL_SECRETS_DIR`, `env:DIWALL_CONF`,
+`conf:<path>`, ou `non_configure`). Une machine multi-projets peut silencieusement
+revenir au répertoire global de la machine `diwall.conf` lorsqu'un appelant oublie d'exporter
+`DIWALL_SECRETS_DIR` — ces deux champs rendent cela visible à chaque exécution
+au lieu de le constater a posteriori.
 
 ### 2d. Lire `etat` pour prendre une décision d'acceptation ou de rejet (v1.16.0)
 

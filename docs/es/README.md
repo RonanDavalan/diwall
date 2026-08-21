@@ -127,7 +127,7 @@ Descargue el recurso `.deb` de la
 `diwall_<version>-1_all.deb` — luego:
 
 ```bash
-sudo apt install ./diwall_1.23.0-1_all.deb
+sudo apt install ./diwall_1.23.1-1_all.deb
 ```
 
 Crea el usuario del sistema `diwall`, el entorno virtual y

@@ -128,7 +128,7 @@ Download the `.deb` asset from the
 `diwall_<version>-1_all.deb` — then:
 
 ```bash
-sudo apt install ./diwall_1.23.0-1_all.deb
+sudo apt install ./diwall_1.23.1-1_all.deb
 ```
 
 That is all. It creates the `diwall` system user, the virtual environment and

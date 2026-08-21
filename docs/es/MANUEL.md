@@ -1,6 +1,6 @@
 # Diwall — Manual de operación
 
-**Versión 1.23.0 — Agosto de 2026**
+**Versión 1.23.1 — Agosto de 2026**
 
 *También disponible en francés, alemán y español bajo `docs/fr/`, `docs/de/` y `docs/es/`.*
 
@@ -139,7 +139,7 @@ sudo /opt/diwall/venv/bin/playwright install chromium
 # 5. Implementar / Desplegar
 bash ~/git/Diwall/Diwall/scripts/deploy.sh
 
-# 6. Cree su directorio de credenciales cifradas.
+# 6. Crea tu directorio de credenciales cifradas.
 mkdir -p ~/Vaults/<your-project>/Diwall
 # Cree el archivo `~/Vaults/<su-proyecto>/Diwall/<nombre_de_host>.json` con sus credenciales.
 ```
@@ -216,6 +216,13 @@ Cada salida contiene un objeto `boussole`. Léelo antes de cualquier otra cosa:
 
 Si `boussole.url_courante` no coincide con lo que espera: deténgase e
 investigue antes de cualquier acción que modifique algo.
+
+`boussole.secrets_dir_effectif` y `boussole.secrets_dir_source` (v1.23.1)
+informan qué directorio de secretos encriptados se resolvió realmente para esta ejecución
+y de dónde proviene (`env:DIWALL_SECRETS_DIR`, `env:DIWALL_CONF`,
+`conf:<path>`, o `non_configure`). Una máquina con múltiples proyectos puede, silenciosamente,
+retroceder al directorio `diwall.conf` a nivel de máquina cuando el que llama olvida exportar
+`DIWALL_SECRETS_DIR` — estos dos campos hacen que esto sea visible en cada ejecución en lugar de después.
 
 ### 2d. Leer `etat` para tomar una decisión de "sí/no" (v1.16.0)
 
@@ -563,7 +570,7 @@ se haya pasado la bandera; `boussole.http_auth_requise: true` distingue claramen
 
 ---
 
-## 5. Escriba y ejecute un escenario de automatización robótica de procesos (RPA)
+## 5. Escribe y ejecuta un escenario de automatización robótica de procesos (RPA)
 
 ### 5a. Protocolo de 3 pasos
 
@@ -1008,7 +1015,7 @@ a `networkidle` — 500 ms de silencio de red. Una página que realiza consultas
 produce ese silencio, así que ningún valor de tiempo de espera puede ser lo suficientemente grande.
 
 ```bash
-# shot.py — reconocimiento directo
+# shot.py — direct reconnaissance
 /opt/diwall/venv/bin/python3 /opt/diwall/shot.py \
   --url http://target.local/ --wait-until load --som --a11y --guide-version 1.2
 

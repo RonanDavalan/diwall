@@ -1,6 +1,6 @@
 # Diwall — cheat sheet
 
-Version 1.23.0 — August 2026
+Version 1.23.1 — August 2026
 
 Everything on one page. Full reference: `docs/MANUEL.md`.
 

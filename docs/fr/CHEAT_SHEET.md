@@ -1,6 +1,6 @@
 # Diwall — guide rapide
 
-Version 1.23.0 — Août 2026
+Version 1.23.1 — Août 2026
 
 Tout sur une seule page. Référence complète : `docs/MANUEL.md`.
 

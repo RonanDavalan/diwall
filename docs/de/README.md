@@ -125,7 +125,7 @@ Laden Sie die `.deb` Ressource von der
 `diwall_<version>-1_all.deb` – und dann:
 
 ```bash
-sudo apt install ./diwall_1.23.0-1_all.deb
+sudo apt install ./diwall_1.23.1-1_all.deb
 ```
 
 Das erstellt den Systembenutzer `diwall`, die virtuelle Umgebung und

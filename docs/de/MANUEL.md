@@ -1,6 +1,6 @@
 # Diwall – Betriebshandbuch
 
-**Version 1.23.0 – August 2026**
+**Version 1.23.1 – August 2026**
 
 *Ebenfalls auf Französisch, Deutsch und Spanisch unter `docs/fr/`, `docs/de/` und `docs/es/`.*
 
@@ -123,7 +123,7 @@ wollen: er legt das Repository dorthin, wo `deploy.sh` Ihre Änderungen nach
 oben mit einem einzigen Befehl und leistet dasselbe.
 
 ```bash
-# 1. Erstellen Sie einen Systembenutzer und ein Verzeichnis.
+# 1. Erstelle einen Systembenutzer und ein Verzeichnis.
 sudo useradd --system --no-create-home --shell /bin/false diwall
 sudo mkdir -p /opt/diwall
 sudo chown root:diwall /opt/diwall
@@ -132,7 +132,7 @@ sudo chown root:diwall /opt/diwall
 git clone https://github.com/ronandavalan/diwall.git ~/git/Diwall/Diwall
 cd ~/git/Diwall/Diwall
 
-# 3. Erstellen Sie eine virtuelle Python-Umgebung.
+# 3. Erstelle eine Python-virtuelle Umgebung.
 sudo /usr/bin/python3 -m venv /opt/diwall/venv
 sudo /opt/diwall/venv/bin/pip install -r requirements.txt
 
@@ -219,6 +219,14 @@ Jede Ausgabe enthält ein `boussole`-Objekt — lesen Sie es vor allem anderen:
 
 Wenn `boussole.url_courante` nicht Ihrer Erwartung entspricht: anhalten und
 prüfen, bevor Sie irgendeine verändernde Aktion ausführen.
+
+`boussole.secrets_dir_effectif` und `boussole.secrets_dir_source` (v1.23.1)
+geben Auskunft darüber, welches Verzeichnis mit verschlüsselten Geheimnissen tatsächlich für diesen Durchlauf verwendet wurde
+und woher es stammt (`env:DIWALL_SECRETS_DIR`, `env:DIWALL_CONF`,
+`conf:<path>`, oder `non_configure`). Eine Maschine mit mehreren Projekten kann stillschweigend
+zur maschineweiten Einstellung `diwall.conf` zurückgreifen, wenn ein Aufrufer vergisst,
+`DIWALL_SECRETS_DIR` zu exportieren. Diese beiden Felder machen dies bei jedem Durchlauf sichtbar,
+anstatt erst danach.
 
 ### 2d. Lesen Sie `etat` für eine Ja/Nein-Entscheidung (Version 1.16.0)
 
@@ -1025,7 +1033,7 @@ Symptom: `TimeoutError` beim ersten Navigieren und das Auslösen von `--timeout`
 /opt/diwall/venv/bin/python3 /opt/diwall/shot.py \
   --url http://target.local/ --wait-until load --som --a11y --guide-version 1.2
 
-# rpa.py — weitergegeben an shot.py, sodass Szenarien die gleichen Ziele erreichen.
+# rpa.py — verbreitet zu shot.py, sodass Szenarien die gleichen Ziele erreichen.
 /opt/diwall/venv/bin/python3 /opt/diwall/rpa.py \
   --scenario ./admin_login.json --wait-until load --guide-version 1.2
 ```
