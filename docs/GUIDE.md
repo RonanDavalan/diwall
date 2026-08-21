@@ -1,6 +1,6 @@
 # Diwall — Operator guide
 
-Version 1.10 — August 2026 (v1.23.0) — four more demonstration use cases (self-hosted observability, ticketing platform administration, local events tracking, e-commerce access under Respectful Navigation)
+Version 1.10 — August 2026 (v1.23.1) — four more demonstration use cases (self-hosted observability, ticketing platform administration, local events tracking, e-commerce access under Respectful Navigation)
 
 *Also available in French, German and Spanish under `docs/fr/`, `docs/de/` and `docs/es/`.*
 

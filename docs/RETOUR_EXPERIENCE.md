@@ -2881,3 +2881,51 @@ défaut le plus sûr (`send: "unauthorized"`).
   coupure de l'OAuth Plesk mort.
 
 **Version :** Diwall v1.20.0. Session __HOST_VPS__ — 13/07/2026.
+
+---
+
+## FR-87 — Fichiers de scénario écrits dans `/tmp` au lieu du coffre chiffré du projet
+
+Session Pretix-administrateur — 16/08/2026. Login `dash.elest.io` (compte
+Elestio hébergeant le service Pretix). Deux fautes distinctes, corrigées
+sur intervention de l'opérateur, à ne pas reproduire.
+
+**Faute #1** : avant même de vérifier que Diwall existait sur la machine,
+tentative de piloter Chromium à la main via un script Playwright ad hoc
+(`connectOverCDP`, port 9222), avec des fichiers `.js` jetables écrits dans
+le scratchpad temporaire de la session. Diwall était pourtant installé
+(`/opt/diwall/`), dans le groupe `diwall` de l'opérateur, prêt à l'emploi.
+**Leçon** : avant de bricoler une automatisation de navigateur, vérifier si
+Diwall gère déjà la cible — ne jamais réinventer `shot.py`.
+
+**Faute #2**, après correction de la première : les fichiers `--actions`
+(les séquences JSON `cliquer_som`/`remplir_som` propres à `dash.elest.io`)
+continuaient d'être écrits dans le scratchpad temporaire de la session
+(`/tmp/claude-.../scratchpad/actions_01_....json`). Ces fichiers ne sont
+pas des secrets — ils ne contiennent aucun credential — mais ils encodent
+une connaissance réutilisable : quel SoM ID cliquer, dans quel ordre,
+pour atteindre le formulaire de login de ce service précis. Les jeter à
+la fin de la session obligeait à refaire toute la reconnaissance SoM au
+prochain run.
+
+**Correction de l'opérateur** : tout fichier spécifique à un service
+(scénarios `--actions`, scripts d'appoint) doit être écrit à côté du
+fichier de credentials du même service, **dans le répertoire chiffré du
+projet** (`~/Vaults/Diwall/<service>/`), jamais dans `/tmp` ou un
+scratchpad de session — même quand le fichier ne contient aucun secret.
+Motif de l'opérateur : la connaissance de « comment se connecter à ce
+service » est aussi précieuse à conserver que le mot de passe lui-même,
+et un scratchpad de session LLM ne survit pas à la session.
+
+**Règle à appliquer** : `~/Vaults/Diwall/<service>/` accueille à la fois
+`<hostname>.json` (credentials, déjà la convention) et les scénarios
+`--actions`/`--scenario` réutilisables pour ce service (ex.
+`login.json`). Seul l'état de session éphémère (cookies, storage_state
+via `--sauver-session`) reste légitimement dans `/tmp/diwall/` — c'est la
+convention documentée de Diwall pour cet artefact précis, qui expire et
+n'a pas vocation à être réutilisé tel quel. La distinction : un fichier
+qu'on voudrait retrouver identique dans six mois va dans le coffre ; un
+fichier qui n'a de sens que pour la durée du process Playwright courant
+reste temporaire.
+
+**Version :** Diwall v1.23.0. Session Pretix-administrateur — 16/08/2026.

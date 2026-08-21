@@ -32,7 +32,7 @@ import uuid
 from datetime import datetime, timezone
 from urllib.parse import urlparse
 
-__version__ = "1.23.0"
+__version__ = "1.23.1"
 
 # Permet d'importer lib/ depuis le même répertoire que shot.py
 sys.path.insert(0, os.path.dirname(os.path.abspath(__file__)))
@@ -73,10 +73,14 @@ def _boussole(operation_id=None):
         s.close()
     except Exception:
         ip = ""
+    from lib.repertoire_chiffre import secrets_dir_info
+    chemin_secrets, source_secrets = secrets_dir_info()
     b = {
         "utilisateur": os.getenv("USER", ""),
         "ip_locale": ip,
         "repertoire": os.getcwd(),
+        "secrets_dir_effectif": chemin_secrets,
+        "secrets_dir_source": source_secrets,
     }
     if operation_id:
         b["operation_id"] = operation_id

@@ -4,6 +4,10 @@ Generated from `debian/changelog` at build time — do not edit by hand.
 Edit `debian/changelog` and rebuild instead
 (`bash ~/git/Diwall/scripts/construire-paquet.sh`).
 
+## 1.23.1 — 21 Aug 2026 14:01:36 +0200
+
+- lib/repertoire_chiffre.py, shot.py, rpa.py: boussole now reports secrets_dir_effectif and secrets_dir_source -- which encrypted-secrets directory was actually resolved for this run and where that came from (env:DIWALL_SECRETS_DIR, env:DIWALL_CONF, conf:<path>, or non_configure). A multi-project machine could silently fall back to the machine-wide diwall.conf when a caller forgot to export DIWALL_SECRETS_DIR; this makes that visible on every run.
+
 ## 1.23.0 — 08 Aug 2026 04:30:00 +0200
 
 - i18n/: translations of the human-facing documents (README.md, docs/GUIDE.md, docs/MANUEL.md) into French, German and Spanish. English stays canonical and stays in place; nothing was moved. The tree is asymmetric on purpose: docs/GUIDE_LLM.md and its three notices are never translated. Their paths are frozen (guide-lock, debian/diwall.install, deploy.sh, runtime error messages, partner documentation), and a translated locked guide can silently desynchronise -- a version number mechanically resynchronised over stale content would let an agent pass the lock having read obsolete instructions, the exact failure the lock exists to prevent.

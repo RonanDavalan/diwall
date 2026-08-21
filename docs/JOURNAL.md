@@ -4,6 +4,23 @@ History of decisions and discoveries by session, in reverse chronological order.
 
 ---
 
+## 2026-08-21 — v1.23.1: boussole exposes which secrets_dir was actually used
+
+On a machine running more than one project, a caller that forgets to export
+`DIWALL_SECRETS_DIR` silently falls back to the machine-wide `diwall.conf` —
+a directory shared across projects, not the per-project convention. This had
+already happened once in the field (a partner project's fork ran several
+sessions against the shared vault instead of its own without noticing, no
+plaintext secret leaked, only misplaced JSON/proof files).
+
+`lib/repertoire_chiffre.py::secrets_dir_info()` now reports which directory
+was resolved and where that came from (`env:DIWALL_SECRETS_DIR`,
+`env:DIWALL_CONF`, `conf:<path>`, or `non_configure`). `shot.py` and `rpa.py`
+expose it as `boussole.secrets_dir_effectif` / `boussole.secrets_dir_source`
+on every run — visible immediately instead of discovered after the fact.
+
+---
+
 ## 2026-08-07 — FR/DE/ES retranslated for the security-hardening catch-up, two more translation bugs found
 
 Retranslation pass for the three documents the previous entry's English

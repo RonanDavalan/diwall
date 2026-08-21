@@ -105,9 +105,16 @@ def _lire_conf() -> dict:
     return {}
 
 
-def _chemin_secrets() -> str:
+def _chemin_secrets_avec_source() -> tuple[str, str]:
+    """Résout secrets_dir et sa provenance (REX #12 : la résolution est silencieuse
+
+    sur la provenance, un projet qui invoque Diwall sans positionner
+    DIWALL_SECRETS_DIR retombe sur la conf globale de la machine — partagée
+    entre tous les projets — sans que rien ne le signale. La provenance est
+    exposée par la boussole via secrets_dir_info() ci-dessous.
+    """
     if "DIWALL_SECRETS_DIR" in os.environ:
-        return resoudre_chemin_reel(os.environ["DIWALL_SECRETS_DIR"])
+        return resoudre_chemin_reel(os.environ["DIWALL_SECRETS_DIR"]), "env:DIWALL_SECRETS_DIR"
     if "DIWALL_CONF" in os.environ:
         conf_path = os.path.expanduser(os.environ["DIWALL_CONF"])
         if os.path.isfile(conf_path):
@@ -118,10 +125,11 @@ def _chemin_secrets() -> str:
                 # chemin relatif résolu par rapport au répertoire du .diwall.conf
                 if not os.path.isabs(os.path.expanduser(secrets_dir)):
                     secrets_dir = os.path.join(os.path.dirname(conf_path), secrets_dir)
-                return resoudre_chemin_reel(secrets_dir)
+                return resoudre_chemin_reel(secrets_dir), f"conf:{conf_path}"
     conf = _lire_conf()
     if "secrets_dir" in conf:
-        return resoudre_chemin_reel(conf["secrets_dir"])
+        conf_path_effectif = os.path.expanduser(os.environ.get("DIWALL_CONF", _CONF_PATH))
+        return resoudre_chemin_reel(conf["secrets_dir"]), f"conf:{conf_path_effectif}"
     conf_path_effectif = os.path.expanduser(os.environ.get("DIWALL_CONF", _CONF_PATH))
     raise SecretsNonConfigureError(
         f"Aucune configuration du répertoire chiffré active.\n"
@@ -134,6 +142,27 @@ def _chemin_secrets() -> str:
         f"toucher à la configuration globale :\n"
         f"       DIWALL_CONF=/chemin/vers/votre-projet/diwall.conf ...  # avant shot.py/rpa.py"
     )
+
+
+def _chemin_secrets() -> str:
+    return _chemin_secrets_avec_source()[0]
+
+
+def secrets_dir_info() -> tuple[str | None, str]:
+    """secrets_dir effectif et sa provenance, pour affichage boussole. Ne lève jamais.
+
+    Provenance : "env:DIWALL_SECRETS_DIR", "env:DIWALL_CONF", "conf:<chemin>"
+    (diwall.conf global ou par projet), ou "non_configure" si aucune source
+    n'est active (chemin alors None).
+    """
+    try:
+        return _chemin_secrets_avec_source()
+    except SecretsNonConfigureError:
+        return None, "non_configure"
+    except Exception:
+        # Diagnostic passif : une conf illisible/corrompue ne doit jamais
+        # faire échouer une commande qui n'a besoin d'aucun credential.
+        return None, "erreur_resolution"
 
 
 def _chemin_secrets_crypt() -> str:

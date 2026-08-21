@@ -34,7 +34,7 @@ Dépend de :
     (résolution du répertoire chiffré : DIWALL_SECRETS_DIR > diwall.conf >
     ~/Vaults/Diwall/). Jamais de mot de passe dans les fichiers de scénario.
 """
-__version__ = "1.23.0"
+__version__ = "1.23.1"
 
 import argparse
 import json
@@ -69,10 +69,14 @@ def _boussole():
         s.close()
     except Exception:
         ip = ""
+    from lib.repertoire_chiffre import secrets_dir_info
+    chemin_secrets, source_secrets = secrets_dir_info()
     return {
         "utilisateur": os.getenv("USER", ""),
         "ip_locale": ip,
         "repertoire": os.getcwd(),
+        "secrets_dir_effectif": chemin_secrets,
+        "secrets_dir_source": source_secrets,
     }
 
 

@@ -1,6 +1,6 @@
 # Diwall — Operational manual
 
-**Version 1.23.0 — August 2026**
+**Version 1.23.1 — August 2026**
 
 *Also available in French, German and Spanish under `docs/fr/`, `docs/de/` and `docs/es/`.*
 
@@ -229,6 +229,14 @@ Every output contains a `boussole` object — read it before everything else:
 
 If `boussole.url_courante` does not match what you expect: stop and investigate
 before any mutating action.
+
+`boussole.secrets_dir_effectif` and `boussole.secrets_dir_source` (v1.23.1)
+report which encrypted-secrets directory was actually resolved for this run
+and where that came from (`env:DIWALL_SECRETS_DIR`, `env:DIWALL_CONF`,
+`conf:<path>`, or `non_configure`). A multi-project machine can silently fall
+back to the machine-wide `diwall.conf` when a caller forgets to export
+`DIWALL_SECRETS_DIR` — these two fields make that visible on every run instead
+of after the fact.
 
 ### 2d. Read `etat` for a go/no-go decision (v1.16.0)
 
