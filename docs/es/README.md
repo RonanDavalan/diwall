@@ -34,7 +34,7 @@ este repositorio, así que obtendrá los mismos números que nosotros:
 
 ```bash
 cd scenarios/interoperabilite/fixture && python3 -m http.server 8765 &
-diwall-shot --url http://127.0.0.1:8765/demo_som_en.html --som --guide-version 1.2
+diwall-shot --url http://127.0.0.1:8765/demo_som_en.html --som --guide-version 1.3
 ```
 
 `elements_som` regresa con `{"id": 7, "tag": "BUTTON", "texte": "Sign in"}`.
@@ -127,7 +127,7 @@ Descargue el recurso `.deb` de la
 `diwall_<version>-1_all.deb` — luego:
 
 ```bash
-sudo apt install ./diwall_1.23.1-1_all.deb
+sudo apt install ./diwall_1.24.0-1_all.deb
 ```
 
 Crea el usuario del sistema `diwall`, el entorno virtual y

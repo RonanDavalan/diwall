@@ -180,12 +180,63 @@ def test_4_iframe():
     ])
 
 
+def test_5_som_hybride():
+    """v1.24.0 — résolveur hybride : voie stable si marqueur data-dw-som-id,
+    repli sur ré-indexation brute sinon, drapeau `derive` quand les deux voies
+    désignent des éléments différents. Le résolveur ne mute jamais le DOM."""
+    from shot import _SOM_INJECTER_JS, _SOM_TROUVER_HYBRIDE_JS
+    from playwright.sync_api import sync_playwright
+
+    _VERITE_TERRAIN = (
+        "() => { const el = document.querySelector("
+        "'a[href=\"https://iana.org/domains/example\"]');"
+        " if (!el) return null; const r = el.getBoundingClientRect();"
+        " return {x: Math.round(r.left + r.width/2), y: Math.round(r.top + r.height/2)}; }"
+    )
+
+    with sync_playwright() as pw:
+        b = pw.chromium.launch(headless=True)
+        page = b.new_context().new_page()
+        page.goto("https://example.com")
+
+        # Cas 1 — aucune capture SoM : pas de marqueur, repli brut honnête.
+        sans_marqueur = page.evaluate(_SOM_TROUVER_HYBRIDE_JS, 1)
+
+        # Cas 2 — capture SoM (marque le lien id=1) puis prepend d'un lien
+        # parasite : l'index brut 1 pointe le parasite, le marqueur pointe
+        # toujours le vrai lien.
+        page.evaluate(_SOM_INJECTER_JS)
+        page.evaluate(
+            "() => { var a=document.createElement('a'); a.href='#fake'; "
+            "a.textContent='FAKE'; document.body.prepend(a); }"
+        )
+        verite = page.evaluate(_VERITE_TERRAIN)
+        hybride = page.evaluate(_SOM_TROUVER_HYBRIDE_JS, 1)
+        b.close()
+
+    return _verdict("T-5) résolveur SoM hybride — voie stable prioritaire, repli brut, drapeau derive", [
+        ("sans marqueur -> resolution 'brut_sans_reference', coord non nulle",
+         sans_marqueur is not None
+         and sans_marqueur.get("resolution") == "brut_sans_reference"),
+        ("sans marqueur -> derive == False (rien à comparer)",
+         (sans_marqueur or {}).get("derive") is False),
+        ("marqueur présent -> resolution 'stable'",
+         (hybride or {}).get("resolution") == "stable"),
+        ("voie stable pointe le vrai élément (== vérité terrain)",
+         (hybride or {}).get("x") == verite["x"]
+         and (hybride or {}).get("y") == verite["y"]),
+        ("divergence stable/brut signalée -> derive == True",
+         (hybride or {}).get("derive") is True),
+    ])
+
+
 def main():
     tests = (
         test_1_replay_verifier,
         test_2_checkpoint_cycle,
         test_3_som_stable,
         test_4_iframe,
+        test_5_som_hybride,
     )
     n_ok = 0
     for fn in tests:

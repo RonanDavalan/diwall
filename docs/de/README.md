@@ -32,7 +32,7 @@ Nummern erhalten wie wir:
 
 ```bash
 cd scenarios/interoperabilite/fixture && python3 -m http.server 8765 &
-diwall-shot --url http://127.0.0.1:8765/demo_som_en.html --som --guide-version 1.2
+diwall-shot --url http://127.0.0.1:8765/demo_som_en.html --som --guide-version 1.3
 ```
 
 `elements_som` kommt mit `{"id": 7, "tag": "BUTTON", "texte": "Sign in"}`.
@@ -125,7 +125,7 @@ Laden Sie die `.deb` Ressource von der
 `diwall_<version>-1_all.deb` – und dann:
 
 ```bash
-sudo apt install ./diwall_1.23.1-1_all.deb
+sudo apt install ./diwall_1.24.0-1_all.deb
 ```
 
 Das erstellt den Systembenutzer `diwall`, die virtuelle Umgebung und

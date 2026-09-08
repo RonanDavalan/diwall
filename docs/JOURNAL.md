@@ -4,6 +4,93 @@ History of decisions and discoveries by session, in reverse chronological order.
 
 ---
 
+## 2026-09-08 — v1.24.0: hardening cycle — AppStream metadata, guide reorganization, hybrid SoM resolution
+
+Pragmatic hardening minor, no new capability. Chantiers from the September REX
+and the Discover licence signal.
+
+**Version bumped to 1.24.0.** `debian/changelog` entry added, `__version__`
+aligned across `shot.py` / `rpa.py` / `watch.py` / `journal.py`, headers of
+`README.md` / `docs/GUIDE.md` / `docs/MANUEL.md` / `docs/CHEAT_SHEET.md` and
+their fr/de/es translations, `CHANGELOG.md` regenerated from `debian/changelog`.
+Human-facing docs retranslated (segment-fingerprinted pipeline); the four
+reference PDFs regenerated; site pages that cross the cycle updated
+(`recipes/clicked-the-wrong-element`, `guides/writing-a-scenario`,
+`architecture/limits`, `agents/_index`) in English and propagated to fr/de/es.
+
+**AppStream packaging fix.** The first 1.24.0 build installed the metainfo as
+a *directory* `usr/share/metainfo/fr.davalan.diwall.metainfo.xml/` containing
+`diwall.metainfo.xml` — `debian/*.install` cannot rename a file, it treats the
+destination as a directory. Discover would still have shown "Unknown". Fixed by
+naming the source file `debian/fr.davalan.diwall.metainfo.xml` (the AppStream
+component-id filename) and pointing `diwall.install` at the directory
+`usr/share/metainfo/`. `debian/rules` now also runs `appstreamcli validate` on
+the *staged* file, not only the source. Verified: the installed path is a file,
+`appstreamcli validate` exits 0, and `appstreamcli dump fr.davalan.diwall`
+resolves `<project_license>MIT</project_license>` and the developer name from
+the system cache.
+
+**Guide reorganization for small models.** `docs/GUIDE_LLM.md` split into an
+imperative core (down to a `REFERENCE` marker, ≤120 lines, enforced by
+`verifier-coherence.sh`) and a lookup section below it (the modes matrix, the
+action-verb table, the full boussole schema, the error-routing tables). Every
+core rule now ends with its consequence as a short clause (`X -> Y lost`) —
+a couple that resists a fading read better than a bare imperative, and a check
+a model can run on itself before acting. `/tmp` vs durable scenario spelled
+out (a `/tmp/*.json` is a one-call `--actions` payload; a reusable scenario
+lives in `scenarios/`). Notice token bumped 1.2 -> 1.3; every model re-reads on
+its next call.
+
+**AppStream metadata for the .deb.** Graphical installers (Discover/Plasma)
+showed `Licence: Unknown` / `Author unknown` for `diwall_1.23.1-1_all.deb`
+even though MIT was declared in `LICENSE`, `README.md`, `debian/copyright`
+and the maintainer in `debian/control`. Discover does not read
+`debian/copyright`; it reads `usr/share/metainfo/*.metainfo.xml`. The package
+now ships `fr.davalan.diwall.metainfo.xml` (AppStream `console-application`
+component: `<project_license>MIT</project_license>`, `<developer>`, summary,
+description, the six `/usr/bin/diwall-*` binaries). `LICENSE` also joins the
+package under `/opt/diwall/`. `appstreamcli validate --no-net` runs at build
+(`override_dh_install`), so an invalid metainfo breaks the build instead of
+surfacing after install. Release version is deliberately absent from the
+metainfo rather than hardcoded — a frozen version there would diverge
+silently from `debian/changelog` (same reasoning as the site's `hugo.toml`,
+21/08/2026); `appstreamcli validate` still exits 0, only a pedantic note
+remains.
+
+**Hybrid SoM resolution by default.** `cliquer_som` / `remplir_som` resolved
+`id: N` purely by re-indexing the live DOM — a raw index that silently retargets
+when an interactive element appears or disappears ahead of the target between
+capture and click. The `--som-rafraichir` flag (v1.17.0) was meant to fix this
+with a stable `data-dw-som-id` lookup, but the marker is only stamped at capture
+time, never before the first SoM action of a scenario — so the flag returned
+nothing on any page without a prior in-scenario `capturer {som:true}`, and its
+two shipped example scenarios failed under it. It never worked standalone.
+
+The default resolver is now hybrid (`_SOM_TROUVER_HYBRIDE_JS`): in one page call
+it looks up the `data-dw-som-id` marker, also computes the raw N-th element,
+returns the stable one when the marker exists and the raw one otherwise
+(fallback identical to the previous default — no regression), and reports
+`boussole.respect.som_resolution` (`stable` | `brut` | `brut_sans_reference`)
+plus `boussole.respect.som_derive_detectee` when the two paths disagree. The
+comparison is read-only; the resolver never writes to the DOM. `--som-brut`
+forces pure raw re-indexing; `--som-rafraichir` is now an inert alias kept for
+backward compatibility. Scenario property `som_brut` added; `som_rafraichir`
+kept and inert.
+
+**Late doc and site fixes (same cycle).** Four pre-existing translation errors
+corrected in the German and Spanish reference docs: `docs/de/MANUEL.md` §2c
+heading ("Gebrauchsanweisung" → "boussole") and its section-11 table-of-contents
+label; `docs/de/CHEAT_SHEET.md` credentials heading ("Formularausgabe" →
+"Form"); `docs/es/MANUEL.md` section-11 heading carried a stray `</h2>` that
+broke the PDF's contents nesting. The four reference PDFs regenerated. On the
+site, the guides landing page install command now comes from a `{{< deb-install
+>}}` shortcode that reads `data/release.json` instead of a hardcoded
+`diwall_1.23.1-1_all.deb` string that had survived the whole 1.24.0 bump;
+`deploy-site.sh` now rejects a hardcoded package version in any
+`guides/_index.md`.
+
+---
+
 ## 2026-08-21 — v1.23.1: boussole exposes which secrets_dir was actually used
 
 On a machine running more than one project, a caller that forgets to export

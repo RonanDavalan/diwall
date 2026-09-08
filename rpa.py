@@ -34,7 +34,7 @@ Dépend de :
     (résolution du répertoire chiffré : DIWALL_SECRETS_DIR > diwall.conf >
     ~/Vaults/Diwall/). Jamais de mot de passe dans les fichiers de scénario.
 """
-__version__ = "1.23.1"
+__version__ = "1.24.0"
 
 import argparse
 import json
@@ -439,9 +439,13 @@ def main():
                         "Propagé à shot.py pour tout le run.")
     p.add_argument("--shadow-dom", dest="shadow_dom", action="store_true",
                    help="Active la traversée Shadow DOM pour le SoM (v1.13.0). Propagé à shot.py.")
+    p.add_argument("--som-brut", dest="som_brut", action="store_true",
+                   help="Force la résolution SoM par ré-indexation brute pure (avant v1.24.0). "
+                        "Depuis v1.24.0 le défaut est la résolution hybride stable→brut avec "
+                        "détection de divergence. Propagé à shot.py.")
     p.add_argument("--som-rafraichir", dest="som_rafraichir", action="store_true",
-                   help="Résolution SoM stable par attribut, anti-dérive d'identité (v1.17.0). "
-                        "Propagé à shot.py.")
+                   help="Alias historique sans effet depuis v1.24.0 (v1.17.0). Accepté pour "
+                        "compatibilité, propagé à shot.py.")
     p.add_argument("--ignorer-waf", dest="ignorer_waf", action="store_true",
                    help="Un blocage WAF dégrade niveau_confiance mais ne force plus "
                         "pret_a_agir à false à lui seul (v1.17.2). Propagé à shot.py.")
@@ -737,6 +741,8 @@ def main():
         cmd += ["--auth-indicator", auth_indicator]
     if args.shadow_dom or scenario.get("shadow_dom"):
         cmd.append("--shadow-dom")
+    if args.som_brut or scenario.get("som_brut"):
+        cmd.append("--som-brut")
     if args.som_rafraichir or scenario.get("som_rafraichir"):
         cmd.append("--som-rafraichir")
     if args.ignorer_waf or scenario.get("ignorer_waf"):

@@ -1,6 +1,6 @@
 # Diwall — Manuel d'utilisation
 
-**Version 1.23.1 — Août 2026**
+**Version 1.24.0 — Septembre 2026**
 
 *Également disponible en français, allemand et espagnol sous `docs/fr/`, `docs/de/` et `docs/es/`.*
 
@@ -42,7 +42,7 @@ Ne pas inclure de descriptions architecturales. Fournir uniquement les commandes
 ```bash
 # Test complet en une seule commande (environ 3 secondes).
 /opt/diwall/venv/bin/python3 /opt/diwall/shot.py \
-  --url https://example.com --mode fast --guide-version 1.2
+  --url https://example.com --mode fast --guide-version 1.3
 ```
 
 Résultat attendu : du JSON sur stdout avec `"succes": true`.
@@ -265,6 +265,8 @@ Pour obtenir ces données pour un hôte, exécutez le diagnostic une seule fois 
 
 Aucun diagnostic préalable pour cet hôte → `mode_conseille` est absent, jamais une
 estimation. Tous les détails dans `GUIDE_LLM_MONITORING.md`.
+
+Le champ `som_rafraichir` est conservé pour la stabilité de la forme de sortie, mais il est obsolète depuis la version v1.24.0 (la résolution hybride SoM avec solution de repli est la valeur par défaut ; rien à activer ; voir la section 7j).
 
 ---
 
@@ -978,23 +980,40 @@ Les identifiants SoM sont recalculés à chaque capture. Ils ne persistent pas e
 Relancez toujours `shot.py --som` pour obtenir les identifiants de l'exécution actuelle.
 Après un `defiler` ou l'ouverture d'une fenêtre modale : relancez `shot.py --som`.
 
-### 7j. Dérive de l'ID SoM sur les pages très dynamiques — `--som-rafraichir` (v1.17.0)
+### 7j. Dérive de l'ID SoM sur les pages très dynamiques - résolution hybride (v1.24.0)
 
-Par défaut, `cliquer_som`/`remplir_som` résolvent `id: N` en réindexant le DOM actif au moment du clic ; si un élément apparaît ou disparaît **avant** votre cible dans l'ordre du DOM entre les phases de capture de `--som` et le clic (par exemple, une bannière de cookies qui se ferme, une fenêtre modale qui s'ouvre), `id: N` peut silencieusement résoudre vers un élément **différent** de celui affiché numériquement N dans la capture d'écran.
+`cliquer_som`/`remplir_som` résolvent `id: N` en réindexant le DOM actif au moment du
+clic. Si un élément interactif apparaît ou disparaît **avant** votre
+élément cible dans l'ordre du DOM entre le `--som` capture et le clic (par exemple, une bannière de cookies qui se ferme, une fenêtre modale qui s'ouvre), un `id: N` brut peut résoudre silencieusement vers un
+élément **différent** de celui qui est affiché et numéroté N dans la capture d'écran.
+
+Depuis la version v1.24.0, le résolveur par défaut est hybride. En un seul appel de page, il :
+
+- recherche le marqueur `data-dw-som-id="N"` (**chemin stable**, défini par une
+  action `{"type":"capturer","som":true}` ou la capture finale) ;
+- calcule le N-ième élément par réindexation directe (**chemin brut**) ;
+- renvoie le chemin stable si le marqueur existe, le chemin brut sinon
+  (**solution de repli** — identique au comportement des versions antérieures à v1.24.0) ;
+- signale `boussole.respect.som_resolution` (`stable` \| `brut` \|
+  `brut_sans_reference`) et, lorsque les deux chemins sont différents,
+  `boussole.respect.som_derive_detectee` avec l'ID de SoM.
 
 ```bash
 /opt/diwall/venv/bin/python3 /opt/diwall/shot.py \
-  --url https://target.local/ --som --som-rafraichir \
-  --actions '[{"type":"cliquer_som","id":5}]'
+  --url https://target.local/ --som \
+  --actions '[{"type":"capturer","nom":"avant","som":true},{"type":"cliquer_som","id":5}]'
 ```
 
-Avec cet indicateur, chaque élément numéroté est marqué au moment de la capture et résolu
-grâce à ce marquage plutôt que par réindexation — si l'élément exact a été supprimé, vous
-obtenez une erreur explicite "élément SoM non trouvé" au lieu d'un clic sur une cible incorrecte. `boussole.som_rafraichir_actif: true` lorsqu'il est actif. Recommandé sur les
-pages où le DOM change fréquemment entre la capture et l'action ; sans effet sur le
-comportement par défaut lorsqu'il n'est pas spécifié.
+Le chemin stable n'aide que dans un seul scénario : le marqueur ne survit pas
+lors de deux appels `shot.py` (chaque appel recharge la page). Pour une cible
+susceptible de mutation, capturez SoM dans le même scénario avant le premier `cliquer_som`.
+Lorsque `som_resolution` est `brut_sans_reference`, la dérive ne peut pas être détectée ; recapturez
+SoM si le DOM a changé. `--som-brut` force une réindexation pure et brute (pas de
+recherche de marqueur, pas de détection de divergence) ; utilisez ensuite `boussole.som_brut_actif: true`.
+`--som-rafraichir` (v1.17.0) est un alias sans effet, conservé pour la compatibilité
+rétroactive.
 
-Depuis la version v1.17.2, l'injecteur efface également les marqueurs laissés par une capture précédente `--som` sur la même page avant de renombrer — sans cela, un élément caché ou masqué entre deux captures pourrait conserver une référence obsolète `data-dw-som-id`, ce qui provoquerait un conflit avec un élément nouvellement numéroté et entraînerait l'utilisation de la mauvaise référence.
+Depuis la version v1.17.2, l'injecteur efface les marqueurs laissés par une capture précédente `--som` sur la même page avant de renombrer — sans cela, un élément masqué ou défilé entre deux captures pourrait conserver un identifiant obsolète `data-dw-som-id`, ce qui pourrait entrer en conflit avec un élément nouvellement numéroté et entraîner une résolution incorrecte.
 
 ### 7k. Site bloqué par le WAF (erreur 403 immédiate)
 
@@ -1017,11 +1036,11 @@ Symptôme : `TimeoutError` lors de la navigation initiale, et l'augmentation de 
 ```bash
 # shot.py — direct reconnaissance
 /opt/diwall/venv/bin/python3 /opt/diwall/shot.py \
-  --url http://target.local/ --wait-until load --som --a11y --guide-version 1.2
+  --url http://target.local/ --wait-until load --som --a11y --guide-version 1.3
 
 # rpa.py — propagé à shot.py, de sorte que les scénarios atteignent les mêmes cibles.
 /opt/diwall/venv/bin/python3 /opt/diwall/rpa.py \
-  --scenario ./admin_login.json --wait-until load --guide-version 1.2
+  --scenario ./admin_login.json --wait-until load --guide-version 1.3
 ```
 
 Un scénario peut également l'inclure comme propriété racine, ce qui le rend autonome :
@@ -1257,18 +1276,19 @@ pendant toute leur durée de vie) et cela réintroduit une fenêtre de perte d'�
 | `--mode fast\|full` | — | `fast` = `--no-capture --a11y`. `full` = comportement par défaut |
 | `--no-capture` | off | Ignore la capture PNG et le marquage |
 | `--llm local\|claude` | `local` | Moteur LLM pour `cliquer_visuel` |
-| `--secrets FILE` | — | Chemin explicite vers un fichier d'informations d'identification |
+| `--secrets FILE` | — | Chemin explicite vers un fichier de crédentielles |
 | `--auth-indicator SEL` | — | Sélecteur CSS présent uniquement dans la session authentifiée |
 | `--auth-indicator-negative SEL` | — | Sélecteur CSS présent uniquement en dehors de la session authentifiée |
 | `--intention TEXT` | — | Étiquette commerciale enregistrée dans le journal |
 | `--sauver-session FILE` | — | Enregistre les cookies après les actions |
 | `--reprendre-session FILE` | — | Reprend une session enregistrée |
 | `--interval-capture N` | 0 | Captures périodiques toutes les N secondes pendant `attendre`, `pause` |
-| `--som-rafraichir` | off | Résolution stable du marquage par attribut au lieu de la réindexation en direct (v1.17.0, section 7j) |
-| `--ignorer-waf` | off | Un bloc WAF détecté dégrade `niveau_confiance` mais ne force plus automatiquement `pret_a_agir: false` (v1.17.2, section 3e) |
-| `--http-credentials` | off | Résout les informations d'identification HTTP Basic Auth à partir du fichier d'informations d'identification, limitées à l'origine de la cible (v1.21.0, section 4g) |
+| `--som-brut` | off | Force une réindexation pure du marquage ; désactive le chemin stable et la détection de divergence du résolveur hybride (v1.24.0, section 7j) |
+| `--som-rafraichir` | off | Alias sans effet depuis v1.24.0 — la résolution hybride est le comportement par défaut (v1.17.0, section 7j) |
+| `--ignorer-waf` | off | Un bloc WAF détecté dégrade `niveau_confiance` mais ne force plus `pret_a_agir: false` par lui-même (v1.17.2, section 3e) |
+| `--http-credentials` | off | Résout les informations d'identification HTTP Basic Auth à partir du fichier de crédentielles, limitées à l'origine de la cible (v1.21.0, section 4g) |
 | `--no-evaluer` | off | Refuse l'action **evaluer** pour toute l'exécution — recommandé en production pour les cibles avec des formulaires sensibles (v1.15.1) |
-| `--no-filtre-evaluer` | off | Désactive la neutralisation de la sortie standard (**stdout**) des valeurs de retour, des URL et des messages d'erreur de **evaluer** — uniquement pour les exécutions de débogage explicites. La neutralisation est activée par défaut ; lorsqu'elle est désactivée, `boussole.filtre_evaluer_actif: false` est défini dans la sortie afin que l'opérateur puisse l'auditer directement à partir du fichier JSON (v1.23.0) |
+| `--no-filtre-evaluer` | off | Désactive la neutralisation de la sortie standard des valeurs de retour de **evaluer**, des URL et des messages d'erreur — uniquement pour les exécutions de débogage explicites. La neutralisation est activée par défaut ; lorsqu'elle est désactivée, `boussole.filtre_evaluer_actif: false` est défini dans la sortie afin que l'opérateur puisse l'auditer directement à partir du fichier JSON (v1.23.0) |
 
 ### rpa.py
 
@@ -1282,12 +1302,13 @@ Transmet tous les drapeaux shot.py pertinents, ainsi que :
 | `--url URL` | Remplace l'URL du scénario sans modifier le fichier |
 | `--stealth` | Propagé à shot.py |
 | `--mode fast\|full` | Propagé à shot.py |
-| `--som-rafraichir` | Propagé à shot.py (v1.17.0, section 7j) |
+| `--som-brut` | Propagé à shot.py. Peut également être défini comme propriété racine du scénario `"som_brut": true` (v1.24.0, section 7j) |
+| `--som-rafraichir` | Propagé à shot.py — alias sans effet depuis v1.24.0 (v1.17.0, section 7j) |
 | `--ignorer-waf` | Propagé à shot.py (v1.17.2, section 3e) |
 | `--http-credentials` | Propagé à shot.py. Peut également être défini comme propriété racine du scénario `"http_credentials": true` (v1.21.0, section 4g) |
 | `--sauver-verifier-reference FILE` | Enregistre la référence structurelle pour `--replay-verifier` (v1.17.0, section 5h) |
 | `--replay-verifier FILE` | Compare l'exécution à une référence structurelle, sortie 1 en cas de régression (v1.17.0, section 5h) |
-| `--checkpoint FILE` | Reprend un long scénario après un échec pendant son exécution (v1.17.0, section 5i) |
+| `--checkpoint FILE` | Reprend un scénario long après un échec pendant l'exécution (v1.17.0, section 5i) |
 
 ### watch.py
 
@@ -1363,10 +1384,9 @@ Transmet tous les drapeaux shot.py pertinents, ainsi que :
     "titre_page": "Dashboard — My App",
     "stealth_actif": true,
     "shadow_dom_actif": true,
-    "som_rafraichir_actif": true,
     "auth_status": "active",
     "som_hors_viewport": 0,
-    "respect": { "pages_visitees": 0, "actions_executees": 3, "duree_totale_ms": 2400, "indice_agressivite": 0.33 }
+    "respect": { "pages_visitees": 0, "actions_executees": 3, "duree_totale_ms": 2400, "indice_agressivite": 0.33, "som_resolution": "stable" }
   },
   "diwall_meta": {
     "version_shot": "1.23.0",
@@ -1385,11 +1405,13 @@ une entrée par action réellement exécutée ; voir `GUIDE_LLM_MONITORING.md`
 pour comprendre comment il complète `respect.duree_totale_ms`.
 
 Les clés conditionnelles (absentes lorsqu'elles sont inactives) : `capture`, `capture_som`, `elements_som`, `a11y_tree`,
-`evaluations`, `auth_status`, `stealth_actif`, `shadow_dom_actif`, `som_rafraichir_actif`,
+`evaluations`, `auth_status`, `stealth_actif`, `shadow_dom_actif`, `som_brut_actif`,
 `som_hors_viewport`, `session_derive`, `respect.plafond_atteint`, `respect.waf_bloquants`,
+`respect.som_resolution` (présentes chaque fois qu'une action SoM a été résolue),
+`respect.som_derive_detectee` (présentes uniquement lors d'une divergence stable/brute),
 `respect.indice_agressivite` (présentes chaque fois qu'au moins une action a été exécutée),
-`actions_executees_avant_echec`, `pages_visitees_avant_echec` (uniquement dans le format JSON en cas d'échec, v1.17.0),
-`etat.mode_conseille` (présentes uniquement avec des données antérieures réelles de type `diagnostic_dom.json` pour cet hôte, v1.18.0, section 2e).
+`actions_executees_avant_echec`, `pages_visitees_avant_echec` (uniquement dans le fichier JSON d'erreur, v1.17.0),
+`etat.mode_conseille` (présentes uniquement avec des données de priorité réelles `diagnostic_dom.json` pour cet hôte, v1.18.0, section 2e).
 
 ### Erreur — format
 

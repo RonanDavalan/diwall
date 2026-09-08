@@ -1,6 +1,6 @@
 # Diwall — Manual de operación
 
-**Versión 1.23.1 — Agosto de 2026**
+**Versión 1.24.0 — Septiembre de 2026**
 
 *También disponible en francés, alemán y español bajo `docs/fr/`, `docs/de/` y `docs/es/`.*
 
@@ -26,7 +26,7 @@ No hay descripciones arquitectónicas. Comandos que funcionan.
 8. [Monitoreo visual — watch.py](#8-monitoreo-visual--watchpy)
 9. [Registro de operaciones](#9-registro-de-operaciones)
 10. [Opciones de línea de comandos: referencia](#10-flags-de-la-línea-de-comandos-referencia)
-11. [Códigos de salida y resultados](#11-códigos-de-salida-y-resultadosh2)
+11. [Códigos de salida y resultados](#11-códigos-de-salida-y-resultados)
 
 ---
 
@@ -41,7 +41,7 @@ No hay descripciones arquitectónicas. Comandos que funcionan.
 ```bash
 # Prueba completa con un solo comando (aproximadamente 3 segundos).
 /opt/diwall/venv/bin/python3 /opt/diwall/shot.py \
-  --url https://example.com --mode fast --guide-version 1.2
+  --url https://example.com --mode fast --guide-version 1.3
 ```
 
 Resultado esperado: JSON en stdout con `"succes": true`.
@@ -270,6 +270,9 @@ Obtenga estos datos para un host ejecutando el diagnóstico una sola vez:
 ```
 
 No hay un diagnóstico previo para este host → `mode_conseille` está ausente, nunca se hace una suposición. Detalles completos en `GUIDE_LLM_MONITORING.md`.
+
+El campo `som_rafraichir` se mantiene para la estabilidad de la forma de salida, pero es un vestigio
+desde la versión v1.24.0 (la resolución híbrida SoM con opción de respaldo es la opción predeterminada; no es necesario habilitar nada; consulte la sección 7j).
 
 ---
 
@@ -977,21 +980,37 @@ Los ID de SoM se recalculan en cada captura. No persisten entre ejecuciones.
 Siempre vuelva a ejecutar `shot.py --som` para obtener los ID de la ejecución actual.
 Después de un `defiler` o al abrir una ventana emergente: vuelva a ejecutar `shot.py --som`.
 
-### 7j. Desfase del ID de SoM en páginas altamente dinámicas — `--som-rafraichir` (v1.17.0)
+### 7j. Desfase del ID de SoM en páginas altamente dinámicas: solución híbrida (v1.24.0)
 
-Por defecto, `cliquer_som`/`remplir_som` resuelven `id: N` reindexando el DOM activo en el momento del clic; si un elemento aparece o desaparece **antes** de su objetivo en el orden del DOM entre la captura de `--som` y el clic (por ejemplo, un banner de cookies que se cierra, una ventana modal que se abre), `id: N` puede resolver silenciosamente a un elemento **diferente** al que se muestra con el número N en la captura de pantalla.
+`cliquer_som`/`remplir_som` resuelven `id: N` reindexando el DOM activo en el momento del
+clic; si un elemento interactivo aparece o desaparece **antes** de su
+objetivo en el orden del DOM entre el evento de captura `--som` y el clic (por ejemplo, un banner de cookies que se cierra, un modal que se abre), un identificador de elemento sin formato `id: N` puede resolver silenciosamente a un
+elemento **diferente** al que se muestra con el número N en la captura de pantalla.
+
+Desde la versión v1.24.0, el resolvedor predeterminado es híbrido. En una sola llamada de página:
+
+- busca el marcador `data-dw-som-id="N"` (**estable**, definido por una acción `{"type":"capturer","som":true}` o la captura final);
+- calcula el elemento N-ésimo mediante reindexación directa (**directa**);
+- devuelve la ruta estable si el marcador existe, y la ruta directa en caso contrario (**alternativa**; idéntico al comportamiento previo a la versión 1.24.0);
+- informa de `boussole.respect.som_resolution`, (`stable` \| `brut` \| `brut_sans_reference`) y, cuando las dos rutas no coinciden, `boussole.respect.som_derive_detectee` con el ID de SoM.
 
 ```bash
 /opt/diwall/venv/bin/python3 /opt/diwall/shot.py \
-  --url https://target.local/ --som --som-rafraichir \
-  --actions '[{"type":"cliquer_som","id":5}]'
+  --url https://target.local/ --som \
+  --actions '[{"type":"capturer","nom":"avant","som":true},{"type":"cliquer_som","id":5}]'
 ```
 
-Con esta bandera, cada elemento numerado se marca en el momento de la captura y se resuelve
-mediante esa marca en lugar de reindexarse; si el elemento exacto fue eliminado, obtendrá un error explícito de "elemento SoM no encontrado" en lugar de un clic en un objetivo incorrecto. `boussole.som_rafraichir_actif: true` cuando está activa. Recomendado en
-páginas con cambios frecuentes en el DOM entre la captura y la acción; no tiene efecto en el comportamiento predeterminado cuando no se especifica.
+El camino estable solo ayuda dentro de un escenario: el marcador no persiste
+a través de dos llamadas a `shot.py` (cada una recarga la página). Para un
+objetivo propenso a mutaciones, capture el SoM en el mismo
+escenario antes de la primera llamada a `cliquer_som`. Cuando `som_resolution` es
+`brut_sans_reference`, no se puede detectar la deriva; vuelva a capturar el SoM si el DOM
+cambió. `--som-brut` fuerza una reindexación pura y directa (sin búsqueda de
+marcador, sin detección de divergencia); entonces `boussole.som_brut_actif: true`.
+`--som-rafraichir` (v1.17.0) es un alias inactivo que se mantiene para la compatibilidad
+hacia atrás.
 
-Desde la versión v1.17.2, el injector también elimina los marcadores dejados por una captura anterior `--som` en la misma página antes de volver a numerar; sin esto, un elemento oculto o desplazado entre dos capturas podría mantener un marcador obsoleto `data-dw-som-id`, lo que provocaría una colisión con un elemento recién numerado y daría como resultado el elemento incorrecto.
+Desde la versión v1.17.2, el inyector elimina los marcadores dejados por una captura anterior `--som` en la misma página antes de volver a numerar; sin esto, un elemento oculto o desplazado entre dos capturas podría conservar un identificador obsoleto `data-dw-som-id`, lo que provocaría una colisión con un elemento recién numerado y daría como resultado el identificador incorrecto.
 
 ### 7k. Sitio bloqueado por el WAF (error 403 inmediato)
 
@@ -1017,11 +1036,11 @@ produce ese silencio, así que ningún valor de tiempo de espera puede ser lo su
 ```bash
 # shot.py — direct reconnaissance
 /opt/diwall/venv/bin/python3 /opt/diwall/shot.py \
-  --url http://target.local/ --wait-until load --som --a11y --guide-version 1.2
+  --url http://target.local/ --wait-until load --som --a11y --guide-version 1.3
 
 # rpa.py — se propagó a shot.py, por lo que los escenarios alcanzan los mismos objetivos.
 /opt/diwall/venv/bin/python3 /opt/diwall/rpa.py \
-  --scenario ./admin_login.json --wait-until load --guide-version 1.2
+  --scenario ./admin_login.json --wait-until load --guide-version 1.3
 ```
 
 Un escenario puede incluirlo como una propiedad raíz, permaneciendo así autocontenido:
@@ -1239,21 +1258,21 @@ No agregue ``copytruncate`` a la configuración de logrotate de Diwall; es innec
 
 | Flag | Default | Descripción |
 |---|---|---|
-| `--version` | — | Imprime la versión instalada y sale inmediatamente; no se requiere Playwright ni ningún otro argumento (v1.18.0) |
+| `--version` | — | Imprime la versión instalada y sale inmediatamente — no se requiere Playwright ni ningún otro argumento (v1.18.0) |
 | `--guide-version X.Y` | — | Prueba de lectura de `docs/GUIDE_LLM.md` — requerido a menos que ya exista un marcador local válido (v1.18.0, sección 1) |
-| `--url URL` | required | URL para capturar |
+| `--url URL` | requerido | URL a capturar |
 | `--actions FILE` | — | Archivo JSON de acciones secuenciales |
 | `--output-dir DIR` | `/tmp/diwall` | Directorio de salida PNG |
-| `--timeout MS` | 10000 | Tiempo de espera por acción de Playwright (ms) |
+| `--timeout MS` | 10000 | Tiempo de espera de Playwright por acción (ms) |
 | `--screenshot-timeout MS` | 120000 | Tiempo de espera para `page.screenshot()` (ms). Distinto de `--timeout` |
 | `--largeur PX` | 1280 | Ancho del viewport |
 | `--hauteur PX` | 720 | Altura del viewport |
 | `--som` | off | Activa el "Set-of-Mark" (numeración de elementos) |
-| `--a11y` | off | Incluye el árbol de accesibilidad en JSON |
+| `--a11y` | off | Incluye el árbol de accesibilidad en el JSON |
 | `--shadow-dom` | off | Recorre Shadow Roots para SoM (Angular, Lit, Stencil) |
-| `--stealth` | off | Modo "stealth" de playwright-stealth (v1.15.0) |
+| `--stealth` | off | Modo sigiloso de playwright-stealth (v1.15.0) |
 | `--mode fast\|full` | — | `fast` = `--no-capture --a11y`. `full` = comportamiento predeterminado |
-| `--no-capture` | off | Omite la captura PNG y el SoM |
+| `--no-capture` | off | Omite la captura de PNG y el SoM |
 | `--llm local\|claude` | `local` | Motor LLM para `cliquer_visuel` |
 | `--secrets FILE` | — | Ruta explícita a un archivo de credenciales |
 | `--auth-indicator SEL` | — | Selector CSS presente solo en la sesión autenticada |
@@ -1262,25 +1281,27 @@ No agregue ``copytruncate`` a la configuración de logrotate de Diwall; es innec
 | `--sauver-session FILE` | — | Guarda las cookies después de las acciones |
 | `--reprendre-session FILE` | — | Reanuda una sesión guardada |
 | `--interval-capture N` | 0 | Capturas periódicas cada N segundos durante `attendre`, `pause` |
-| `--som-rafraichir` | off | Resolución estable del SoM por atributo en lugar de reindexación en vivo (v1.17.0, sección 7j) |
-| `--ignorer-waf` | off | Un bloqueo WAF detectado degrada `niveau_confiance` pero ya no fuerza automáticamente `pret_a_agir: false` (v1.17.2, sección 3e) |
+| `--som-brut` | off | Fuerza la reindexación pura de SoM; desactiva la ruta estable y la detección de divergencia del resolvedor híbrido (v1.24.0, sección 7j) |
+| `--som-rafraichir` | off | Alias de no-op desde v1.24.0 — la resolución híbrida es el valor predeterminado (v1.17.0, sección 7j) |
+| `--ignorer-waf` | off | Un bloqueo de WAF detectado degrada `niveau_confiance` pero ya no fuerza `pret_a_agir: false` por sí solo (v1.17.2, sección 3e) |
 | `--http-credentials` | off | Resuelve las credenciales de HTTP Basic Auth del archivo de credenciales, con alcance al origen del objetivo (v1.21.0, sección 4g) |
-| `--no-evaluer` | off | Rechaza la acción **evaluer** para toda la ejecución; recomendado en producción contra objetivos con formularios sensibles (v1.15.1) |
-| `--no-filtre-evaluer` | off | Deshabilita la neutralización de stdout de los valores de retorno, las URL y los mensajes de error de **evaluer**; solo ejecuciones de depuración explícitas. La neutralización está habilitada por defecto; cuando se deshabilita, `boussole.filtre_evaluer_actif: false` se establece en la salida para que el operador pueda auditarla desde el propio JSON (v1.23.0) |
+| `--no-evaluer` | off | Rechaza la acción **evaluer** para toda la ejecución — recomendado en producción para objetivos con formularios confidenciales (v1.15.1) |
+| `--no-filtre-evaluer` | off | Deshabilita la neutralización de stdout de los valores de retorno, las URL y los mensajes de error de **evaluer** — solo ejecuciones de depuración explícitas. La neutralización está activada de forma predeterminada; cuando está deshabilitada, `boussole.filtre_evaluer_actif: false` se establece en la salida para que el operador pueda auditarla desde el propio JSON (v1.23.0) |
 
 ### rpa.py
 
 Propaga todas las banderas relevantes de shot.py, además de:
 
-| Flag | Descripción |
+| Flag | Description |
 |---|---|
 | `--version` | Imprime la versión instalada y sale inmediatamente (v1.18.0) |
-| `--guide-version X.Y` | Prueba de lectura de `docs/GUIDE_LLM.md` — verificada independientemente, misma regla que shot.py (v1.18.0) |
+| `--guide-version X.Y` | Prueba de lectura de `docs/GUIDE_LLM.md` — verificada de forma independiente, misma regla que shot.py (v1.18.0) |
 | `--scenario FILE` | Ruta al escenario JSON o YAML (requerido) |
 | `--url URL` | Sobreescribe la URL del escenario sin modificar el archivo |
 | `--stealth` | Se propaga a shot.py |
 | `--mode fast\|full` | Se propaga a shot.py |
-| `--som-rafraichir` | Se propaga a shot.py (v1.17.0, sección 7j) |
+| `--som-brut` | Se propaga a shot.py. También se puede establecer como propiedad raíz del escenario `"som_brut": true` (v1.24.0, sección 7j) |
+| `--som-rafraichir` | Se propaga a shot.py — alias sin efecto desde v1.24.0 (v1.17.0, sección 7j) |
 | `--ignorer-waf` | Se propaga a shot.py (v1.17.2, sección 3e) |
 | `--http-credentials` | Se propaga a shot.py. También se puede establecer como propiedad raíz del escenario `"http_credentials": true` (v1.21.0, sección 4g) |
 | `--sauver-verifier-reference FILE` | Guarda la referencia estructural para `--replay-verifier` (v1.17.0, sección 5h) |
@@ -1307,7 +1328,7 @@ Propaga todas las banderas relevantes de shot.py, además de:
 
 ---
 
-## 11. Códigos de salida y resultados</h2>
+## 11. Códigos de salida y resultados
 
 ### Códigos de salida
 
@@ -1361,10 +1382,9 @@ Propaga todas las banderas relevantes de shot.py, además de:
     "titre_page": "Dashboard — My App",
     "stealth_actif": true,
     "shadow_dom_actif": true,
-    "som_rafraichir_actif": true,
     "auth_status": "active",
     "som_hors_viewport": 0,
-    "respect": { "pages_visitees": 0, "actions_executees": 3, "duree_totale_ms": 2400, "indice_agressivite": 0.33 }
+    "respect": { "pages_visitees": 0, "actions_executees": 3, "duree_totale_ms": 2400, "indice_agressivite": 0.33, "som_resolution": "stable" }
   },
   "diwall_meta": {
     "version_shot": "1.23.0",
@@ -1383,9 +1403,11 @@ una entrada por cada acción que se ejecutó realmente; consulta `GUIDE_LLM_MONI
 para ver cómo complementa a `respect.duree_totale_ms`.
 
 Claves condicionales (ausentes cuando está inactivo): `capture`, `capture_som`, `elements_som`, `a11y_tree`,
-`evaluations`, `auth_status`, `stealth_actif`, `shadow_dom_actif`, `som_rafraichir_actif`,
+`evaluations`, `auth_status`, `stealth_actif`, `shadow_dom_actif`, `som_brut_actif`,
 `som_hors_viewport`, `session_derive`, `respect.plafond_atteint`, `respect.waf_bloquants`,
-`respect.indice_agressivite` (presente siempre que al menos una acción se haya ejecutado),
+`respect.som_resolution` (presente siempre que se haya resuelto una acción de SoM),
+`respect.som_derive_detectee` (presente solo en una divergencia estable/cruda),
+`respect.indice_agressivite` (presente siempre que se haya ejecutado al menos una acción),
 `actions_executees_avant_echec`, `pages_visitees_avant_echec` (solo en el JSON de error, v1.17.0),
 `etat.mode_conseille` (presente solo con datos previos reales `diagnostic_dom.json` para este host, v1.18.0, sección 2e).
 

@@ -137,11 +137,11 @@ en el formato JSON, no como una falla del comando.
 
 Captura una página con elementos numerados y el árbol de accesibilidad:
 
-    diwall-shot --url https://example.com --som --a11y --guide-version 1.2
+    diwall-shot --url https://example.com --som --a11y --guide-version 1.3
 
 Lee solo el estado de una página, sin generar una imagen:
 
-    diwall-shot --url https://example.com --mode fast --guide-version 1.2
+    diwall-shot --url https://example.com --mode fast --guide-version 1.3
 
 Acceda a un panel de administración que actualice las estadísticas continuamente:
 

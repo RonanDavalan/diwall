@@ -32,7 +32,7 @@ import uuid
 from datetime import datetime, timezone
 from urllib.parse import urlparse
 
-__version__ = "1.23.1"
+__version__ = "1.24.0"
 
 # Permet d'importer lib/ depuis le même répertoire que shot.py
 sys.path.insert(0, os.path.dirname(os.path.abspath(__file__)))
@@ -351,6 +351,73 @@ _SOM_TROUVER_STABLE_JS_SHADOW = """(id) => {
     if (!el) return null;
     const r = el.getBoundingClientRect();
     return {x: Math.round(r.left + r.width / 2), y: Math.round(r.top + r.height / 2), tag: el.tagName};
+}"""
+
+# ── Résolution SoM hybride (défaut v1.24.0) ─────────────────────────────────
+# Combine en UN seul appel de page les deux résolutions :
+#   - voie brute  : le N-ième élément de la ré-indexation document.querySelectorAll
+#                   (identique à _SOM_TROUVER_JS — même traversée, même ordre) ;
+#   - voie stable : l'élément marqué data-dw-som-id="N" par _SOM_INJECTER_JS.
+# Retourne les coordonnées de la voie stable si le marqueur existe, sinon celles
+# de la voie brute (repli — comportement d'avant v1.24.0, aucune régression).
+# `resolution` = "stable" | "brut_sans_reference" ; `derive` = true quand les
+# deux voies sont calculables ET désignent des éléments différents (elStable !==
+# elBrut, comparaison d'identité dans le contexte de page, aucune écriture DOM).
+# --som-brut court-circuite ce résolveur et rétablit _SOM_TROUVER_JS pur.
+# Contexte : ROBUSTESSE_SCENARIOS_ET_SESSIONS.md §2 (révision 08/09/2026).
+_SOM_TROUVER_HYBRIDE_JS = """(id) => {""" + _SOM_SELECTORS_JS + """
+    const vw = window.innerWidth, vh = window.innerHeight;
+    const items = [];
+    document.querySelectorAll(SELECTORS).forEach(el => {""" + _SOM_FILTRE_VISIBLE_JS + """
+        if (r.right < 0 || r.bottom < 0 || r.left > vw || r.top > vh) return;
+        items.push(el);
+    });
+    const elBrut = items[id - 1] || null;
+    const elStable = document.querySelector('[data-dw-som-id="' + CSS.escape(String(id)) + '"]');
+    const cible = elStable || elBrut;
+    if (!cible) return null;
+    const r = cible.getBoundingClientRect();
+    return {
+        x: Math.round(r.left + r.width / 2),
+        y: Math.round(r.top + r.height / 2),
+        tag: cible.tagName,
+        resolution: elStable ? "stable" : "brut_sans_reference",
+        derive: !!(elStable && elBrut && elStable !== elBrut),
+    };
+}"""
+
+_SOM_TROUVER_HYBRIDE_JS_SHADOW = """(id) => {
+    function queryShadowAll(selectors, root) {
+        var result = [];
+        try {
+            root.querySelectorAll(selectors).forEach(function(el) { result.push(el); });
+            root.querySelectorAll('*').forEach(function(el) {
+                if (el.shadowRoot) {
+                    queryShadowAll(selectors, el.shadowRoot).forEach(function(e) { result.push(e); });
+                }
+            });
+        } catch(ignore) {}
+        return result;
+    }""" + _SOM_SELECTORS_JS + """
+    const vw = window.innerWidth, vh = window.innerHeight;
+    const items = [];
+    queryShadowAll(SELECTORS, document).forEach(el => {""" + _SOM_FILTRE_VISIBLE_JS + """
+        if (r.right < 0 || r.bottom < 0 || r.left > vw || r.top > vh) return;
+        items.push(el);
+    });
+    const elBrut = items[id - 1] || null;
+    const matchesStable = queryShadowAll('[data-dw-som-id="' + CSS.escape(String(id)) + '"]', document);
+    const elStable = matchesStable[0] || null;
+    const cible = elStable || elBrut;
+    if (!cible) return null;
+    const r = cible.getBoundingClientRect();
+    return {
+        x: Math.round(r.left + r.width / 2),
+        y: Math.round(r.top + r.height / 2),
+        tag: cible.tagName,
+        resolution: elStable ? "stable" : "brut_sans_reference",
+        derive: !!(elStable && elBrut && elStable !== elBrut),
+    };
 }"""
 
 # ── Sécurité visuelle — masquage des champs sensibles ────────────────────────
@@ -976,11 +1043,18 @@ def parse_args():
                    help="Active la traversée récursive des Shadow Roots ouverts pour le SoM "
                         "(v1.13.0). Désactivé par défaut. À utiliser sur Angular, Lit, Stencil. "
                         "Sans effet sur les Shadow Roots fermés (limitation navigateur).")
+    p.add_argument("--som-brut", dest="som_brut", action="store_true",
+                   help="Force la résolution SoM par ré-indexation brute pure de "
+                        "cliquer_som/remplir_som (comportement d'avant v1.24.0). Depuis "
+                        "v1.24.0 le défaut est la résolution hybride : voie stable par "
+                        "attribut data-dw-som-id si un marqueur existe, repli sur "
+                        "ré-indexation brute sinon, avec détection de divergence "
+                        "(boussole som_resolution / som_derive_detectee).")
     p.add_argument("--som-rafraichir", dest="som_rafraichir", action="store_true",
-                   help="Résolution SoM stable par attribut data-dw-som-id au lieu de "
-                        "ré-indexer le DOM courant (v1.17.0). Protège cliquer_som/remplir_som "
-                        "contre la dérive d'identité sur pages fortement dynamiques. Opt-in : "
-                        "comportement par défaut inchangé sans ce flag.")
+                   help="Alias historique sans effet depuis v1.24.0 (v1.17.0). La "
+                        "résolution hybride avec repli est désormais le défaut ; il n'y "
+                        "a plus rien à activer. Accepté silencieusement pour compatibilité "
+                        "des appelants et scénarios existants.")
     p.add_argument("--ignorer-waf", dest="ignorer_waf", action="store_true",
                    help="Un blocage WAF détecté dégrade niveau_confiance mais ne force plus "
                         "pret_a_agir à false à lui seul (v1.17.2). À utiliser quand un "
@@ -1210,13 +1284,35 @@ def executer_actions(page, actions, output_dir, timeout, mode_llm="local",
                      secrets_chemin=None, screenshot_timeout=120_000, shadow_dom=False,
                      min_action_delay_ms=0, max_pages_par_run=0, max_actions_par_run=0,
                      t_debut=None, no_evaluer=False, operation_id=None, progress=None,
-                     som_rafraichir=False, valeurs_secrets_resolues=None):
+                     som_rafraichir=False, valeurs_secrets_resolues=None,
+                     som_brut=False):
     from playwright.sync_api import TimeoutError as PWTimeoutError, Error as PWError
 
-    if som_rafraichir:
-        _som_trouver = _SOM_TROUVER_STABLE_JS_SHADOW if shadow_dom else _SOM_TROUVER_STABLE_JS
-    else:
+    # v1.24.0 — résolution SoM hybride par défaut : voie stable (data-dw-som-id)
+    # si un marqueur existe, repli sur ré-indexation brute sinon, avec détection
+    # de divergence (ROBUSTESSE_SCENARIOS_ET_SESSIONS.md §2). --som-brut force la
+    # ré-indexation brute pure. --som-rafraichir (v1.17.0) est conservé comme
+    # paramètre inerte : il sélectionnait _SOM_TROUVER_STABLE_JS, qui ne
+    # résolvait rien sans capture SoM préalable dans le même scénario.
+    if som_brut:
         _som_trouver = _SOM_TROUVER_JS_SHADOW if shadow_dom else _SOM_TROUVER_JS
+    else:
+        _som_trouver = _SOM_TROUVER_HYBRIDE_JS_SHADOW if shadow_dom else _SOM_TROUVER_HYBRIDE_JS
+    # Boussole SoM (jamais silencieuse — même discipline que repli_js_utilise) :
+    # som_resolution reflète la voie de la DERNIÈRE action SoM résolue ;
+    # som_derives collecte tout id où voie stable et voie brute divergent.
+    som_resolution = "brut" if som_brut else None
+    som_derives = []
+
+    def _resoudre_som(som_id):
+        nonlocal som_resolution
+        coord = page.evaluate(_som_trouver, som_id)
+        if coord is not None:
+            som_resolution = coord.get("resolution", "brut")
+            if coord.get("derive"):
+                som_derives.append(som_id)
+        return coord
+
     intermediaires = []
     stream_captures = []
     # Audit 05/08/2026 (D-01, correctif de fond) : valeurs réellement résolues
@@ -1431,7 +1527,7 @@ def executer_actions(page, actions, output_dir, timeout, mode_llm="local",
             som_id = a.get("id")
             if som_id is None:
                 raise ValueError("cliquer_som requiert un champ 'id'")
-            coord = page.evaluate(_som_trouver, som_id)
+            coord = _resoudre_som(som_id)
             if coord is None:
                 raise ValueError(f"cliquer_som : élément SoM {som_id!r} non trouvé sur la page")
             page.mouse.click(coord["x"], coord["y"])
@@ -1442,7 +1538,7 @@ def executer_actions(page, actions, output_dir, timeout, mode_llm="local",
             if som_id is None:
                 raise ValueError("remplir_som requiert un champ 'id'")
             valeur = _resoudre_valeur_secrets(a, valeur, page, secrets_chemin, "remplir_som", valeurs_secrets_resolues)
-            coord = page.evaluate(_som_trouver, som_id)
+            coord = _resoudre_som(som_id)
             if coord is None:
                 raise ValueError(f"remplir_som : élément SoM {som_id!r} non trouvé sur la page")
             if coord.get("tag", "").upper() == "SELECT":
@@ -1578,7 +1674,7 @@ def executer_actions(page, actions, output_dir, timeout, mode_llm="local",
             # réapparaît ailleurs dans le résultat (evaluer, message d'erreur),
             # _rediger_valeurs_secrets ne le rédigeait pas.
             valeurs_secrets_resolues.add(str(code))
-            coord = page.evaluate(_som_trouver, id_som)
+            coord = _resoudre_som(id_som)
             if coord is None:
                 raise ValueError(f"attendre_mfa_ntfy : élément SoM {id_som!r} non trouvé")
             page.mouse.click(coord["x"], coord["y"])
@@ -1681,6 +1777,13 @@ def executer_actions(page, actions, output_dir, timeout, mode_llm="local",
         respect["waf_bloquants"] = waf_bloquants
     if actions_executees > 0:
         respect["indice_agressivite"] = round(actions_ecriture / actions_executees, 3)
+    # v1.24.0 — voie de résolution SoM réellement empruntée par la dernière
+    # action SoM du run, et ids où stable/brut ont divergé. Absent si aucune
+    # action SoM n'a été résolue (rien à signaler).
+    if som_resolution is not None:
+        respect["som_resolution"] = som_resolution
+    if som_derives:
+        respect["som_derive_detectee"] = som_derives
     return (intermediaires, stream_captures, evaluations, modeles_appeles, respect,
             latences_actions, dernier_code_http, repli_js_utilise,
             vision_externe_utilise)
@@ -2123,6 +2226,7 @@ def main():
                     progress=progress,
                     som_rafraichir=args.som_rafraichir,
                     valeurs_secrets_resolues=valeurs_secrets_resolues,
+                    som_brut=args.som_brut,
                 )
             except Exception:
                 if args.sauver_session:
@@ -2274,8 +2378,12 @@ def main():
         )
         if args.shadow_dom:
             result["boussole"]["shadow_dom_actif"] = True
-        if args.som_rafraichir:
-            result["boussole"]["som_rafraichir_actif"] = True
+        # v1.24.0 — résolution SoM hybride par défaut ; la voie réellement
+        # empruntée est portée par boussole.respect.som_resolution (et
+        # som_derive_detectee en cas de divergence stable/brut). Ce drapeau
+        # signale seulement l'échappatoire explicite vers la ré-indexation brute.
+        if args.som_brut:
+            result["boussole"]["som_brut_actif"] = True
         if stealth_applique:
             result["boussole"]["stealth_actif"] = True
         # v1.21.0 — jamais conditionné au seul flag CLI (précédent stealth_actif

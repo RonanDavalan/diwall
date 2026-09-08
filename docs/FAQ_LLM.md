@@ -1,6 +1,6 @@
 # Diwall — FAQ for LLMs
 
-Version 1.9 — August 2026 (v1.23.0) — version table through v1.22.0, `--guide-version` current token 1.2
+Version 1.9 — August 2026 (v1.23.0) — version table through v1.22.0, `--guide-version` current token 1.3
 
 Answers to technical questions raised by language models during real Diwall sessions.
 No attribution — these are recurring questions, not individual testimonies.
@@ -24,7 +24,7 @@ incident that motivated it.
 ```bash
 cat /opt/diwall/docs/GUIDE_LLM.md
 # read it, find "<!-- notice-version: X.Y -->" near the top, then:
-/opt/diwall/venv/bin/python3 /opt/diwall/shot.py --url <url> --guide-version 1.2
+/opt/diwall/venv/bin/python3 /opt/diwall/shot.py --url <url> --guide-version 1.3
 ```
 
 You will not be asked again on this machine, as this OS user, until
@@ -100,7 +100,9 @@ Plus conditional fields that appear only when active:
 | `som_hors_viewport` | SoM active and at least one interactive element is off-screen |
 | `shadow_dom_actif` | `--shadow-dom` active |
 | `stealth_actif` | `--stealth` active and applied successfully (v1.15.0) |
-| `som_rafraichir_actif` | `--som-rafraichir` active (v1.17.0) |
+| `som_brut_actif` | `--som-brut` active — pure raw SoM re-indexing forced (v1.24.0) |
+| `respect.som_resolution` | a SoM action was resolved this run — `stable` \| `brut` \| `brut_sans_reference` (v1.24.0) |
+| `respect.som_derive_detectee` | stable and raw SoM paths pointed to different elements — carries the SoM id(s) (v1.24.0) |
 | `respect.waf_bloquants` | at least one navigation was flagged as a likely WAF block (v1.16.0, refined v1.17.2 — generic vendor names now matched on page title only, fewer false positives) |
 | `waf_ignore_actif` | `--ignorer-waf` active — a WAF block degrades `niveau_confiance` but no longer forces `pret_a_agir: false` on its own (v1.17.2) |
 
@@ -374,6 +376,7 @@ runs a single continuous session. The credentials and journal are managed by the
 | `journal.py --erreurs` filter, `latences_actions` per-action timing | v1.20.0 |
 | `--http-credentials` (HTTP Basic Auth, credentials-resolved, origin-scoped), `docs/GUIDE_LLM.md` compressed to its 250-line budget, non-presumption rule | v1.21.0 |
 | `repli_js` JS click escalation, `dernier_code_http` in boussole, `--wait-until` for never-idle targets, **breaking: `citoyennete` output key renamed `respect`** | **v1.22.0** |
+| Hybrid SoM resolution by default (`data-dw-som-id` stable path + raw-reindexing fallback + `som_resolution`/`som_derive_detectee` in `boussole.respect`), `--som-brut` escape hatch, `--som-rafraichir` now an inert alias (fixes a v1.17.0 flag that never worked standalone) | v1.24.0 |
 
 **Current stable version: v1.21.0** (v1.17.1 was a documentation-only
 correction; v1.17.2 was a fix patch — see the rows above).

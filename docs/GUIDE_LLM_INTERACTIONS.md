@@ -348,37 +348,52 @@ Scroll to the element before using `cliquer_som`:
 **SoM excludes closed `<dialog>` elements** (no `open` attribute) — intentional.
 A closed dialog is not interactable. Use CSS selectors for buttons inside closed dialogs.
 
-**Stable identity resolution — `--som-rafraichir` (v1.17.0):** by default,
-`cliquer_som`/`remplir_som` re-index the live DOM at click time — this is a
-mechanism against *identity* drift, not staleness: if an element appears or
+**Hybrid identity resolution (default since v1.24.0):** `cliquer_som` /
+`remplir_som` re-index the live DOM at click time — a mechanism against
+*identity* drift, not staleness: if an interactive element appears or
 disappears **before** your target in DOM order between the `--som` capture and
-the click (a cookie banner closing, a modal opening), `id: N` silently
-resolves to a **different** element than the one numbered N in the screenshot.
-Recapturing SoM (the rule above) reduces the exposure window but does not
-eliminate it on a page that keeps mutating.
+the click (a cookie banner closing, a modal opening), a raw `id: N` would
+silently resolve to a **different** element than the one numbered N in the
+screenshot.
 
-`--som-rafraichir` closes this gap: SoM injection stamps each numbered element
-with `data-dw-som-id="N"`, and resolution looks up that attribute instead of
-re-indexing. If the exact element is still in the DOM, `id: N` always resolves
-to it — regardless of what else changed around it. If it was removed: an
-honest "élément SoM non trouvé" error, never a click on the wrong target.
-Opt-in, zero effect on default behavior — recommended on pages with frequent
-DOM churn between capture and action (long scenarios, live-updating dashboards).
+The hybrid resolver, in one page call:
 
-**Collision cleanup on repeated captures (v1.17.2):** the injector now purges
-markers left by a previous `--som` capture in the same page before
-renumbering. Without this, an element hidden or scrolled out between two
-captures kept its stale `data-dw-som-id`, which could collide with a freshly
-numbered element and make `--som-rafraichir` resolve to the wrong one instead
-of failing honestly.
+- looks up the `data-dw-som-id="N"` marker (the **stable** path — `_SOM_INJECTER_JS`
+  stamps every numbered element at SoM injection time);
+- also computes the N-th element by raw re-indexing (the **raw** path);
+- returns the stable path's coordinates when the marker exists, the raw path's
+  otherwise (**fallback** — identical to pre-v1.24.0 behaviour, no regression);
+- reports `boussole.respect.som_resolution` (`stable` | `brut` | `brut_sans_reference`)
+  and, when the two paths point to different elements, `boussole.respect.som_derive_detectee`
+  carrying the SoM id.
+
+The stable path only helps **within one scenario**: the marker is set by a
+`{"type":"capturer","som":true}` action (or the final capture) — it does not
+survive across two `shot.py` calls, since each call reloads the page. So for a
+mutation-prone target, capture SoM in the same scenario before the first
+`cliquer_som`. When no marker exists (`brut_sans_reference`), the resolver falls
+back to raw re-indexing and cannot detect drift — recapture SoM if the DOM
+changed since your last capture.
+
+`--som-brut` forces pure raw re-indexing (no marker lookup, no divergence
+detection). `--som-rafraichir` (v1.17.0) is a no-op alias kept for backward
+compatibility — it selected a stable-only resolver that returned nothing without
+a prior in-scenario SoM capture.
+
+**Collision cleanup on repeated captures (v1.17.2):** the injector purges
+markers left by a previous `--som` capture in the same page before renumbering.
+Without this, an element hidden or scrolled out between two captures kept its
+stale `data-dw-som-id`, which could collide with a freshly numbered element and
+make the stable path resolve to the wrong one instead of failing honestly.
 
 ```bash
 /opt/diwall/venv/bin/python3 /opt/diwall/shot.py \
-  --url https://target.local/ --som --som-rafraichir \
-  --actions '[{"type":"cliquer_som","id":5}]'
+  --url https://target.local/ --som \
+  --actions '[{"type":"capturer","nom":"avant","som":true},{"type":"cliquer_som","id":5}]'
 ```
 
-`boussole.som_rafraichir_actif: true` when active.
+`boussole.respect.som_resolution` is present on every run that resolves a SoM
+action; `boussole.som_brut_actif: true` when `--som-brut` is passed.
 
 ---
 

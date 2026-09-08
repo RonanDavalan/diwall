@@ -298,7 +298,7 @@ at parse time, exit 2, if both are passed).
 **Scope — what is compared:** only volatile fields are excluded by
 construction (timestamps, `operation_id`, `duree_ms`, `boussole.ip_locale`).
 `elements_som` is compared by **count only**, not content — SoM element
-identity across runs is not guaranteed stable (see `--som-rafraichir` below
+identity across runs is not guaranteed stable (see hybrid SoM resolution below
 for why).
 
 **`chemin_sensible_refuse` (`rpa.py`, exit 2):** `--checkpoint`,
@@ -492,9 +492,13 @@ signal — read `erreur` and `message` instead.
 ## `mode_conseille` — pre-flight configuration advice (v1.18.0)
 
 A sub-key of `etat`, advisory only — never applied automatically, never an
-order. Recommends a configuration (`--mode`, `--shadow-dom`,
-`--som-rafraichir`) for your **next** call on the same host, based on real
-prior measurement, never a guess.
+order. Recommends a configuration (`--mode`, `--shadow-dom`) for your **next**
+call on the same host, based on real prior measurement, never a guess.
+
+The `som_rafraichir` field is kept for output-shape stability but is vestigial
+since v1.24.0: hybrid SoM resolution with fallback is the default, there is
+nothing to enable. A `true` there just means "framework page — keep the hybrid
+resolver, do not pass `--som-brut`".
 
 ```json
 "etat": {

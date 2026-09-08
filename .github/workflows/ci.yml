@@ -24,6 +24,14 @@ jobs:
           find . -name '*.py' -not -path './.git/*' -print0 \
             | xargs -0 python3 -m py_compile
 
+      # Mirror of scripts/preflight-publication.sh "Validation scénarios contre
+      # schema.json" (S3, v1.24.0). Every shipped scenario (a {url, actions}
+      # object) must validate against the current schema. Excluded by design,
+      # not by omission: scenarios/archive/** (kept for memory, not replayable),
+      # scenarios/*_validation/** (internal regression harnesses with their own
+      # verifier.py, some carrying deliberately malformed fixtures), and any
+      # file whose JSON root is a list (that is an --actions payload, not a
+      # scenario — the schema does not apply).
       - name: Validate scenario JSON files against schema.json
         run: |
           python3 - <<'PYEOF'
@@ -34,11 +42,18 @@ jobs:
               schema = json.load(f)
 
           failed = False
-          for path in glob.glob("scenarios/*.json"):
-              if path.endswith("schema.json"):
+          for path in glob.glob("scenarios/**/*.json", recursive=True):
+              norm = path.replace("\\", "/")
+              if norm.endswith("/schema.json") or norm == "scenarios/schema.json":
+                  continue
+              if "/scenarios/archive/" in norm or norm.startswith("scenarios/archive/"):
+                  continue
+              if "_validation/" in norm:
                   continue
               with open(path, encoding="utf-8") as f:
                   data = json.load(f)
+              if isinstance(data, list):
+                  continue  # --actions payload, not a scenario
               try:
                   jsonschema.validate(data, schema)
                   print(f"  OK   {path}")

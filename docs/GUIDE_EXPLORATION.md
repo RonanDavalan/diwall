@@ -64,7 +64,10 @@ Web Components application (Angular, Lit, Stencil):
    selector for `cliquer_iframe`/`remplir_iframe` (v1.17.0). SoM does not number
    iframe content.
 7. If the page mutates frequently (live counters, async content insertion) between
-   capture and action: plan on `--som-rafraichir` (v1.17.0) for the execution scenario.
+   capture and action: have the execution scenario capture SoM (`{"type":"capturer","som":true}`)
+   before the first `cliquer_som`. Hybrid resolution (default since v1.24.0) then
+   pins to the `data-dw-som-id` marker and flags any stable/raw divergence in
+   `boussole.respect.som_derive_detectee`.
 
 **Expected output**: a JSON scenario file in `scenarios/` or
 `_CADRE/SPECIFICATIONS/PROCEDURES_LLM/instance/`.

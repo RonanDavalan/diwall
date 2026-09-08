@@ -1,6 +1,6 @@
 # Diwall — Guía del operador
 
-Versión 1.10 — Agosto de 2026 (v1.23.1) — cuatro casos de uso de demostración adicionales (observabilidad alojada localmente, administración de plataforma de ticketing, seguimiento de eventos locales, acceso a comercio electrónico bajo "Navegación Respetuosa").
+Versión 1.10 — Septiembre de 2026 (v1.24.0) — cuatro casos de uso de demostración adicionales (observabilidad alojada localmente, administración de plataforma de ticketing, seguimiento de eventos locales, acceso a comercio electrónico bajo "Navegación Respetuosa").
 
 *También disponible en francés, alemán y español bajo `docs/fr/`, `docs/de/` y `docs/es/`.*
 
@@ -116,7 +116,7 @@ referencia tomada antes de la regresión. Ejecútelo directamente:
 ```bash
 /opt/diwall/venv/bin/python3 /opt/diwall/rpa.py \
   --scenario /opt/diwall/scenarios/exemples/depannage_local.json \
-  --guide-version 1.2
+  --guide-version 1.3
 ```
 
 ### Caso 2: Comparación de componentes de hardware entre diferentes tiendas
@@ -419,20 +419,20 @@ acceder a `~/git/Diwall/Diwall/`):
 
 | Situación | ¿Qué hacer |
 |---|---|
-| `FileNotFoundError` en el archivo de credenciales | Comprobar que el archivo JSON tenga el nombre completo del FQDN (`urlparse(url).hostname`) |
-| `SecretsFermesError` (salida 42) | Montar el directorio cifrado: `bash ~/git/Diwall/Diwall/scripts/monter-repertoire-chiffre.sh` |
-| JSON inválido en la salida | Utilizar `2>/dev/null \| tail -1` para extraer solo la línea JSON |
-| Los ID de SoM difieren entre sesiones | Esperado — los ID de SoM se recalculan en cada captura. No los reutilice entre sesiones |
-| Inicio de sesión seguido de una redirección de Django al panel | No utilizar `naviguer` en una sesión de Django reanudada; pasar la URL a través de `--url` |
-| El campo `<select>` no está relleno | Utilizar `remplir_som` (no `remplir`) con el ID de SoM del `<select>` |
-| Un clic no tiene efecto en un botón fuera de la vista | Agregar `{"type":"defiler","selecteur":"#the-button"}` antes del clic |
-| `auth_status: "active"` incluso en la página de inicio de sesión | El selector positivo es ambiguo (encabezado persistente); agregar `--auth-indicator-negative .btn-login` |
-| Los elementos de Web Components no están numerados por SoM | Agregar `--shadow-dom` (Angular, Lit, Stencil) |
-| `respect.waf_bloquants` aparece en una página que en realidad no está bloqueada | La detección se basa en palabras clave (v1.16.0, refinado v1.17.2); considérelo como una señal, no como un veredicto. Si persiste en una página que ha confirmado que no está bloqueada, agregue `--ignorer-waf` |
-| `cliquer_som` hace clic en el elemento incorrecto en una página que mutó entre la captura y el clic | Agregar `--som-rafraichir` (v1.17.0); esto se resuelve mediante un marcador estable en lugar de una reindexación dinámica |
-| Un escenario largo de RPA falla a mitad de camino y no desea volver a ejecutar los pasos completados | Agregar `--checkpoint FILE` (v1.17.0); relanza el mismo comando para continuar; el estado del DOM no se conserva, solo la sesión + la posición de la acción |
-| Los elementos interactivos dentro de un iframe son invisibles para Diwall | SoM no puede numerar el contenido del iframe (mismo origen o diferente origen); utilice `cliquer_iframe`/`remplir_iframe` (v1.17.0) con un selector CSS explícito, o `iframe_chemin` (v1.18.0) para un iframe anidado dentro de otro |
-| Su modelo informa de `"erreur": "guide_non_lu"` / salida 1 en su primera llamada a Diwall | Esperado la primera vez que un modelo utiliza Diwall en esta máquina como este usuario del sistema operativo (v1.18.0); debe leer `docs/GUIDE_LLM.md` y pasar `--guide-version` una vez. Esto es intencional, no un error; indique al modelo que lea la guía en lugar de intentar solucionar el problema |
+| `FileNotFoundError` en el archivo de credenciales | Verifique que el archivo JSON tenga el nombre completo del FQDN (`urlparse(url).hostname`) |
+| `SecretsFermesError` (salida 42) | Monte el directorio encriptado: `bash ~/git/Diwall/Diwall/scripts/monter-repertoire-chiffre.sh` |
+| JSON inválido en la salida | Use `2>/dev/null \| tail -1` para extraer solo la línea JSON |
+| Los ID de SoM difieren entre sesiones | Esperado: los ID de SoM se recalculan en cada captura. No los reutilice entre sesiones. |
+| Inicio de sesión seguido de una redirección de Django al panel | No use `naviguer` en una sesión de Django reanudada; pase la URL a través de `--url` |
+| El campo `<select>` no está lleno | Use `remplir_som` (no `remplir`) con el ID de SoM del `<select>` |
+| El clic no tiene efecto en un botón fuera de la vista | Agregue `{"type":"defiler","selecteur":"#the-button"}` antes del clic |
+| `auth_status: "active"` incluso en la página de inicio de sesión | El selector positivo es ambiguo (encabezado persistente): agregue `--auth-indicator-negative .btn-login` |
+| Los elementos de Web Components no están numerados por SoM | Agregue `--shadow-dom` (Angular, Lit, Stencil) |
+| `respect.waf_bloquants` aparece en una página que en realidad no está bloqueada | La detección se basa en palabras clave (v1.16.0, refinada en v1.17.2): considérelo como una señal, no como un veredicto. Si persiste en una página que ha confirmado que no está bloqueada, agregue `--ignorer-waf` |
+| `cliquer_som` hace clic en el elemento incorrecto en una página que mutó entre la captura y el clic | Desde la versión 1.24.0, la resolución es híbrida de forma predeterminada: utiliza el marcador `data-dw-som-id` cuando el mismo escenario capturó el SoM primero, e informa cualquier divergencia estable/cruda como `boussole.respect.som_derive_detectee`. Si aparece esa bandera, vuelva a capturar el SoM antes de actuar. `--som-brut` fuerza la reindexación pura anterior a la versión 1.24.0. |
+| Un escenario largo de RPA falla a mitad de camino y no desea reproducir los pasos completados | Agregue `--checkpoint FILE` (v1.17.0): reinicie el mismo comando para reanudar; el estado del DOM no se conserva, solo la sesión y la posición de la acción |
+| Los elementos interactivos dentro de un iframe son invisibles para Diwall | SoM no puede numerar el contenido del iframe (mismo origen o diferente origen): use `cliquer_iframe`/`remplir_iframe` (v1.17.0) con un selector CSS explícito, o `iframe_chemin` (v1.18.0) para un iframe anidado dentro de otro |
+| Su modelo informa de `"erreur": "guide_non_lu"` / salida 1 en su primera llamada a Diwall | Esperado la primera vez que un modelo utiliza Diwall en esta máquina como este usuario del sistema operativo (v1.18.0): debe leer `docs/GUIDE_LLM.md` y pasar `--guide-version` una vez. Esto es intencional, no un error: indique al modelo que lea la guía en lugar de intentar solucionar el error |
 
 ---
 

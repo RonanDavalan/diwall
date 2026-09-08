@@ -1,6 +1,6 @@
 # Diwall — Operator guide
 
-Version 1.10 — August 2026 (v1.23.1) — four more demonstration use cases (self-hosted observability, ticketing platform administration, local events tracking, e-commerce access under Respectful Navigation)
+Version 1.10 — September 2026 (v1.24.0) — four more demonstration use cases (self-hosted observability, ticketing platform administration, local events tracking, e-commerce access under Respectful Navigation)
 
 *Also available in French, German and Spanish under `docs/fr/`, `docs/de/` and `docs/es/`.*
 
@@ -122,7 +122,7 @@ regression. Run it directly:
 ```bash
 /opt/diwall/venv/bin/python3 /opt/diwall/rpa.py \
   --scenario /opt/diwall/scenarios/exemples/depannage_local.json \
-  --guide-version 1.2
+  --guide-version 1.3
 ```
 
 ### Case 2 — comparing hardware components across shops
@@ -479,7 +479,7 @@ which cannot reach `~/git/Diwall/Diwall/`):
 | `auth_status: "active"` even on the login page | Positive selector is ambiguous (persistent header) — add `--auth-indicator-negative .btn-login` |
 | Web Components elements not numbered by SoM | Add `--shadow-dom` (Angular, Lit, Stencil) |
 | `respect.waf_bloquants` appears on a page that is not actually blocked | Detection is keyword-based (v1.16.0, refined v1.17.2) — treat as a signal, not a verdict. If it persists on a page you've confirmed is not blocked, add `--ignorer-waf` |
-| `cliquer_som` clicks the wrong element on a page that mutated between capture and click | Add `--som-rafraichir` (v1.17.0) — resolves by a stable marker instead of live re-indexing |
+| `cliquer_som` clicks the wrong element on a page that mutated between capture and click | Since v1.24.0 resolution is hybrid by default: it uses the `data-dw-som-id` marker when the same scenario captured SoM first, and reports any stable/raw divergence as `boussole.respect.som_derive_detectee`. If that flag appears, re-capture SoM before acting. `--som-brut` forces the pre-v1.24.0 pure re-indexing. |
 | A long RPA scenario fails partway through and you don't want to replay completed steps | Add `--checkpoint FILE` (v1.17.0) — relaunch the same command to resume; DOM state is not preserved, only session + action position |
 | Interactive elements inside an iframe are invisible to Diwall | SoM cannot number iframe content (same-origin or cross-origin) — use `cliquer_iframe`/`remplir_iframe` (v1.17.0) with an explicit CSS selector, or `iframe_chemin` (v1.18.0) for an iframe nested inside another |
 | Your model reports `"erreur": "guide_non_lu"` / exit 1 on its first Diwall call | Expected the first time a model uses Diwall on this machine as this OS user (v1.18.0) — it must read `docs/GUIDE_LLM.md` and pass `--guide-version` once. This is deliberate, not a bug — tell the model to read the guide rather than working around the error |

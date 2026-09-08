@@ -1,6 +1,6 @@
 # Diwall – Bedienungsanleitung
 
-Version 1.10 – August 2026 (v1.23.1) – vier weitere Demonstrationsanwendungsfälle (selbstgehostete Observability, Verwaltung von Ticketing-Plattformen, Verfolgung lokaler Veranstaltungen, E-Commerce-Zugriff unter Verwendung von Respectful Navigation).
+Version 1.10 – September 2026 (v1.24.0) – vier weitere Demonstrationsanwendungsfälle (selbstgehostete Observability, Verwaltung von Ticketing-Plattformen, Verfolgung lokaler Veranstaltungen, E-Commerce-Zugriff unter Verwendung von Respectful Navigation).
 
 *Ebenfalls auf Französisch, Deutsch und Spanisch unter `docs/fr/`, `docs/de/` und `docs/es/`.*
 
@@ -111,7 +111,7 @@ Regression erfasst wurde. Führen Sie es direkt aus:
 ```bash
 /opt/diwall/venv/bin/python3 /opt/diwall/rpa.py \
   --scenario /opt/diwall/scenarios/exemples/depannage_local.json \
-  --guide-version 1.2
+  --guide-version 1.3
 ```
 
 ### Fall 2 – Vergleich von Hardwarekomponenten in verschiedenen Geschäften
@@ -413,19 +413,19 @@ Stumm, wenn stabil; ein `ntfy` Push, wenn eine Regression erkannt wird. Planen S
 
 | Situation | Was zu tun ist |
 |---|---|
-| `FileNotFoundError` in der Datei mit den Zugangsdaten | Überprüfen Sie, ob die JSON-Datei mit dem vollständigen FQDN (`urlparse(url).hostname`) benannt ist. |
+| `FileNotFoundError` in der Datei mit den Anmeldedaten | Überprüfen Sie, ob die JSON-Datei mit dem vollständigen FQDN (`urlparse(url).hostname`) benannt ist. |
 | `SecretsFermesError` (Exit 42) | Das verschlüsselte Verzeichnis mounten: `bash ~/git/Diwall/Diwall/scripts/monter-repertoire-chiffre.sh` |
 | Ungültiges JSON in der Ausgabe | Verwenden Sie `2>/dev/null \| tail -1`, um nur die JSON-Zeile zu extrahieren. |
-| SoM-IDs unterscheiden sich zwischen Sitzungen | Erwartet – SoM-IDs werden bei jeder Aufnahme neu berechnet. Verwenden Sie sie nicht wiederholt über mehrere Sitzungen hinweg. |
+| SoM-IDs unterscheiden sich zwischen Sitzungen | Erwartet – SoM-IDs werden bei jeder Aufnahme neu berechnet. Verwenden Sie sie nicht zwischen Sitzungen. |
 | Anmeldung, gefolgt von einer Django-Weiterleitung zum Dashboard | Verwenden Sie `naviguer` nicht in einer fortgesetzten Django-Sitzung – übergeben Sie die URL über `--url`. |
-| Das Formularfeld `<select>` ist nicht ausgefüllt | Verwenden Sie `remplir_som` (nicht `remplir`) mit der SoM-ID des `<select>`. |
-| Ein Klick hat keine Auswirkung auf einen Button außerhalb des sichtbaren Bereichs | Fügen Sie `{"type":"defiler","selecteur":"#the-button"}` vor dem Klick ein. |
+| `<select>` Formularfeld ist nicht ausgefüllt | Verwenden Sie `remplir_som` (nicht `remplir`) mit der SoM-ID des `<select>`. |
+| Klick hat keine Auswirkung auf einen Button außerhalb des sichtbaren Bereichs | Fügen Sie `{"type":"defiler","selecteur":"#the-button"}` vor dem Klick ein. |
 | `auth_status: "active"` auch auf der Anmeldeseite | Der positive Selektor ist mehrdeutig (persistenter Header) – fügen Sie `--auth-indicator-negative .btn-login` hinzu. |
 | Web Components-Elemente werden nicht von SoM nummeriert | Fügen Sie `--shadow-dom` hinzu (Angular, Lit, Stencil). |
-| `respect.waf_bloquants` erscheint auf einer Seite, die tatsächlich nicht blockiert ist | Die Erkennung basiert auf Schlüsselwörtern (v1.16.0, verfeinert v1.17.2) – behandeln Sie dies als ein Signal und nicht als ein Urteil. Wenn es auf einer Seite weiterhin angezeigt wird, von der Sie bestätigt haben, dass sie nicht blockiert ist, fügen Sie `--ignorer-waf` hinzu. |
-| `cliquer_som` klickt auf das falsche Element auf einer Seite, die sich zwischen Aufnahme und Klick geändert hat | Fügen Sie `--som-rafraichir` hinzu (v1.17.0) – behebt dies durch einen stabilen Marker anstelle von Live-Reindexierung. |
-| Ein langes RPA-Szenario schlägt mitten im Ablauf fehl, und Sie möchten die abgeschlossenen Schritte nicht erneut ausführen | Fügen Sie `--checkpoint FILE` hinzu (v1.17.0) – starten Sie den gleichen Befehl neu, um fortzufahren; der DOM-Zustand wird nicht beibehalten, nur Sitzung + Aktionsposition. |
-| Interaktive Elemente innerhalb eines Iframes sind für Diwall unsichtbar | SoM kann Inhalte von Iframes (gleichnamig oder übergeordnet) nicht nummerieren – verwenden Sie `cliquer_iframe`/`remplir_iframe` (v1.17.0) mit einem expliziten CSS-Selektor oder `iframe_chemin` (v1.18.0) für einen innerhalb eines anderen verschachtelten Iframe. |
+| `respect.waf_bloquants` erscheint auf einer Seite, die tatsächlich nicht blockiert ist | Die Erkennung basiert auf Schlüsselwörtern (v1.16.0, verfeinert v1.17.2) – behandeln Sie dies als Signal, nicht als Urteil. Wenn es auf einer Seite weiterhin angezeigt wird, die Sie als nicht blockiert bestätigt haben, fügen Sie `--ignorer-waf` hinzu. |
+| `cliquer_som` klickt auf das falsche Element auf einer Seite, die sich zwischen der Aufnahme und dem Klick geändert hat | Seit v1.24.0 ist die Auflösung standardmäßig hybrid: sie verwendet den `data-dw-som-id` Marker, wenn dasselbe Szenario zuerst die SoM aufgenommen hat, und meldet alle stabilen/rohen Abweichungen als `boussole.respect.som_derive_detectee`. Wenn dieses Flag angezeigt wird, nehmen Sie die SoM erneut auf, bevor Sie Maßnahmen ergreifen. `--som-brut` erzwingt die reine Neuindizierung vor v1.24.0. |
+| Ein langes RPA-Szenario schlägt mitten im Ablauf fehl, und Sie möchten die abgeschlossenen Schritte nicht erneut ausführen | Fügen Sie `--checkpoint FILE` hinzu (v1.17.0) – starten Sie den gleichen Befehl neu, um fortzusetzen; der DOM-Zustand wird nicht beibehalten, nur die Sitzung + die Position der Aktion. |
+| Interaktive Elemente innerhalb eines Iframes sind für Diwall unsichtbar | SoM kann den Inhalt eines Iframes (gleichnamig oder übergeordnet) nicht nummerieren – verwenden Sie `cliquer_iframe`/`remplir_iframe` (v1.17.0) mit einem expliziten CSS-Selektor oder `iframe_chemin` (v1.18.0) für einen Iframes, der innerhalb eines anderen Iframes verschachtelt ist. |
 | Ihr Modell meldet `"erreur": "guide_non_lu"` / Exit 1 bei seinem ersten Diwall-Aufruf | Erwartet beim ersten Mal, dass ein Modell Diwall auf dieser Maschine als dieser Betriebssystembenutzer verwendet (v1.18.0) – es muss `docs/GUIDE_LLM.md` lesen und `--guide-version` einmal übergeben. Dies ist absichtlich und kein Fehler – weisen Sie das Modell an, die Anleitung zu lesen, anstatt den Fehler zu umgehen. |
 
 ---

@@ -165,11 +165,11 @@ in the JSON, not as a failure of the command.
 
 Capture a page with numbered elements and the accessibility tree:
 
-    diwall-shot --url https://example.com --som --a11y --guide-version 1.2
+    diwall-shot --url https://example.com --som --a11y --guide-version 1.3
 
 Read only the state of a page, without producing an image:
 
-    diwall-shot --url https://example.com --mode fast --guide-version 1.2
+    diwall-shot --url https://example.com --mode fast --guide-version 1.3
 
 Reach an administration panel that refreshes statistics continuously:
 

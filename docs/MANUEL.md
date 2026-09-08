@@ -1,6 +1,6 @@
 # Diwall — Operational manual
 
-**Version 1.23.1 — August 2026**
+**Version 1.24.0 — September 2026**
 
 *Also available in French, German and Spanish under `docs/fr/`, `docs/de/` and `docs/es/`.*
 
@@ -44,7 +44,7 @@ No architectural descriptions. Commands that work.
 ```bash
 # Full test in one command (~3 s)
 /opt/diwall/venv/bin/python3 /opt/diwall/shot.py \
-  --url https://example.com --mode fast --guide-version 1.2
+  --url https://example.com --mode fast --guide-version 1.3
 ```
 
 Expected result: JSON on stdout with `"succes": true`.
@@ -290,6 +290,10 @@ Get this data flowing for a host by running the diagnostic once:
 
 No prior diagnostic for this host → `mode_conseille` is absent, never a
 guess. Full detail in `GUIDE_LLM_MONITORING.md`.
+
+The `som_rafraichir` field is kept for output-shape stability but is vestigial
+since v1.24.0 (hybrid SoM resolution with fallback is the default — nothing to
+enable; see section 7j).
 
 ---
 
@@ -1020,32 +1024,43 @@ SoM IDs are recalculated on each capture. They do not persist between invocation
 Always re-run `shot.py --som` to get the current run's IDs.
 After a `defiler` or opening a modal: re-run `shot.py --som`.
 
-### 7j. SoM ID drift on highly dynamic pages — `--som-rafraichir` (v1.17.0)
+### 7j. SoM ID drift on highly dynamic pages — hybrid resolution (v1.24.0)
 
-By default, `cliquer_som`/`remplir_som` resolve `id: N` by re-indexing the
-live DOM at click time — if an element appears or disappears **before** your
+`cliquer_som`/`remplir_som` resolve `id: N` by re-indexing the live DOM at
+click time — if an interactive element appears or disappears **before** your
 target in DOM order between the `--som` capture and the click (a cookie
-banner closing, a modal opening), `id: N` can silently resolve to a
+banner closing, a modal opening), a raw `id: N` can silently resolve to a
 **different** element than the one shown numbered N in the screenshot.
+
+Since v1.24.0 the default resolver is hybrid. In one page call it:
+
+- looks up the `data-dw-som-id="N"` marker (**stable** path, set by a
+  `{"type":"capturer","som":true}` action or the final capture);
+- computes the N-th element by raw re-indexing (**raw** path);
+- returns the stable path when the marker exists, the raw path otherwise
+  (**fallback** — identical to pre-v1.24.0 behaviour);
+- reports `boussole.respect.som_resolution` (`stable` \| `brut` \|
+  `brut_sans_reference`) and, when the two paths disagree,
+  `boussole.respect.som_derive_detectee` with the SoM id.
 
 ```bash
 /opt/diwall/venv/bin/python3 /opt/diwall/shot.py \
-  --url https://target.local/ --som --som-rafraichir \
-  --actions '[{"type":"cliquer_som","id":5}]'
+  --url https://target.local/ --som \
+  --actions '[{"type":"capturer","nom":"avant","som":true},{"type":"cliquer_som","id":5}]'
 ```
 
-With this flag, each numbered element is marked at capture time and resolved
-by that mark instead of re-indexing — if the exact element was removed, you
-get an explicit "élément SoM non trouvé" error instead of a wrong-target
-click. `boussole.som_rafraichir_actif: true` when active. Recommended on
-pages with frequent DOM churn between capture and action; no effect on
-default behaviour when not passed.
+The stable path only helps within one scenario — the marker does not survive
+across two `shot.py` calls (each reloads the page). For a mutation-prone
+target, capture SoM in the same scenario before the first `cliquer_som`. When
+`som_resolution` is `brut_sans_reference`, drift cannot be detected — recapture
+SoM if the DOM changed. `--som-brut` forces pure raw re-indexing (no marker
+lookup, no divergence detection); `boussole.som_brut_actif: true` then.
+`--som-rafraichir` (v1.17.0) is a no-op alias kept for backward compatibility.
 
-Since v1.17.2, the injector also purges markers left by a previous `--som`
-capture in the same page before renumbering — without this, an element
-hidden or scrolled out between two captures could keep a stale
-`data-dw-som-id`, colliding with a freshly numbered element and resolving to
-the wrong one.
+Since v1.17.2, the injector purges markers left by a previous `--som` capture
+in the same page before renumbering — without this, an element hidden or
+scrolled out between two captures could keep a stale `data-dw-som-id`,
+colliding with a freshly numbered element and resolving to the wrong one.
 
 ### 7k. Site blocked by WAF (immediate 403)
 
@@ -1073,11 +1088,11 @@ produces that silence, so no timeout value can ever be large enough.
 ```bash
 # shot.py — direct reconnaissance
 /opt/diwall/venv/bin/python3 /opt/diwall/shot.py \
-  --url http://target.local/ --wait-until load --som --a11y --guide-version 1.2
+  --url http://target.local/ --wait-until load --som --a11y --guide-version 1.3
 
 # rpa.py — propagated to shot.py, so scenarios reach the same targets
 /opt/diwall/venv/bin/python3 /opt/diwall/rpa.py \
-  --scenario ./admin_login.json --wait-until load --guide-version 1.2
+  --scenario ./admin_login.json --wait-until load --guide-version 1.3
 ```
 
 A scenario can carry it as a root property instead, staying self-contained:
@@ -1321,7 +1336,8 @@ to avoid. Example `/etc/logrotate.d/diwall`:
 | `--sauver-session FILE` | — | Saves cookies after actions |
 | `--reprendre-session FILE` | — | Resumes a saved session |
 | `--interval-capture N` | 0 | Periodic captures every N seconds during `attendre`, `pause` |
-| `--som-rafraichir` | off | Stable SoM resolution by attribute instead of live re-indexing (v1.17.0, section 7j) |
+| `--som-brut` | off | Forces pure raw SoM re-indexing; disables the hybrid resolver's stable path and divergence detection (v1.24.0, section 7j) |
+| `--som-rafraichir` | off | No-op alias since v1.24.0 — hybrid resolution is the default (v1.17.0, section 7j) |
 | `--ignorer-waf` | off | A detected WAF block degrades `niveau_confiance` but no longer forces `pret_a_agir: false` on its own (v1.17.2, section 3e) |
 | `--http-credentials` | off | Resolves HTTP Basic Auth credentials from the credentials file, scoped to the target's origin (v1.21.0, section 4g) |
 | `--no-evaluer` | off | Refuses the **evaluer** action for the whole run — recommended in production against targets with sensitive forms (v1.15.1) |
@@ -1339,7 +1355,8 @@ Propagates all relevant shot.py flags, plus:
 | `--url URL` | Overrides scenario URL without modifying the file |
 | `--stealth` | Propagated to shot.py |
 | `--mode fast\|full` | Propagated to shot.py |
-| `--som-rafraichir` | Propagated to shot.py (v1.17.0, section 7j) |
+| `--som-brut` | Propagated to shot.py. Also settable as scenario root property `"som_brut": true` (v1.24.0, section 7j) |
+| `--som-rafraichir` | Propagated to shot.py — no-op alias since v1.24.0 (v1.17.0, section 7j) |
 | `--ignorer-waf` | Propagated to shot.py (v1.17.2, section 3e) |
 | `--http-credentials` | Propagated to shot.py. Also settable as scenario root property `"http_credentials": true` (v1.21.0, section 4g) |
 | `--sauver-verifier-reference FILE` | Saves structural reference for `--replay-verifier` (v1.17.0, section 5h) |
@@ -1420,10 +1437,9 @@ Propagates all relevant shot.py flags, plus:
     "titre_page": "Dashboard — My App",
     "stealth_actif": true,
     "shadow_dom_actif": true,
-    "som_rafraichir_actif": true,
     "auth_status": "active",
     "som_hors_viewport": 0,
-    "respect": { "pages_visitees": 0, "actions_executees": 3, "duree_totale_ms": 2400, "indice_agressivite": 0.33 }
+    "respect": { "pages_visitees": 0, "actions_executees": 3, "duree_totale_ms": 2400, "indice_agressivite": 0.33, "som_resolution": "stable" }
   },
   "diwall_meta": {
     "version_shot": "1.23.0",
@@ -1442,8 +1458,10 @@ one entry per action that actually dispatched — see `GUIDE_LLM_MONITORING.md`
 for how it complements `respect.duree_totale_ms`.
 
 Conditional keys (absent when inactive): `capture`, `capture_som`, `elements_som`, `a11y_tree`,
-`evaluations`, `auth_status`, `stealth_actif`, `shadow_dom_actif`, `som_rafraichir_actif`,
+`evaluations`, `auth_status`, `stealth_actif`, `shadow_dom_actif`, `som_brut_actif`,
 `som_hors_viewport`, `session_derive`, `respect.plafond_atteint`, `respect.waf_bloquants`,
+`respect.som_resolution` (present whenever a SoM action was resolved),
+`respect.som_derive_detectee` (present only on a stable/raw divergence),
 `respect.indice_agressivite` (present whenever at least one action ran),
 `actions_executees_avant_echec`, `pages_visitees_avant_echec` (failure JSON only, v1.17.0),
 `etat.mode_conseille` (present only with real prior `diagnostic_dom.json` data for this host, v1.18.0, section 2e).

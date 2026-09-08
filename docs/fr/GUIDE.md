@@ -1,6 +1,6 @@
 # Diwall — Guide de l'utilisateur
 
-Version 1.10 — Août 2026 (v1.23.1) — quatre nouveaux exemples d'utilisation (observabilité hébergée localement, administration de la plateforme de ticketing, suivi des événements locaux, accès à l'e-commerce via Respectful Navigation).
+Version 1.10 — Septembre 2026 (v1.24.0) — quatre nouveaux exemples d'utilisation (observabilité hébergée localement, administration de la plateforme de ticketing, suivi des événements locaux, accès à l'e-commerce via Respectful Navigation).
 
 *Également disponible en français, allemand et espagnol sous `docs/fr/`, `docs/de/` et `docs/es/`.*
 
@@ -118,7 +118,7 @@ régression. Exécutez-le directement :
 ```bash
 /opt/diwall/venv/bin/python3 /opt/diwall/rpa.py \
   --scenario /opt/diwall/scenarios/exemples/depannage_local.json \
-  --guide-version 1.2
+  --guide-version 1.3
 ```
 
 ### Cas 2 : comparaison des composants matériels entre différents magasins
@@ -421,20 +421,20 @@ qui ne peut pas accéder à `~/git/Diwall/Diwall/` :
 
 | Situation | Ce qu'il faut faire |
 |---|---|
-| `FileNotFoundError` dans le fichier d'identifiants | Vérifiez que le fichier JSON est nommé avec le FQDN complet (`urlparse(url).hostname`) |
+| `FileNotFoundError` dans le fichier d'informations d'identification | Vérifiez que le fichier JSON est nommé avec le FQDN complet (`urlparse(url).hostname`) |
 | `SecretsFermesError` (sortie 42) | Montez le répertoire chiffré : `bash ~/git/Diwall/Diwall/scripts/monter-repertoire-chiffre.sh` |
 | JSON invalide dans la sortie | Utilisez `2>/dev/null \| tail -1` pour extraire uniquement la ligne JSON |
 | Les ID SoM diffèrent entre les sessions | Comportement attendu — les ID SoM sont recalculés à chaque capture. Ne les réutilisez jamais entre les sessions |
 | Connexion suivie d'une redirection Django vers le tableau de bord | N'utilisez pas `naviguer` dans une session Django reprise — transmettez l'URL via `--url` |
-| Le champ du formulaire `<select>` n'est pas rempli | Utilisez `remplir_som` (et non `remplir`) avec l'ID SoM de la section `<select>` |
-| Un clic n'a aucun effet sur un bouton hors de la zone visible | Ajoutez `{"type":"defiler","selecteur":"#the-button"}` avant le clic |
+| Le champ de formulaire `<select>` n'est pas rempli | Utilisez `remplir_som` (et non `remplir`) avec l'ID SoM de `<select>` |
+| Le clic n'a aucun effet sur un bouton hors de la zone visible | Ajoutez `{"type":"defiler","selecteur":"#the-button"}` avant le clic |
 | `auth_status: "active"` même sur la page de connexion | Le sélecteur positif est ambigu (en-tête persistant) — ajoutez `--auth-indicator-negative .btn-login` |
-| Les éléments des composants Web ne sont pas numérotés par SoM | Ajoutez `--shadow-dom` (Angular, Lit, Stencil) |
-| `respect.waf_bloquants` apparaît sur une page qui n'est en fait pas bloquée | La détection est basée sur des mots-clés (v1.16.0, affinée v1.17.2) — considérez cela comme un signal, et non comme un verdict. Si cela persiste sur une page que vous avez confirmée comme non bloquée, ajoutez `--ignorer-waf` |
-| `cliquer_som` clique sur l'élément incorrect sur une page qui a muté entre la capture et le clic | Ajoutez `--som-rafraichir` (v1.17.0) — résout en utilisant un marqueur stable au lieu d'une réindexation en direct |
-| Un long scénario RPA échoue à mi-chemin et vous ne voulez pas rejouer les étapes terminées | Ajoutez `--checkpoint FILE` (v1.17.0) — relancez la même commande pour reprendre ; l'état du DOM n'est pas conservé, seulement la session + la position de l'action |
-| Les éléments interactifs à l'intérieur d'un iframe sont invisibles pour Diwall | SoM ne peut pas numéroter le contenu de l'iframe (même origine ou autre origine) — utilisez `cliquer_iframe`/`remplir_iframe` (v1.17.0) avec un sélecteur CSS explicite, ou `iframe_chemin` (v1.18.0) pour un iframe imbriqué dans un autre |
-| Votre modèle signale `"erreur": "guide_non_lu"` / sortie 1 lors de son premier appel à Diwall | Comportement attendu la première fois qu'un modèle utilise Diwall sur cette machine en tant que cet utilisateur OS (v1.18.0) — il doit lire `docs/GUIDE_LLM.md` et passer `--guide-version` une seule fois. C'est intentionnel, ce n'est pas un bug — demandez au modèle de lire le guide plutôt que de contourner l'erreur |
+| Les éléments des Web Components ne sont pas numérotés par SoM | Ajoutez `--shadow-dom` (Angular, Lit, Stencil) |
+| `respect.waf_bloquants` apparaît sur une page qui n'est pas réellement bloquée | La détection est basée sur des mots-clés (v1.16.0, affinée v1.17.2) — considérez cela comme un signal, et non comme un verdict. Si cela persiste sur une page que vous avez confirmée comme non bloquée, ajoutez `--ignorer-waf` |
+| `cliquer_som` clique sur l'élément incorrect sur une page qui a muté entre la capture et le clic | Depuis la version 1.24.0, la résolution est hybride par défaut : elle utilise le marqueur `data-dw-som-id` lorsque le même scénario a capturé le SoM en premier, et signale toute divergence stable/brute comme `boussole.respect.som_derive_detectee`. Si cet indicateur apparaît, recréez le SoM avant d'agir. `--som-brut` force la réindexation pure avant la version 1.24.0. |
+| Un long scénario RPA échoue à mi-chemin et vous ne voulez pas rejouer les étapes terminées | Ajoutez `--checkpoint FILE` (v1.17.0) — relancez la même commande pour reprendre ; l'état du DOM n'est pas préservé, seulement la session et la position de l'action |
+| Les éléments interactifs à l'intérieur d'un iframe sont invisibles pour Diwall | Le SoM ne peut pas numéroter le contenu de l'iframe (même origine ou origine différente) — utilisez `cliquer_iframe`/`remplir_iframe` (v1.17.0) avec un sélecteur CSS explicite, ou `iframe_chemin` (v1.18.0) pour un iframe imbriqué dans un autre |
+| Votre modèle signale `"erreur": "guide_non_lu"` / sortie 1 lors de son premier appel à Diwall | Comportement attendu lors de la première utilisation de Diwall par un modèle sur cette machine en tant qu'utilisateur du système d'exploitation (v1.18.0) — il doit lire `docs/GUIDE_LLM.md` et passer `--guide-version` une fois. C'est intentionnel, et non un bug — demandez au modèle de lire le guide plutôt que de contourner l'erreur |
 
 ---
 

@@ -34,7 +34,7 @@ numbers we did:
 
 ```bash
 cd scenarios/interoperabilite/fixture && python3 -m http.server 8765 &
-diwall-shot --url http://127.0.0.1:8765/demo_som_en.html --som --guide-version 1.2
+diwall-shot --url http://127.0.0.1:8765/demo_som_en.html --som --guide-version 1.3
 ```
 
 `elements_som` comes back with `{"id": 7, "tag": "BUTTON", "texte": "Sign in"}`.
@@ -87,11 +87,11 @@ The language model decides what to do next.
 | **Passive WAF signal** | `respect.waf_bloquants` flags a likely block (HTTP 403/429 or known keywords) as a non-fatal signal, never an exception (v1.16.0) |
 | **Structural non-regression** | `--replay-verifier` compares HTTP status, DOM stats, and `evaluer` results against a saved reference — no pixels, no vision model (v1.17.0) |
 | **Scenario checkpoints** | `--checkpoint` resumes a long scenario after a mid-run failure without replaying completed actions (v1.17.0) |
-| **Stable SoM identity** | `--som-rafraichir` resolves `cliquer_som`/`remplir_som` by a DOM marker instead of live re-indexing, preventing silent retargeting on highly dynamic pages (v1.17.0) |
+| **Hybrid SoM identity** | `cliquer_som`/`remplir_som` resolve by the `data-dw-som-id` marker when one exists, fall back to live re-indexing otherwise, and report the path taken plus any stable/raw divergence in `boussole.respect.som_resolution` / `som_derive_detectee` — never silent (v1.24.0; `--som-brut` forces pure re-indexing) |
 | **Cross-origin iframes** | `cliquer_iframe` / `remplir_iframe` target elements inside same- or cross-origin iframes via Playwright's native frame API (v1.17.0) |
 | **Nested iframes** | `iframe_chemin` (array) descends iframe-inside-iframe, mutually exclusive with `iframe_selecteur` (v1.18.0) |
 | **Guide-read lock** | `shot.py`/`rpa.py`/`watch.py` refuse to run without proof `docs/GUIDE_LLM.md` was read — a local marker persists it per machine/user (v1.18.0) |
-| **Configuration advice** | `mode_conseille` recommends `--mode`/`--shadow-dom`/`--som-rafraichir` from real prior diagnostic runs on the same host — never a guess (v1.18.0) |
+| **Configuration advice** | `mode_conseille` recommends `--mode`/`--shadow-dom` from real prior diagnostic runs on the same host — never a guess (v1.18.0) |
 | **Chained-scenario traceability** | `chainage` records the ordered call tree of scenarios chained via `declencher_scenario`, surfaced in the operations log (v1.19.0) |
 | **Per-action timing** | `latences_actions` reports dispatch latency for every action executed, always present (v1.20.0) |
 | **Error-only log view** | `journal.py --erreurs` filters the operations log to failed runs only (v1.20.0) |
@@ -128,7 +128,7 @@ Download the `.deb` asset from the
 `diwall_<version>-1_all.deb` — then:
 
 ```bash
-sudo apt install ./diwall_1.23.1-1_all.deb
+sudo apt install ./diwall_1.24.0-1_all.deb
 ```
 
 That is all. It creates the `diwall` system user, the virtual environment and

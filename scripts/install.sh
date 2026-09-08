@@ -17,7 +17,7 @@ SKIP_TEST=false
 # lib/preflight_guide.py et <!-- notice-version --> en tête de docs/GUIDE_LLM.md.
 # Le smoke test d'installation est un appelant légitime comme un autre : il
 # passe le jeton explicitement plutôt que de contourner le verrou.
-GUIDE_VERSION="1.2"
+GUIDE_VERSION="1.3"
 
 # ── Arguments ────────────────────────────────────────────────────────────────
 while [[ $# -gt 0 ]]; do

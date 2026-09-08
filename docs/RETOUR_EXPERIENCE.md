@@ -2929,3 +2929,75 @@ fichier qui n'a de sens que pour la durée du process Playwright courant
 reste temporaire.
 
 **Version :** Diwall v1.23.0. Session Pretix-administrateur — 16/08/2026.
+
+---
+
+## FR-88 — Faux positif `action_secret_en_clair` sur un sélecteur CSS long, contournement plus simple que la concaténation
+
+Session Sillage — validation d'un correctif d'interface (badge de doublon,
+formulaire de sonde) — 22/08/2026. Déjà rencontré et documenté côté Sillage
+(`VAL_valider-ui.md` FN23, 20/08/2026) sous forme de contournement par
+concaténation JS ; jamais remonté ici jusqu'à ce jour.
+
+**Symptôme** : un sélecteur `[data-sillage="<valeur>"]` dont la chaîne complète
+(préfixe `data-sillage=` + valeur) dépasse 32 caractères contigus `[A-Za-z0-9+/=_-]`
+déclenche `action_secret_en_clair` (heuristique `_BASE64_LONGUE`), même sans
+rapport avec un secret réel — un simple identifiant de bouton (`btn-soumettre-sonde`,
+33 caractères avec le préfixe) suffit à franchir le seuil.
+
+**Contournement plus simple que celui déjà documenté** (concaténation `'[data-sillage=' + 'valeur]'`
+en deux littéraux) : **quoter la valeur** dans le sélecteur —
+`[data-sillage="btn-soumettre-sonde"]` au lieu de `[data-sillage=btn-soumettre-sonde]`.
+Les guillemets ajoutent des caractères hors charset surveillé par l'heuristique,
+ce qui suffit à repasser sous le seuil de 32 sans changer la structure du script.
+
+**Suggestion à l'opérateur Diwall** : l'heuristique `_BASE64_LONGUE` semble traiter
+`-`/`=` comme faisant partie du charset Base64 surveillé sur un sélecteur CSS
+attribut non quoté — un sélecteur CSS legitimate (`[attr=valeur]`) n'est pas une
+donnée candidate à un secret par nature, indépendamment de sa longueur.
+
+**Version :** Diwall v1.23.1. Session Sillage — 22/08/2026.
+
+---
+
+## FR-89 — `operations.jsonl` sans entrée pour une fenêtre de mission pourtant réussie
+
+Session Sillage, mission testeur d'onboarding sur une sonde de supervision —
+21/08/2026, 19h21-19h28. Anomalie mineure non bloquante, non creusée à l'origine
+(constat initial), non reproduite depuis mais jamais expliquée — remontée
+maintenant plutôt que perdue.
+
+**Symptôme** : ni `~/Vaults/<PROJET>/Diwall/operations.jsonl` ni le fallback
+`/tmp/diwall/operations.fallback.jsonl` ne portent d'entrée dans la fenêtre
+horaire de la mission, alors que les captures produites par cette même mission
+existent bien, avec les horodatages attendus, au bon endroit. Le succès de
+connexion avec le bon fichier de credentials reste la preuve la plus solide que
+le bon coffre a été utilisé — l'absence de journalisation d'opérations
+elle-même reste inexpliquée.
+
+**Statut** : non reproduit sur les sessions Diwall suivantes (22/08 inclus, où
+`operations.jsonl` s'est comporté normalement). Signalé au cas où le motif
+réapparaîtrait ailleurs — pas de piste de cause à ce stade.
+
+**Version :** Diwall v1.23.0. Session Sillage — 21/08/2026.
+
+---
+
+## FR-90 — `form.submit()` via `evaluer` casse le contexte de navigation sur un bouton non-modal
+
+Session Sillage — même validation que FR-88 ci-dessus — 22/08/2026.
+
+**Symptôme** : soumettre un formulaire via `{"type": "evaluer", "script":
+"document.querySelector('form').submit()"}` échoue systématiquement sur un
+bouton de soumission classique (pas dans une `<dialog>`) avec l'erreur
+`Execution context was destroyed, most likely because of a navigation` —
+la navigation déclenchée par le submit invalide le contexte Playwright avant
+que le script `evaluer` ait fini de s'exécuter.
+
+**Contournement** : `cliquer` natif sur le bouton de soumission
+(`{"type": "cliquer", "selecteur_css": "..."}`) plutôt que déclencher
+`.submit()` via JavaScript — le clic natif laisse Playwright suivre la
+navigation normalement au lieu de l'invalider depuis un script `evaluer`
+en cours d'exécution.
+
+**Version :** Diwall v1.23.1. Session Sillage — 22/08/2026.
