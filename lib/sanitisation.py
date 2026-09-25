@@ -180,6 +180,12 @@ def _neutraliser_valeur_evaluer(valeur):
         return None
     if isinstance(valeur, (dict, list)):
         return _neutraliser_structure_evaluer(valeur)
+    if isinstance(valeur, (bool, int, float)):
+        # Comme dans une structure : pas de forme de secret possible, et le
+        # type doit survivre — `navigator.webdriver` rendu "False" (chaîne)
+        # au lieu de false faisait échouer toute comparaison de type côté
+        # appelant.
+        return valeur
     return _neutraliser_feuille_evaluer(valeur)
 
 

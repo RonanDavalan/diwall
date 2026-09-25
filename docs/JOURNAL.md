@@ -4,6 +4,34 @@ History of decisions and discoveries by session, in reverse chronological order.
 
 ---
 
+## 2026-09-25 — v1.24.3: `evaluer` keeps the type of numbers and booleans, `uninstall.sh` channel guard
+
+**`evaluer` result type.** A number or a boolean returned by an `evaluer` action
+came back from `shot.py` as a string — `"False"`, `"2"` — in the JSON output and in
+the operations journal. The secret filter converted with `str()` any result that
+was not an object or an array; structures already kept their numbers and
+booleans. The v1.16.0 check of `--stealth` (`navigator.webdriver` must be
+`false`) had been failing on 1.24.1 and 1.24.2 for this reason, and it was first
+read as a `--stealth` defect. It is not: `playwright-stealth` masks the marker,
+measured with and without it on Chromium 151 and Playwright 1.62. `rpa.py`
+assertions compare the raw value and were not affected. The alternative —
+loosening the check to accept `"False"` — was rejected: the type is part of the
+output contract. Consequence: a reference recorded with
+`--sauver-verifier-reference` before this version stores such a value as text
+and is reported as a regression on replay; it has to be recorded again.
+
+**`uninstall.sh`.** Same guard as `install.sh` and `deploy.sh` since 1.24.2: on a
+machine where the Debian package is installed, the script would have removed
+`/opt/diwall/` and the `diwall` account that dpkg manages. It now refuses and
+points to `sudo apt purge diwall`.
+
+**Tests.** `scenarios/v1.24.3_validation`, three offline tests, added to CI: types
+kept while text and tokens stay filtered; end-to-end `--stealth` against a local
+page; the guard in three simulated package states. Run against the 1.24.2 code,
+the suite fails 0 of 3.
+
+---
+
 ## 2026-09-25 — v1.24.2: secret filter spares structured strings, `diwall-watch --llm claude` works, channel guard, full purge
 
 **Secret filter.** The high-entropy base64 net (32 characters or more from

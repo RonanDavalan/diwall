@@ -1,6 +1,6 @@
 # Diwall — Operational manual
 
-**Version 1.24.2 — September 2026**
+**Version 1.24.3 — September 2026**
 
 *Also available in French, German and Spanish under `docs/fr/`, `docs/de/` and `docs/es/`.*
 
@@ -167,7 +167,9 @@ next package upgrade or purge would silently undo them. Run
 On this channel the configuration is `/opt/diwall/diwall.conf`, not
 `/etc/diwall/diwall.conf`. Uninstall with
 `bash ~/git/Diwall/Diwall/scripts/uninstall.sh --dry-run` first, then without
-the flag.
+the flag. `uninstall.sh` refuses too when the package is installed (v1.24.3):
+it would remove `/opt/diwall/` and the `diwall` account that dpkg manages. Use
+`sudo apt purge diwall` instead.
 
 **Building the package (maintainer):**
 
@@ -413,7 +415,10 @@ API-compatibility fix (`docs/RETOUR_EXPERIENCE.md` FR-79):
 
 Read the three values in `evaluations[].valeur`: `navigator.webdriver` should
 go from `true` to `false`, `td.failed` should drop toward `0`. Reference
-measurement (v1.17.0 fix, session 47): 12 failed → 0 failed.
+measurement (v1.17.0 fix, session 47): 12 failed → 0 failed. A number or a
+boolean returned by `evaluer` keeps its JSON type in the output and in the
+journal (v1.24.3); before that, `shot.py` returned it as text (`"false"`,
+`"0"`). Only text is filtered for secret shapes.
 
 For a qualitative second opinion, the provided scenario still produces
 screenshots to inspect:
@@ -847,6 +852,11 @@ Compares `http_status`, `dom_stats`, `evaluer` results, and SoM element count
 
 Exit 1 on `verdict: "regression"`, with `diffs` listing each mismatched
 field (`reference` vs `obtenu`). The two flags are mutually exclusive.
+
+A reference recorded before v1.24.3 stores a number or a boolean returned by
+`evaluer` as text; replayed with v1.24.3 or later it is reported as a
+regression (`"2"` against `2`). Record it again with
+`--sauver-verifier-reference`.
 
 ### 5i. Resume a long scenario after failure — `--checkpoint` (v1.17.0)
 

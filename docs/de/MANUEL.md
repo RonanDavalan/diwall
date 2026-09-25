@@ -1,6 +1,6 @@
 # Diwall – Betriebshandbuch
 
-**Version 1.24.2 – September 2026**
+**Version 1.24.3 – September 2026**
 
 *Ebenfalls auf Französisch, Deutsch und Spanisch unter `docs/fr/`, `docs/de/` und `docs/es/`.*
 
@@ -157,10 +157,12 @@ verwaltet, und das nächste Upgrade oder die nächste Bereinigung des Pakets wü
 sie stillschweigend rückgängig machen. Führen Sie zuerst `sudo apt purge diwall`
 aus, um den Kanal zu wechseln.
 
-Auf diesem Kanal ist die Konfiguration `/opt/diwall/diwall.conf`, nicht
+Auf diesem Kanal liegt die Konfiguration in `/opt/diwall/diwall.conf`, nicht in
 `/etc/diwall/diwall.conf`. Deinstallieren Sie zuerst mit
 `bash ~/git/Diwall/Diwall/scripts/uninstall.sh --dry-run`, dann ohne
-das Flag.
+das Flag. Auch `uninstall.sh` verweigert die Ausführung, wenn das Paket installiert
+ist (v1.24.3): Es würde `/opt/diwall/` und das von dpkg verwaltete Konto `diwall`
+entfernen. Verwenden Sie stattdessen `sudo apt purge diwall`.
 
 **Paket erstellen (Pfleger):**
 
@@ -388,7 +390,12 @@ API-Kompatibilität von `playwright-stealth` in v1.17.0 überprüft
                {"type":"evaluer","script":"document.querySelectorAll(\"td.passed\").length"}]'
 ```
 
-Lesen Sie die drei Werte in `evaluations[].valeur` aus: `navigator.webdriver` sollte von `true` zu `false` wechseln, `td.failed` sollte sich in Richtung `0` verringern. Referenzmessung (Korrektur v1.17.0, Sitzung 47): 12 Fehler → 0 Fehler.
+Lesen Sie die drei Werte in `evaluations[].valeur`: `navigator.webdriver` sollte
+von `true` auf `false` wechseln, `td.failed` sollte gegen `0` sinken. Referenzmessung
+(Korrektur v1.17.0, Sitzung 47): 12 failed → 0 failed. Eine von `evaluer`
+zurückgegebene Zahl oder ein boolescher Wert behält in der Ausgabe und im Journal
+seinen JSON-Typ (v1.24.3); zuvor lieferte `shot.py` ihn als Text (`"false"`,
+`"0"`). Nur Text wird auf Geheimnisformen gefiltert.
 
 Für eine qualifizierte Zweitmeinung erzeugt das beschriebene Szenario weiterhin Screenshots zur Inspektion:
 
@@ -818,6 +825,11 @@ Vergleicht die Ergebnisse von `http_status`, `dom_stats`, `evaluer` und die Anza
 Exit 1 bei `verdict: "regression"`, wobei `diffs` jedes abweichende Feld
 auflistet (`reference` gegen `obtenu`). Die beiden Optionen schliessen sich
 gegenseitig aus.
+
+Eine vor v1.24.3 aufgezeichnete Referenz enthält eine von `evaluer` zurückgegebene
+Zahl oder einen booleschen Wert als Text; mit v1.24.3 oder neuer wiederholt, wird sie
+als Regression gemeldet (`"2"` gegenüber `2`). Zeichnen Sie sie mit
+`--sauver-verifier-reference` neu auf.
 
 ### 5i. Ein langes Szenario nach einem Fehler fortsetzen — `--checkpoint` (v1.17.0)
 

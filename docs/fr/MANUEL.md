@@ -1,6 +1,6 @@
 # Diwall — Manuel d'utilisation
 
-**Version 1.24.2 — Septembre 2026**
+**Version 1.24.3 — Septembre 2026**
 
 *Également disponible en français, allemand et espagnol sous `docs/fr/`, `docs/de/` et `docs/es/`.*
 
@@ -151,7 +151,9 @@ d'abord `sudo apt purge diwall` pour changer de canal.
 Sur ce canal, la configuration est `/opt/diwall/diwall.conf`, et non
 `/etc/diwall/diwall.conf`. Désinstallez avec
 `bash ~/git/Diwall/Diwall/scripts/uninstall.sh --dry-run` en premier, puis sans
-l'indicateur.
+l'indicateur. `uninstall.sh` refuse également lorsque le paquet est installé (v1.24.3) :
+il supprimerait `/opt/diwall/` et le compte `diwall` que dpkg gère. Utilisez
+`sudo apt purge diwall` à la place.
 
 **Construction du paquet (responsable) :**
 
@@ -377,7 +379,10 @@ Correction de compatibilité API (`docs/RETOUR_EXPERIENCE.md` FR-79) :
 
 Lisez les trois valeurs de `evaluations[].valeur` : `navigator.webdriver` doit
 passer de `true` à `false`, `td.failed` doit tendre vers `0`. Mesure de
-référence (correctif v1.17.0, session 47) : 12 failed → 0 failed.
+référence (correctif v1.17.0, session 47) : 12 failed → 0 failed. Un nombre ou un
+booléen renvoyé par `evaluer` garde son type JSON dans la sortie et dans le
+journal (v1.24.3) ; auparavant, `shot.py` le rendait en texte (`"false"`,
+`"0"`). Seul le texte est filtré pour les formes de secrets.
 
 Pour un deuxième avis qualitatif, le scénario fourni génère toujours des captures d'écran à examiner :
 
@@ -807,6 +812,11 @@ Compare les résultats de `http_status`, `dom_stats`, `evaluer`, et le nombre d'
 Exit 1 sur `verdict: "regression"`, avec `diffs` qui liste chaque champ
 divergent (`reference` contre `obtenu`). Les deux options sont mutuellement
 exclusives.
+
+Une référence enregistrée avant la v1.24.3 conserve un nombre ou un booléen
+renvoyé par `evaluer` sous forme de texte ; rejouée avec la v1.24.3 ou une
+version ultérieure, elle est signalée comme une régression (`"2"` contre `2`).
+Enregistrez-la de nouveau avec `--sauver-verifier-reference`.
 
 ### 5i. Reprendre un scénario après une erreur — `--checkpoint` (v1.17.0)
 

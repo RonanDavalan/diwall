@@ -86,14 +86,18 @@ def test_1_manifeste_couvre_son_perimetre():
                 ("GUIDE_LLM.md", "GUIDE_LLM_INTERACTIONS.md",
                  "GUIDE_LLM_SESSIONS.md", "GUIDE_LLM_MONITORING.md"))),
             # Les registres d'observation (journal, notes de terrain, radar
-            # des modèles, relevés d'accès) ont quitté le dépôt le 02/08/2026 :
-            # ils vivent sur le site, le dépôt y renvoie. Ils ne sont donc plus
-            # ni dans le périmètre ni dans les exclusions — le test vérifie
-            # désormais l'inverse de ce qu'il vérifiait.
-            ("aucun registre d'observation ne subsiste au manifeste", not any(
-                n in exclus or n in ordonnes for n in
-                ("docs/JOURNAL.md", "docs/RETOUR_EXPERIENCE.md",
-                 "docs/RADAR_MODELES.md", "docs/ACCESS_OBSERVATIONS.md"))),
+            # des modèles, relevés d'accès) sont des documents du dépôt que le
+            # site publie : ils ne sont jamais traduits ni mis en PDF, donc
+            # jamais dans l'ordre, mais ils restent déclarés en exclusion — un
+            # document présent et absent du manifeste ferait échouer le
+            # contrôle des orphelins.
+            ("les registres d'observation ne sont ni traduits ni mis en PDF", not any(
+                f"docs/{n}" in ordonnes for n in
+                ("JOURNAL.md", "RETOUR_EXPERIENCE.md", "RADAR_MODELES.md", "ACCESS_OBSERVATIONS.md"))),
+            ("chaque registre présent dans docs/ est exclu du manifeste", all(
+                f"docs/{n}" in exclus for n in
+                ("JOURNAL.md", "RETOUR_EXPERIENCE.md", "RADAR_MODELES.md", "ACCESS_OBSERVATIONS.md")
+                if os.path.exists(os.path.join(RACINE, "docs", n)))),
             ("chaque exclusion porte un motif non vide",
              all(e.get("motif") for e in exclus.values())),
         ],

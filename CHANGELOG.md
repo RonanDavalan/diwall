@@ -4,6 +4,13 @@ Generated from `debian/changelog` at build time — do not edit by hand.
 Edit `debian/changelog` and rebuild instead
 (`bash ~/git/Diwall/scripts/construire-paquet.sh`).
 
+## 1.24.3 — 25 Sep 2026 13:06:04 +0200
+
+- Corrective release, no new capability.
+- lib/sanitisation.py: a number or a boolean returned by an evaluer action came back from shot.py as a string ("False", "2") instead of false and 2, in the JSON output and in the operations journal. Structures already kept their scalars; only a result that was itself a number or a boolean was converted. A scenario comparing the type, or reading a number, got the wrong one. Text is filtered exactly as before. rpa.py assertions (attendu, contient, motif) compared the raw value and were not affected. A reference recorded with --sauver-verifier-reference before this version holds such a value as text: replayed with --replay-verifier it is reported as a regression ("2" against 2). Record it again. This is also what made the v1.16.0 check of --stealth fail: navigator.webdriver was false, but rendered as text. --stealth itself works.
+- scripts/uninstall.sh: refuses to run when the Debian package is installed, like install.sh and deploy.sh since 1.24.2; it would have removed /opt/diwall and the diwall account that dpkg manages. The message points to sudo apt purge diwall.
+- scenarios/v1.24.3_validation: three offline tests, added to CI.
+
 ## 1.24.2 — 25 Sep 2026 09:26:13 +0200
 
 - Corrective release, no new capability for an existing workflow.

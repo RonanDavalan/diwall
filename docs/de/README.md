@@ -125,7 +125,7 @@ Laden Sie die `.deb` Ressource von der
 `diwall_<version>-1_all.deb` – und dann:
 
 ```bash
-sudo apt install ./diwall_1.24.2-1_all.deb
+sudo apt install ./diwall_1.24.3-1_all.deb
 ```
 
 Das erstellt den Systembenutzer `diwall`, die virtuelle Umgebung und
@@ -175,6 +175,8 @@ bash ~/git/Diwall/Diwall/scripts/uninstall.sh --confirme
 ```
 
 Entfernt: `/opt/diwall/`, `/var/log/diwall/`, Systembenutzer `diwall`, Systemgruppe `diwall`, Gruppenmitgliedschaft des Operators, Git-Pre-Push-Hook.
+
+Das Skript lässt sich nicht ausführen, wenn das Debian-Paket installiert ist; verwenden Sie in diesem Fall `sudo apt purge diwall`.
 
 **Noch nie verändert:** `~/Vaults/` (Ihre Zugangsdaten), das Repository selbst, der Playwright-Browser-Cache.
 

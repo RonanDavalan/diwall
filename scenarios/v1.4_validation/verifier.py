@@ -124,8 +124,13 @@ def test_t3_securite_zero_credential():
     return _verdict("T3) sécurité — credentials masqués (répertoire chiffré + défense en profondeur)", [
         ("résumé des identifiants = 'remplir_som#1=<secrets:password>'",
          resume == "remplir_som#1=<secrets:password>"),
-        ("'depuis_secrets' absent de la ligne", "depuis_secrets" not in raw),
-        ("'secret_cle' (clé brute) absente de la ligne", "secret_cle" not in raw),
+        # `actions_raw` (export de skill) garde le marqueur et le nom de la
+        # clé, jamais une valeur : la ligne ne porte que des références.
+        ("le marqueur 'depuis_secrets' n'est conservé que dans actions_raw",
+         raw.count("depuis_secrets") == 1
+         and (e.get("actions_raw") or [{}])[0].get("valeur") == "depuis_secrets"),
+        ("la saisie en clair est remplacée par '<saisie>' dans actions_raw",
+         (e.get("actions_raw") or [{}, {}])[1].get("valeur") == "<saisie>"),
         ("valeur de saisie résolue masquée (défense en profondeur)",
          "S3CR3T_RESOLU" not in raw),
     ])

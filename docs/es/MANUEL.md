@@ -1,6 +1,6 @@
 # Diwall — Manual de operación
 
-**Versión 1.24.2 — Septiembre de 2026**
+**Versión 1.24.3 — Septiembre de 2026**
 
 *También disponible en francés, alemán y español bajo `docs/fr/`, `docs/de/` y `docs/es/`.*
 
@@ -153,9 +153,11 @@ la próxima actualización o desinstalación del paquete los revertiría silenci
 `sudo apt purge diwall` primero para cambiar de canal.
 
 En este canal, la configuración es `/opt/diwall/diwall.conf`, no
-`/etc/diwall/diwall.conf`. Desinstala con
+`/etc/diwall/diwall.conf`. Desinstale con
 `bash ~/git/Diwall/Diwall/scripts/uninstall.sh --dry-run` primero, luego sin
-la bandera.
+la opción. `uninstall.sh` también se niega cuando el paquete está instalado (v1.24.3):
+eliminaría `/opt/diwall/` y la cuenta `diwall` que dpkg gestiona. Use
+`sudo apt purge diwall` en su lugar.
 
 **Construcción del paquete (mantenedor):**
 
@@ -382,9 +384,12 @@ Corrección de compatibilidad de la API (`docs/RETOUR_EXPERIENCE.md` FR-79):
                {"type":"evaluer","script":"document.querySelectorAll(\"td.passed\").length"}]'
 ```
 
-Lea los tres valores de `evaluations[].valeur`: `navigator.webdriver` debe
-pasar de `true` a `false`, y `td.failed` debe tender a `0`. Medición de
-referencia (corrección v1.17.0, sesión 47): 12 failed → 0 failed.
+Lea los tres valores de `evaluations[].valeur`: `navigator.webdriver` debe pasar
+de `true` a `false`, y `td.failed` debe tender a `0`. Medición de referencia
+(corrección de la v1.17.0, sesión 47): 12 failed → 0 failed. Un número o un
+booleano devuelto por `evaluer` conserva su tipo JSON en la salida y en el diario
+(v1.24.3); antes, `shot.py` lo devolvía como texto (`"false"`, `"0"`). Solo el texto
+se filtra en busca de formas de secretos.
 
 Para una segunda opinión cualitativa, el escenario proporcionado aún genera
 capturas de pantalla para su inspección:
@@ -810,6 +815,11 @@ Compara los resultados de `http_status`, `dom_stats`, `evaluer`, y el número de
 Exit 1 con `verdict: "regression"`, donde `diffs` enumera cada campo
 divergente (`reference` frente a `obtenu`). Las dos opciones son mutuamente
 excluyentes.
+
+Una referencia grabada antes de la v1.24.3 guarda como texto un número o un booleano
+devuelto por `evaluer`; al reproducirla con la v1.24.3 o posterior, se señala como
+una regresión (`"2"` frente a `2`). Vuelva a grabarla con
+`--sauver-verifier-reference`.
 
 ### 5i. Reanudar un escenario largo después de una falla — `--checkpoint` (v1.17.0)
 

@@ -21,6 +21,11 @@ DRY_RUN=false
 CONFIRME=false
 PURGE_PREUVES=false
 
+# Avant toute écriture : voir garde_canal_deb.sh.
+# shellcheck source=garde_canal_deb.sh
+source "$REPO/scripts/garde_canal_deb.sh"
+garde_canal_deb désinstaller
+
 # ── Arguments ────────────────────────────────────────────────────────────────
 while [[ $# -gt 0 ]]; do
     case "$1" in

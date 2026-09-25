@@ -3142,3 +3142,32 @@ la purge.
 
 **Version :** corrigé en Diwall v1.24.2.
 
+
+## FR-97 — `evaluer` rend un nombre ou un booléen en chaîne
+
+**Symptôme** : `evaluer` sur `navigator.webdriver` avec `--stealth` renvoie
+`"valeur": "False"` (texte) au lieu de `false` ; `1 + 1` renvoie `"2"`. Une
+vérification qui compare le type, ou qui lit un nombre, reçoit du texte. Le
+test de validation de `--stealth` de la v1.16.0 (`T-F1`, `valeur is False`)
+échouait pour cette raison — `--stealth` masquait bien `navigator.webdriver`.
+
+**Cause** : le filtre de secrets appliqué aux résultats d'`evaluer`
+(`lib/sanitisation.py`) traitait un résultat non structuré comme du texte et le
+convertissait avec `str()`. Les structures (objet, tableau) conservaient déjà
+leurs nombres et leurs booléens ; seul un résultat qui était lui-même un nombre
+ou un booléen était converti. Le journal d'opérations (`valeur_retournee`) était
+touché de la même façon. Les assertions de `rpa.py` (`attendu`, `contient`,
+`motif`) comparent la valeur brute : elles n'étaient pas touchées.
+
+**Correctif** : un nombre ou un booléen traverse le filtre tel quel ; le texte
+est filtré comme avant.
+
+**Contournement jusqu'à la version 1.24.2** : comparer le texte (`"False"`,
+`"2"`) plutôt que le type.
+
+**Effet à connaître** : une référence enregistrée avec
+`--sauver-verifier-reference` avant la version 1.24.3 garde ces valeurs en
+texte ; rejouée avec `--replay-verifier` elle est signalée `regression`
+(`"2"` contre `2`). La réenregistrer.
+
+**Version :** corrigé en Diwall v1.24.3.
