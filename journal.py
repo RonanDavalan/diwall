@@ -14,7 +14,7 @@ Exemples :
 
 Spécification : _CADRE/SPECIFICATIONS/35_JOURNAL_OPERATIONS.md §étape 6.
 """
-__version__ = "1.24.0"
+__version__ = "1.24.1"
 
 import argparse
 import glob

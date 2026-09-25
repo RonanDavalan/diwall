@@ -1,6 +1,6 @@
 # Diwall — Manuel d'utilisation
 
-**Version 1.24.0 — Septembre 2026**
+**Version 1.24.1 — Septembre 2026**
 
 *Également disponible en français, allemand et espagnol sous `docs/fr/`, `docs/de/` et `docs/es/`.*
 
@@ -404,6 +404,27 @@ dégrade `niveau_confiance` sans forcer `pret_a_agir: false`
 (`boussole.waf_ignore_actif: true` enregistre le contournement).
 La détection est basée sur des mots-clés et peut produire des faux positifs sur les pages qui
 traitent légitimement du blocage/de la détection (par exemple, une page de référence pour la détection de robots) ; considérez cela comme un signal rapide, et non comme un verdict certain.
+
+### 3f. Langue déclarée (v1.24.1)
+
+Le navigateur déclare la langue de l'opérateur. Elle est extraite de
+l'environnement du processus, dans l'ordre que Chromium lui-même suit :
+`LANGUAGE`, puis `LC_ALL`, `LC_MESSAGES`, `LANG` — et `en-US` si aucune
+d'entre elles ne fournit une valeur utilisable (`C`, `POSIX`). Le même
+tag est envoyé dans l'en-tête `Accept-Language` et renvoyé par `navigator.language`, donc un site
+qui négocie sa langue sert la langue de l'opérateur.
+
+Pour spécifier une autre langue pour une exécution, définissez-la dans l'environnement :
+
+```bash
+LANGUAGE=en diwall-shot --url https://example.com --mode fast --guide-version 1.3
+```
+
+Avant la version v1.24.1, aucun en-tête `Accept-Language` n'était envoyé du tout, tandis que
+`navigator.language` transmettait la langue de la machine : un site qui négocie
+sa langue utilisait sa valeur par défaut. Un scénario qui vérifie un texte sur un tel site
+(`evaluer` avec `contient`, une attente sur une étiquette) peut donc donner un résultat différent
+après la mise à niveau.
 
 ---
 
@@ -987,7 +1008,7 @@ clic. Si un élément interactif apparaît ou disparaît **avant** votre
 élément cible dans l'ordre du DOM entre le `--som` capture et le clic (par exemple, une bannière de cookies qui se ferme, une fenêtre modale qui s'ouvre), un `id: N` brut peut résoudre silencieusement vers un
 élément **différent** de celui qui est affiché et numéroté N dans la capture d'écran.
 
-Depuis la version v1.24.0, le résolveur par défaut est hybride. En un seul appel de page, il :
+Depuis la version v1.24.0, le résolveur par défaut est hybride. Sur une seule page, appelez-le ainsi :
 
 - recherche le marqueur `data-dw-som-id="N"` (**chemin stable**, défini par une
   action `{"type":"capturer","som":true}` ou la capture finale) ;

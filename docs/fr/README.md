@@ -86,11 +86,11 @@ Le modèle de langage décide quoi faire ensuite.
 | **Signal WAF passif** | `respect.waf_bloquants` signale un blocage probable (HTTP 403/429 ou mots-clés connus) comme un signal non fatal, jamais comme une exception (v1.16.0) |
 | **Non-régression structurelle** | `--replay-verifier` compare le code HTTP, les statistiques DOM et les résultats `evaluer` à une référence enregistrée — sans pixels, sans modèle de vision (v1.17.0) |
 | **Points de reprise de scénario** | `--checkpoint` reprend un scénario long après un échec en cours de route, sans rejouer les actions déjà accomplies (v1.17.0) |
-| **Identité SoM stable** | `--som-rafraichir` résout `cliquer_som`/`remplir_som` par un marqueur DOM au lieu d'une réindexation à la volée, ce qui évite de cibler silencieusement le mauvais élément sur des pages très dynamiques (v1.17.0) |
+| **Identité SoM hybride** | `cliquer_som`/`remplir_som` résolvent par le marqueur `data-dw-som-id` quand il existe, se replient sinon sur une réindexation à la volée, et indiquent la voie suivie ainsi que toute divergence entre voie stable et voie brute dans `boussole.respect.som_resolution` / `som_derive_detectee` — jamais en silence (v1.24.0 ; `--som-brut` force la réindexation pure) |
 | **Iframes cross-origin** | `cliquer_iframe` / `remplir_iframe` visent des éléments dans des iframes de même origine ou d'origine différente, via l'API frame native de Playwright (v1.17.0) |
 | **Iframes imbriquées** | `iframe_chemin` (tableau) descend d'iframe en iframe, mutuellement exclusif avec `iframe_selecteur` (v1.18.0) |
 | **Verrou de lecture du guide** | `shot.py`/`rpa.py`/`watch.py` refusent de s'exécuter sans preuve que `docs/GUIDE_LLM.md` a été lu — un marqueur local en garde la trace par machine et par utilisateur (v1.18.0) |
-| **Conseil de configuration** | `mode_conseille` recommande `--mode`/`--shadow-dom`/`--som-rafraichir` à partir d'exécutions de diagnostic réelles et antérieures sur le même hôte — jamais une supposition (v1.18.0) |
+| **Conseil de configuration** | `mode_conseille` recommande `--mode`/`--shadow-dom` à partir d'exécutions de diagnostic réelles et antérieures sur le même hôte — jamais une supposition (v1.18.0) |
 | **Traçabilité des scénarios chaînés** | `chainage` enregistre l'arbre d'appels ordonné des scénarios chaînés par `declencher_scenario`, exposé dans le journal d'opérations (v1.19.0) |
 | **Chronométrage par action** | `latences_actions` rapporte la latence de dispatch de chaque action exécutée, toujours présent (v1.20.0) |
 | **Vue du journal limitée aux erreurs** | `journal.py --erreurs` filtre le journal d'opérations pour ne montrer que les exécutions en échec (v1.20.0) |
@@ -126,7 +126,7 @@ Téléchargez le fichier `.deb` depuis la
 `diwall_<version>-1_all.deb` — puis :
 
 ```bash
-sudo apt install ./diwall_1.24.0-1_all.deb
+sudo apt install ./diwall_1.24.1-1_all.deb
 ```
 
 Cela crée l'utilisateur système `diwall`, l'environnement virtuel et

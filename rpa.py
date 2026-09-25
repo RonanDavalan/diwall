@@ -34,7 +34,7 @@ Dépend de :
     (résolution du répertoire chiffré : DIWALL_SECRETS_DIR > diwall.conf >
     ~/Vaults/Diwall/). Jamais de mot de passe dans les fichiers de scénario.
 """
-__version__ = "1.24.0"
+__version__ = "1.24.1"
 
 import argparse
 import json

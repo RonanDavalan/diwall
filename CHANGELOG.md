@@ -4,6 +4,16 @@ Generated from `debian/changelog` at build time — do not edit by hand.
 Edit `debian/changelog` and rebuild instead
 (`bash ~/git/Diwall/scripts/construire-paquet.sh`).
 
+## 1.24.1 — 25 Sep 2026 00:59:25 +0200
+
+- Corrective release, no new capability.
+- shot.py, lib/langue_navigateur.py: the browser now declares a language. A Playwright context created without a locale lets Chromium take navigator.language from the process environment but send no Accept-Language header at all, so the page saw one language and the server none, and any site negotiating its language served its default. The language is derived from LANGUAGE, then LC_ALL, LC_MESSAGES and LANG -- the order Chromium itself follows -- normalised to a language tag (fr_FR.UTF-8@euro -> fr-FR) and set on every browser context: the same tag goes out in Accept-Language and comes back from navigator.language. C, POSIX or an unusable value give en-US, the value Chromium declares in that case. No new flag, no new boussole key, no exit code change.
+- Behaviour change: a site that negotiates its language now serves the operator's. A scenario that checks a text on such a site (evaluer with contient, a wait on a label) can give a different result. To declare another language for one run, set LANGUAGE or LANG in its environment.
+- lib/sanitisation.py: the JWT shape used by the evaluer filter matched any three dot-separated identifiers whose first two had eight characters or more, so a script such as navigator.languages.join(',') was refused as a plaintext secret, and a two-label hostname returned by evaluer was masked. Both leading segments of a compact JWT start with eyJ -- {" in base64url -- and the shape now requires it. The high-entropy base64 net, kept unchanged, still catches real tokens on its own.
+- scripts/deploy.sh: lib/sanitisation.py and lib/validation_scenario.py were missing from the file list of the git-clone channel since v1.23.0, so install.sh from a fresh clone produced a shot.py that failed on import. Both are listed now. The Debian package was not affected.
+- scenarios/v1.24.1_validation: six offline tests covering the three changes, including an end-to-end run that records the header a local server receives. Added to CI.
+- docs/RETOUR_EXPERIENCE.md: FR-91 to FR-93. docs/MANUEL.md: section 3f, declared language. docs/fr/CHEAT_SHEET.md: translation artefacts fixed.
+
 ## 1.24.0 — 08 Sep 2026 16:37:57 +0200
 
 - Hardening minor, no new capability. Three chantiers from the September 2026 REX and the Discover licence signal.

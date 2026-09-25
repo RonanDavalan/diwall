@@ -1,6 +1,6 @@
 # Diwall — guide rapide
 
-Version 1.24.0 — Septembre 2026
+Version 1.24.1 — Septembre 2026
 
 Tout sur une seule page. Référence complète : `docs/MANUEL.md`.
 
@@ -19,9 +19,9 @@ Tout sur une seule page. Référence complète : `docs/MANUEL.md`.
 /opt/diwall/venv/bin/python3 /opt/diwall/rpa.py --scenario FILE.json
 ```
 
-Installé depuis le `.deb`? Utilisez les chemins relatifs [`diwall-shot`] et [`diwall-rpa`] au lieu des
-chemins complets. Le premier appel sur une machine nécessite [`--guide-version X.Y`], à lire avec
-`grep notice-version /opt/diwall/docs/GUIDE_LLM.md`].
+Installé depuis le `.deb` ? Utilisez `diwall-shot` et `diwall-rpa` au lieu des
+chemins complets. Le premier appel sur une machine nécessite `--guide-version X.Y`, à lire avec
+`grep notice-version /opt/diwall/docs/GUIDE_LLM.md`.
 
 ---
 
@@ -113,7 +113,7 @@ même pour un code TOTP.
 |---|---|
 | Le délai d'attente de clic, l'élément est visuellement masqué | `"force": true`, puis `"repli_js": true` |
 | L'élément n'est pas numéroté par SoM | `--shadow-dom` (ouvrir les Shadow Roots) |
-| Élément situé en dessous du "fold" | `defiler` d'abord — vérifiez `boussole.som_hors_viewport` |
+| Élément sous la ligne de flottaison | `defiler` d'abord — vérifiez `boussole.som_hors_viewport` |
 | La page ne se charge jamais complètement | `--wait-until load` |
 | Le bouton de soumission ne fait rien, aucune erreur | validation HTML native — soumettez le formulaire via `evaluer` |
 | `exit 42` | répertoire chiffré non monté : `diwall-monter-secrets` |
@@ -125,5 +125,5 @@ même pour un code TOTP.
 
 ## Codes de sortie
 
-`0` succès · `1` Erreur du playwright ou assertion échouée · `2` Incompatibilité de la zone d'affichage
+`0` succès · `1` erreur Playwright ou assertion échouée · `2` Incompatibilité de la zone d'affichage
 (`watch.py`) · `3` Mauvais interpréteur, utilisez l'environnement virtuel (venv) · `42` Répertoire chiffré fermé ou somme de contrôle incorrecte · `43` `diwall.conf` manquant.

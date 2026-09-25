@@ -32,7 +32,7 @@ import uuid
 from datetime import datetime, timezone
 from urllib.parse import urlparse
 
-__version__ = "1.24.0"
+__version__ = "1.24.1"
 
 # Permet d'importer lib/ depuis le même répertoire que shot.py
 sys.path.insert(0, os.path.dirname(os.path.abspath(__file__)))
@@ -487,6 +487,7 @@ def _prendre_capture(page, path, full_page=True, screenshot_timeout=120_000):
 # seule des deux copies (shot.py/rpa.py) à contrôler le userinfo. Alias
 # conservé pour ne pas toucher les appelants existants dans ce fichier.
 from lib.securite_url import valider_schema_url as _valider_schema_url
+from lib.langue_navigateur import locale_navigateur
 
 # ── Détection passive de WAF (v1.16.0, item C) ────────────────────────────────
 # Signal non fatal — jamais d'exception. Diwall perçoit la friction, il ne
@@ -2122,6 +2123,11 @@ def main():
                     "send": "unauthorized",
                 }
 
+            # Langue déclarée : sans `locale`, Chromium n'envoie aucun
+            # Accept-Language alors que navigator.language en porte une — le
+            # serveur et la page voient deux identités différentes.
+            new_context_kwargs["locale"] = locale_navigateur(os.environ)
+
             if args.reprendre_session:
                 ctx = browser.new_context(
                     storage_state=session["storage_state"],
@@ -2491,7 +2497,10 @@ def main():
             echec = chemin_png(args.output_dir, "echec")
             with sync_playwright() as pw:
                 b = pw.chromium.launch(headless=True)
-                pg = b.new_context(ignore_https_errors=args.ignore_tls_errors).new_page()
+                pg = b.new_context(
+                    ignore_https_errors=args.ignore_tls_errors,
+                    locale=locale_navigateur(os.environ),
+                ).new_page()
                 pg.goto(url_cible, timeout=5000)
                 _prendre_capture(pg, echec, full_page=False)
                 b.close()

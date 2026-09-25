@@ -1,6 +1,6 @@
 # Diwall — Manual de operación
 
-**Versión 1.24.0 — Septiembre de 2026**
+**Versión 1.24.1 — Septiembre de 2026**
 
 *También disponible en francés, alemán y español bajo `docs/fr/`, `docs/de/` y `docs/es/`.*
 
@@ -26,7 +26,7 @@ No hay descripciones arquitectónicas. Comandos que funcionan.
 8. [Monitoreo visual — watch.py](#8-monitoreo-visual--watchpy)
 9. [Registro de operaciones](#9-registro-de-operaciones)
 10. [Opciones de línea de comandos: referencia](#10-flags-de-la-línea-de-comandos-referencia)
-11. [Códigos de salida y resultados](#11-códigos-de-salida-y-resultados)
+11. [Códigos de salida y resultados](#11-códigos-de-salida-y-resultadosh2)
 
 ---
 
@@ -409,6 +409,27 @@ Cuando estén presentes y `> 0`: `etat.niveau_confiance` es `"faible"` y
 Desde la versión v1.17.2, los nombres genéricos de proveedores (`Cloudflare`, `Akamai`) solo coinciden con el título de la página; anteriormente, coincidencias incorrectas se producían en referencias ordinarias a recursos de CDN. Si persiste una coincidencia incorrecta, `--ignorer-waf` degrada `niveau_confiance` sin forzar `pret_a_agir: false`
 (`boussole.waf_ignore_actif: true` registra la anulación).
 La detección se basa en palabras clave y puede producir coincidencias incorrectas en páginas que legítimamente discuten el bloqueo/detección (por ejemplo, una página de referencia para la detección de bots); considérela como una señal rápida, no como un veredicto definitivo.
+
+### 3f. Idioma declarado (v1.24.1)
+
+El navegador declara el idioma del operador. Se toma del
+entorno del proceso, en el orden que Chromium sigue:
+`LANGUAGE`, luego `LC_ALL`, `LC_MESSAGES`, `LANG` — y `en-US` cuando ninguno de
+ellos proporciona un valor utilizable (`C`, `POSIX`). La misma etiqueta se envía en el
+encabezado `Accept-Language` y se devuelve mediante `navigator.language`, por lo que un sitio que
+negocia su idioma sirve el idioma del operador.
+
+Para declarar otro idioma para una ejecución, configúrelo en el entorno:
+
+```bash
+LANGUAGE=en diwall-shot --url https://example.com --mode fast --guide-version 1.3
+```
+
+Antes de la versión v1.24.1, no se enviaba ningún encabezado `Accept-Language` y
+`navigator.language` contenía el idioma de la máquina: un sitio que negocia
+su idioma, utilizaba su valor predeterminado. Un escenario que verifica un texto en un sitio de este tipo
+(`evaluer` con `contient`, una espera en una etiqueta) puede, por lo tanto, dar un resultado diferente
+después de la actualización.
 
 ---
 
@@ -987,7 +1008,7 @@ clic; si un elemento interactivo aparece o desaparece **antes** de su
 objetivo en el orden del DOM entre el evento de captura `--som` y el clic (por ejemplo, un banner de cookies que se cierra, un modal que se abre), un identificador de elemento sin formato `id: N` puede resolver silenciosamente a un
 elemento **diferente** al que se muestra con el número N en la captura de pantalla.
 
-Desde la versión v1.24.0, el resolvedor predeterminado es híbrido. En una sola llamada de página:
+Desde la versión v1.24.0, el resolvedor predeterminado es híbrido. En una página, llámalo:
 
 - busca el marcador `data-dw-som-id="N"` (**estable**, definido por una acción `{"type":"capturer","som":true}` o la captura final);
 - calcula el elemento N-ésimo mediante reindexación directa (**directa**);
@@ -1002,11 +1023,11 @@ Desde la versión v1.24.0, el resolvedor predeterminado es híbrido. En una sola
 
 El camino estable solo ayuda dentro de un escenario: el marcador no persiste
 a través de dos llamadas a `shot.py` (cada una recarga la página). Para un
-objetivo propenso a mutaciones, capture el SoM en el mismo
+objetivo propenso a mutaciones, capture el SoM (State of Mind) en el mismo
 escenario antes de la primera llamada a `cliquer_som`. Cuando `som_resolution` es
 `brut_sans_reference`, no se puede detectar la deriva; vuelva a capturar el SoM si el DOM
 cambió. `--som-brut` fuerza una reindexación pura y directa (sin búsqueda de
-marcador, sin detección de divergencia); entonces `boussole.som_brut_actif: true`.
+marcador, sin detección de divergencia); luego, use `boussole.som_brut_actif: true`.
 `--som-rafraichir` (v1.17.0) es un alias inactivo que se mantiene para la compatibilidad
 hacia atrás.
 
@@ -1328,7 +1349,7 @@ Propaga todas las banderas relevantes de shot.py, además de:
 
 ---
 
-## 11. Códigos de salida y resultados
+## 11. Códigos de salida y resultados</h2>
 
 ### Códigos de salida
 

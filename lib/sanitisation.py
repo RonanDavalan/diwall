@@ -59,7 +59,15 @@ _BASE64_LONGUE = re.compile(r"[A-Za-z0-9+/=_-]{32,}")
 # Forme d'un JWT : trois segments base64url séparés par des points — aucun
 # des deux motifs ci-dessus ne le capte, les points cassent _BASE64_LONGUE
 # en tronçons et "jwt" n'apparaît jamais dans le jeton lui-même.
-_MOTIF_JWT = re.compile(r"[A-Za-z0-9_-]{8,}\.[A-Za-z0-9_-]{8,}\.[A-Za-z0-9_-]+")
+# Les deux premiers segments encodent un en-tête puis une charge JSON : ils
+# commencent par `eyJ`, qui est `{"` en base64url. C'est cette signature qui
+# est exigée ici. Trois identifiants chaînés par des points, seule condition
+# d'une forme plus large, décrivent aussi bien `navigator.languages.join` ou
+# un nom d'hôte à deux libellés longs, et faisaient refuser un script
+# ordinaire comme masquer une URL renvoyée par `evaluer`. Un jeton dont le
+# JSON commencerait par une espace (`{ "` → `eyAi`) échappe à ce motif ; sa
+# signature, longue et aléatoire, reste prise par _BASE64_LONGUE.
+_MOTIF_JWT = re.compile(r"eyJ[A-Za-z0-9_-]{5,}\.eyJ[A-Za-z0-9_-]{5,}\.[A-Za-z0-9_-]*")
 # Ponctuation JSON ou espace : une feuille qui en contient n'est pas un
 # jeton isolé (un mot-clé qui matche dedans est un mot ordinaire, pas un
 # secret collé sans séparateur).

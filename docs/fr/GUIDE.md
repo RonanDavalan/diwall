@@ -1,6 +1,6 @@
 # Diwall — Guide de l'utilisateur
 
-Version 1.10 — Septembre 2026 (v1.24.0) — quatre nouveaux exemples d'utilisation (observabilité hébergée localement, administration de la plateforme de ticketing, suivi des événements locaux, accès à l'e-commerce via Respectful Navigation).
+Version 1.10 — Septembre 2026 (v1.24.1) — quatre nouveaux exemples d'utilisation (observabilité hébergée localement, administration de la plateforme de ticketing, suivi des événements locaux, accès à l'e-commerce via Respectful Navigation).
 
 *Également disponible en français, allemand et espagnol sous `docs/fr/`, `docs/de/` et `docs/es/`.*
 

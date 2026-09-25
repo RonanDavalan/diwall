@@ -1,6 +1,6 @@
 # Diwall – Schnellreferenz
 
-Version 1.24.0 – September 2026
+Version 1.24.1 – September 2026
 
 Alles auf einer Seite. Vollständige Referenz: `docs/MANUEL.md`.
 
@@ -95,7 +95,7 @@ Wenn `boussole` nicht Ihren Erwartungen entspricht, stoppen Sie vor jeglicher ve
 
 ---
 
-## Zugangsdaten – die einzig richtige Form
+## Zugangsdaten – die einzige korrekte Formularausgabe
 
 ```json
 {"type": "remplir_som", "id": 3, "valeur": "depuis_secrets", "secret_cle": "password"}

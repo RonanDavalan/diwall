@@ -85,11 +85,11 @@ Das Sprachmodell entscheidet, was als nächstes zu tun ist.
 | **Passives WAF-Signal** | `respect.waf_bloquants` markiert eine wahrscheinliche Sperre (HTTP 403/429 oder bekannte Schlüsselwörter) als nicht fatales Signal, niemals als Ausnahme (v1.16.0) |
 | **Strukturelle Regressionsfreiheit** | `--replay-verifier` vergleicht HTTP-Status, DOM-Statistiken und `evaluer`-Ergebnisse mit einer gespeicherten Referenz — ohne Pixel, ohne Bildmodell (v1.17.0) |
 | **Szenario-Checkpoints** | `--checkpoint` setzt ein langes Szenario nach einem Fehler unterwegs fort, ohne abgeschlossene Aktionen erneut auszuführen (v1.17.0) |
-| **Stabile SoM-Identität** | `--som-rafraichir` löst `cliquer_som`/`remplir_som` über einen DOM-Marker auf statt über eine Neuindizierung zur Laufzeit und verhindert so, dass auf sehr dynamischen Seiten unbemerkt das falsche Element angesprochen wird (v1.17.0) |
+| **Hybride SoM-Identität** | `cliquer_som`/`remplir_som` lösen über den Marker `data-dw-som-id` auf, wenn er vorhanden ist, fallen sonst auf eine Neuindizierung zur Laufzeit zurück und melden den gewählten Weg sowie jede Abweichung zwischen stabilem und rohem Weg in `boussole.respect.som_resolution` / `som_derive_detectee` — nie stillschweigend (v1.24.0; `--som-brut` erzwingt die reine Neuindizierung) |
 | **Cross-Origin-Iframes** | `cliquer_iframe` / `remplir_iframe` sprechen Elemente in Iframes gleicher oder fremder Herkunft an, über die native Frame-API von Playwright (v1.17.0) |
 | **Verschachtelte Iframes** | `iframe_chemin` (Array) steigt von Iframe zu Iframe ab, schliesst `iframe_selecteur` gegenseitig aus (v1.18.0) |
 | **Lesesperre für den Leitfaden** | `shot.py`/`rpa.py`/`watch.py` verweigern die Ausführung ohne Nachweis, dass `docs/GUIDE_LLM.md` gelesen wurde — ein lokaler Marker hält dies pro Maschine und Benutzer fest (v1.18.0) |
-| **Konfigurationsempfehlung** | `mode_conseille` empfiehlt `--mode`/`--shadow-dom`/`--som-rafraichir` auf Grundlage echter, früherer Diagnoseläufe auf demselben Host — niemals als Vermutung (v1.18.0) |
+| **Konfigurationsempfehlung** | `mode_conseille` empfiehlt `--mode`/`--shadow-dom` auf Grundlage echter, früherer Diagnoseläufe auf demselben Host — niemals als Vermutung (v1.18.0) |
 | **Nachvollziehbarkeit verketteter Szenarien** | `chainage` hält den geordneten Aufrufbaum der über `declencher_scenario` verketteten Szenarien fest und zeigt ihn im Betriebsjournal (v1.19.0) |
 | **Zeitmessung pro Aktion** | `latences_actions` berichtet die Dispatch-Latenz jeder ausgeführten Aktion, immer vorhanden (v1.20.0) |
 | **Journalansicht nur mit Fehlern** | `journal.py --erreurs` filtert das Betriebsjournal auf fehlgeschlagene Läufe (v1.20.0) |
@@ -125,7 +125,7 @@ Laden Sie die `.deb` Ressource von der
 `diwall_<version>-1_all.deb` – und dann:
 
 ```bash
-sudo apt install ./diwall_1.24.0-1_all.deb
+sudo apt install ./diwall_1.24.1-1_all.deb
 ```
 
 Das erstellt den Systembenutzer `diwall`, die virtuelle Umgebung und

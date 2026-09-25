@@ -1,6 +1,6 @@
 # Diwall — Operational manual
 
-**Version 1.24.0 — September 2026**
+**Version 1.24.1 — September 2026**
 
 *Also available in French, German and Spanish under `docs/fr/`, `docs/de/` and `docs/es/`.*
 
@@ -445,6 +445,27 @@ degrades `niveau_confiance` without forcing `pret_a_agir: false`
 The detection is keyword-based and can produce false positives on pages that
 legitimately discuss blocking/detection (e.g. a bot-detection benchmark
 page) — treat it as a fast signal, not a certain verdict.
+
+### 3f. Declared language (v1.24.1)
+
+The browser declares the operator's language. It is taken from the
+environment of the process, in the order Chromium itself follows:
+`LANGUAGE`, then `LC_ALL`, `LC_MESSAGES`, `LANG` — and `en-US` when none of
+them gives a usable value (`C`, `POSIX`). The same tag is sent in the
+`Accept-Language` header and returned by `navigator.language`, so a site that
+negotiates its language serves the operator's.
+
+To declare another language for one run, set it in the environment:
+
+```bash
+LANGUAGE=en diwall-shot --url https://example.com --mode fast --guide-version 1.3
+```
+
+Before v1.24.1, no `Accept-Language` header was sent at all while
+`navigator.language` carried the machine's language: a site that negotiates
+its language served its default. A scenario that checks a text on such a site
+(`evaluer` with `contient`, a wait on a label) can therefore give a different
+result after upgrading.
 
 ---
 

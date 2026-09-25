@@ -1,6 +1,6 @@
 # Diwall – Betriebshandbuch
 
-**Version 1.24.0 – September 2026**
+**Version 1.24.1 – September 2026**
 
 *Ebenfalls auf Französisch, Deutsch und Spanisch unter `docs/fr/`, `docs/de/` und `docs/es/`.*
 
@@ -27,7 +27,7 @@ Keine architektonischen Beschreibungen. Befehle, die funktionieren.
 8. [Visuelle Überwachung — watch.py](#8-visuelle-überwachung--watchpy)
 9. [Betriebsprotokoll](#9-betriebsprotokoll)
 10. [CLI-Flags – Referenz](#10-befehlszeilenparameter--referenz)
-11. [Rückgabecodes und Ausgabe](#11-rückgabecodes-und-ausgabe)
+11. [Exit-Codes und Ausgabe](#11-rückgabecodes-und-ausgabe)
 
 ---
 
@@ -199,7 +199,7 @@ Auswahlmöglichkeiten, bei denen man raten müsste. Generiert aus einer Version 
 (`scenarios/interoperabilite/fixture/`); dieselbe Grafik existiert auch auf Französisch,
 Deutsch und Spanisch neben dieser.*
 
-### 2c. Lesen Sie zuerst das boussole-Objekt
+### 2c. Lesen Sie zuerst die Gebrauchsanweisung
 
 Jede Ausgabe enthält ein `boussole`-Objekt — lesen Sie es vor allem anderen:
 
@@ -414,6 +414,26 @@ an, senkt `--ignorer-waf` den `niveau_confiance`, ohne `pret_a_agir: false`
 zu erzwingen (`boussole.waf_ignore_actif: true` hält die Übersteuerung fest).
 Die Erkennung arbeitet mit Schlüsselwörtern und kann Fehlalarme erzeugen: eine
 Seite, die einen dieser Begriffe legitim erwähnt, wird markiert.
+
+### 3f. Angegebene Sprache (Version 1.24.1)
+
+Der Browser gibt die Sprache des Operators an. Sie wird aus der
+Umgebung des Prozesses entnommen, in der Reihenfolge, in der Chromium selbst vorgeht:
+`LANGUAGE`, dann `LC_ALL`, `LC_MESSAGES`, `LANG` – und `en-US`, wenn keiner von
+diesen einen brauchbaren Wert liefert (`C`, `POSIX`). Das gleiche Tag wird im
+`Accept-Language` Header gesendet und von `navigator.language` zurückgegeben, sodass eine Website, die
+ihre Sprache aushandelt, die Sprache des Operators verwendet.
+
+Um für einen einzelnen Durchlauf eine andere Sprache zu aktivieren, setzen Sie diese in der Umgebung:
+
+```bash
+LANGUAGE=en diwall-shot --url https://example.com --mode fast --guide-version 1.3
+```
+
+Vor der Version v1.24.1 wurde überhaupt kein `Accept-Language` Header gesendet, während
+`navigator.language` die Sprache des Geräts enthielt. Eine Website, die ihre Sprache verhandelt, verwendete ihre Standardeinstellung. Ein Szenario, das einen Text auf einer solchen Website überprüft
+(`evaluer` mit `contient`, eine Wartezeit auf einem Label), kann daher nach einem Upgrade ein anderes
+Ergebnis liefern.
 
 ---
 
@@ -996,7 +1016,7 @@ Nach einem `defiler` oder beim Öffnen eines Modals: Führen Sie `shot.py --som`
 
 `cliquer_som`/`remplir_som` lösen `id: N` durch erneutes Indizieren des aktiven DOM zum Zeitpunkt des Klicks – wenn ein interaktives Element erscheint oder verschwindet **vor** Ihrem Ziel in der DOM-Reihenfolge zwischen dem `--som` Capture und dem Klick (z. B. ein Cookie-Banner, das geschlossen wird, ein Modal, das geöffnet wird), kann ein rohes `id: N` stillschweigend auf ein **anderes** Element aufgelöst werden, als das Element, das im Screenshot mit der Nummer N angezeigt wird.
 
-Seit Version v1.24.0 ist der Standard-Resolver hybrid. In einem einzigen Seitenaufruf:
+Seit Version v1.24.0 ist der Standard-Resolver ein Hybrid-Resolver. Bezeichnen Sie ihn auf einer Seite als:
 
 - sucht den `data-dw-som-id="N"` Marker (**stabilen** Pfad, festgelegt durch eine
   `{"type":"capturer","som":true}` Aktion oder die finale Erfassung);
@@ -1015,7 +1035,7 @@ Seit Version v1.24.0 ist der Standard-Resolver hybrid. In einem einzigen Seitena
 
 Der stabile Pfad hilft nur innerhalb eines Szenarios – der Marker überlebt nicht
 über zwei `shot.py` Aufrufe (jeder lädt die Seite neu). Für ein anfälliges Ziel
-für Mutationen, erfassen Sie SoM im selben Szenario, bevor der erste `cliquer_som` ausgeführt wird. Wenn
+für Mutationen, erfassen Sie den Start-of-Mutation (SoM) im selben Szenario, bevor der erste `cliquer_som` ausgeführt wird. Wenn
 `som_resolution` gleich `brut_sans_reference` ist, kann kein Drift erkannt werden – erfassen Sie
 den SoM erneut, wenn sich das DOM geändert hat. `--som-brut` erzwingt eine reine, unveränderte Neuindizierung (keine Markerprüfung, keine Divergenzprüfung); `boussole.som_brut_actif: true` danach.
 `--som-rafraichir` (v1.17.0) ist ein Alias, der aus Gründen der Abwärtskompatibilität beibehalten wird und keine Funktion ausführt.

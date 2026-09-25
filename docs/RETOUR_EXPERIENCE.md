@@ -3001,3 +3001,80 @@ navigation normalement au lieu de l'invalider depuis un script `evaluer`
 en cours d'exécution.
 
 **Version :** Diwall v1.23.1. Session Sillage — 22/08/2026.
+
+---
+
+## FR-91 — `actions_invalides` sur un script `evaluer` qui chaîne trois propriétés JavaScript
+
+**Symptôme** : le script `navigator.language + ' | ' + navigator.languages.join(',')`
+est refusé avant le lancement du navigateur, avec le message « le script
+contient une forme de secret (JWT ou segment base64 à haute entropie) —
+credential en clair interdit ». Même refus pour `document.documentElement.lang`.
+En sortie, un nom d'hôte à deux libellés longs renvoyé par `evaluer`
+(`accounts.example-company.com`) est masqué comme un secret.
+
+**Cause** : le motif qui reconnaît un JWT acceptait trois identifiants séparés
+par des points dont les deux premiers font au moins huit caractères — la forme
+d'un jeton, mais aussi celle d'un chaînage de propriétés ou d'un nom d'hôte.
+
+**Correctif** : le motif exige désormais la signature réelle d'un JWT compact —
+les deux premiers segments commencent par `eyJ`, l'encodage base64url de `{"`.
+Les jetons réels restent détectés ; le filet base64 à haute entropie, conservé,
+les détecte aussi à lui seul.
+
+**Contournement jusqu'à la version 1.24.0** : éviter trois identifiants chaînés
+dont les deux premiers sont longs, par exemple
+`[navigator.language].concat(navigator.languages)`.
+
+**Version :** corrigé en Diwall v1.24.1.
+
+---
+
+## FR-92 — Le navigateur n'envoie aucun `Accept-Language` : un site qui négocie la langue sert sa langue par défaut
+
+**Symptôme** : sur un site qui choisit sa langue d'après l'en-tête
+`Accept-Language`, Diwall reçoit la langue par défaut du site (ou sa page de
+choix de langue), alors que `navigator.language` renvoie bien la langue de la
+machine. Un `fetch('/')` fait depuis la page n'est pas redirigé ; le même avec
+`Accept-Language: fr-FR,fr;q=0.9` l'est.
+
+**Cause** : les contextes navigateur étaient créés sans langue. Chromium prend
+alors `navigator.language` dans l'environnement du processus, mais n'envoie
+aucun `Accept-Language` : la page et le serveur voient deux identités
+différentes.
+
+**Correctif** : la langue est dérivée de l'environnement, dans l'ordre que suit
+Chromium (`LANGUAGE`, puis `LC_ALL`, `LC_MESSAGES`, `LANG` ; `en-US` pour `C`,
+`POSIX` ou une valeur inexploitable), et passée au contexte : le même code part
+dans l'en-tête et dans `navigator.language`.
+
+**Changement de comportement** : un site qui négocie la langue sert désormais
+celle de l'opérateur. Un scénario qui vérifie un texte sur un tel site peut
+changer de résultat. Pour déclarer une autre langue, lancer Diwall avec
+`LANGUAGE` ou `LANG` réglé en conséquence, par exemple `LANGUAGE=en diwall-shot …`.
+
+**Version :** corrigé en Diwall v1.24.1.
+
+---
+
+## FR-93 — Installation par clone Git : `shot.py` échoue à l'import de `lib.sanitisation`
+
+**Symptôme** : après `bash scripts/install.sh` depuis un clone neuf, tout appel
+à `shot.py`, `rpa.py` ou `watch.py` échoue avec
+`ModuleNotFoundError: No module named 'lib.sanitisation'`. Le paquet `.deb`
+n'est pas touché.
+
+**Cause** : `scripts/deploy.sh`, qu'appelle `install.sh`, liste un par un les
+modules de `lib/` à copier. `lib/sanitisation.py` et `lib/validation_scenario.py`
+n'y ont jamais été ajoutés. Aucun test lancé depuis le dépôt ne pouvait le voir :
+il y trouve tous les modules.
+
+**Correctif** : les modules manquants sont listés, et un contrôle de cohérence
+vérifie désormais que chaque module de `lib/` figure dans la liste de
+`deploy.sh` comme dans celle du paquet.
+
+**Contournement jusqu'à la version 1.24.0** : copier les deux modules à la main
+(`sudo cp lib/sanitisation.py lib/validation_scenario.py /opt/diwall/lib/`), ou
+installer par le paquet `.deb`.
+
+**Version :** corrigé en Diwall v1.24.1.

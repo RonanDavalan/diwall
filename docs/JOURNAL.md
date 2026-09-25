@@ -4,6 +4,52 @@ History of decisions and discoveries by session, in reverse chronological order.
 
 ---
 
+## 2026-09-25 — v1.24.1: the browser declares a language, a narrower JWT shape, a fixed git-clone install
+
+**Language.** A browser context created without a locale lets Chromium take
+`navigator.language` from the process environment but send no `Accept-Language`
+header at all. Measured against a real site with six environments: the header
+was absent every time, `navigator.language` followed `LANGUAGE`, then `LANG`,
+and read `en-US` under `C`. The page saw one language and the server none, so
+any site negotiating its language served its default. A new pure module,
+`lib/langue_navigateur.py`, derives the tag in the order Chromium itself
+follows and `shot.py` passes it to all three contexts; the same code now goes
+out in the header and comes back from `navigator.language`. Alternatives
+rejected: a `--locale` option (no need expressed — the operator already sets
+the language through the environment), `en-US` for everyone (the operator's
+language is the natural identity to declare), and setting the header alone
+(leaves `navigator.language` on another source and rebuilds the mismatch).
+**Behaviour change:** a site that negotiates its language now serves the
+operator's; a scenario checking a text on such a site can change result.
+
+**`evaluer` filter.** The JWT shape matched any three dot-separated
+identifiers whose first two had eight characters or more. `navigator.languages.join`
+was refused as a plaintext secret, and a two-label hostname returned by
+`evaluer` was masked. Both leading segments of a compact JWT start with `eyJ`
+(`{"` in base64url); the shape now requires it. With the JWT shape disabled,
+the high-entropy base64 net still catches all three reference tokens, which is
+what makes the narrowing safe — and a test now proves it.
+
+**Git-clone install.** `scripts/deploy.sh` lists its `lib/` files one by one
+and never gained `lib/sanitisation.py` or `lib/validation_scenario.py`. Since
+v1.23.0, `install.sh` from a fresh clone produced a `shot.py` that failed at
+import; reproduced with exactly the files `deploy.sh` copies. The Debian
+package was not affected. Both modules are listed, and a coherence check now
+requires every tracked `lib/*.py` to appear in both `deploy.sh` and
+`debian/diwall.install`.
+
+**Also.** The French, German and Spanish README feature tables still presented
+`--som-rafraichir` as the SoM mechanism (removed from the recommendations and
+made inert in v1.24.0); the two rows are rewritten to match the English source.
+`docs/MANUEL.md` gains section 3f; `docs/RETOUR_EXPERIENCE.md` gains FR-91 to
+FR-93.
+
+**Validation.** `scenarios/v1.24.1_validation/verifier.py`, six offline tests,
+added to CI — including an end-to-end run against a local server that records
+the `Accept-Language` it receives. On v1.24.0 the same run receives no header.
+
+---
+
 ## 2026-09-08 — v1.24.0: hardening cycle — AppStream metadata, guide reorganization, hybrid SoM resolution
 
 Pragmatic hardening minor, no new capability. Chantiers from the September REX
