@@ -128,7 +128,7 @@ Download the `.deb` asset from the
 `diwall_<version>-1_all.deb` — then:
 
 ```bash
-sudo apt install ./diwall_1.24.1-1_all.deb
+sudo apt install ./diwall_1.24.2-1_all.deb
 ```
 
 That is all. It creates the `diwall` system user, the virtual environment and
@@ -146,7 +146,8 @@ installed next to it as `diwall-sample.conf`. Full command reference:
 
 Upgrading is `sudo apt install ./diwall_<newer>-1_all.deb` — your
 configuration is preserved. Removal is `sudo apt remove diwall`, or
-`sudo apt purge diwall` to drop the configuration too.
+`sudo apt purge diwall` to drop the configuration, the journal and the
+`watch.py` reference captures too.
 
 ### From source — for modifying Diwall itself
 
@@ -162,7 +163,7 @@ Installed from the Debian package:
 
 ```bash
 sudo apt remove diwall     # keeps /etc/diwall/diwall.conf
-sudo apt purge diwall      # removes the configuration as well
+sudo apt purge diwall      # also removes configuration, journal and /opt/diwall entirely
 ```
 
 Installed from source:

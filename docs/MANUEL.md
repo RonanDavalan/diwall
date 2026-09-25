@@ -1,6 +1,6 @@
 # Diwall — Operational manual
 
-**Version 1.24.1 — September 2026**
+**Version 1.24.2 — September 2026**
 
 *Also available in French, German and Spanish under `docs/fr/`, `docs/de/` and `docs/es/`.*
 
@@ -116,8 +116,11 @@ sudo usermod -aG diwall $USER
 ```
 
 `apt remove diwall` keeps `/var/log/diwall/` (operations journal, evidence)
-intact — `apt purge diwall` also removes it. `~/Vaults/` is never touched by
-either, on both channels.
+intact — `apt purge diwall` also removes it, together with `/etc/diwall/`,
+the `watch.py` reference captures (`/opt/diwall/references/`) and the
+downloaded Chromium: nothing is left under `/opt/diwall/` (v1.24.2). Save
+`/opt/diwall/references/` first if you want to keep your baselines.
+`~/Vaults/` is never touched by either, on both channels.
 
 **Manual page (v1.22.0):** `man diwall` documents all six commands on a
 single page. The five other command names (`man diwall-rpa`, and so on)
@@ -155,6 +158,11 @@ bash ~/git/Diwall/Diwall/scripts/deploy.sh
 mkdir -p ~/Vaults/<your-project>/Diwall
 # Create ~/Vaults/<your-project>/Diwall/<hostname>.json with your credentials
 ```
+
+If Diwall is already installed from the `.deb`, `install.sh` and `deploy.sh`
+refuse to run (v1.24.2): they would overwrite files that dpkg manages, and the
+next package upgrade or purge would silently undo them. Run
+`sudo apt purge diwall` first to switch channels.
 
 On this channel the configuration is `/opt/diwall/diwall.conf`, not
 `/etc/diwall/diwall.conf`. Uninstall with
@@ -1180,6 +1188,22 @@ Combine pixel diff and LLM analysis:
 --llm-en-complement   # LLM only if pixel verdict is drift or regression
 ```
 
+`--llm claude` (v1.24.2) sends both captures — reference and current — to the
+Anthropic API instead of the local model; it applies to `--comparer` and to
+`--llm-en-complement` alike. The captures leave the machine, reduced so that
+their longest side does not exceed 1568 px, the size the API works at. It needs
+the `anthropic` module, absent from a standard installation, and a key in the
+environment of the process:
+
+```bash
+sudo /opt/diwall/venv/bin/pip install anthropic
+ANTHROPIC_API_KEY=... diwall-watch --url https://target.local/status --comparer --llm claude --guide-version 1.3
+```
+
+A missing module, a refused key or a model refusal comes back as a plain
+message in the output (`erreur`, or `analyse_llm` in pixel mode), never as a
+traceback.
+
 ### 8d. Ignore an animated zone
 
 ```bash
@@ -1394,6 +1418,7 @@ Propagates all relevant shot.py flags, plus:
 | `--sauver-reference` | Capture and save as reference |
 | `--comparer-pixel REF` | Pixel diff against PNG file REF |
 | `--comparer` | Semantic LLM diff |
+| `--llm local\|claude` | Engine for `--comparer` and `--llm-en-complement` (default `local`; `claude` sends the captures to the Anthropic API, v1.24.2) |
 | `--nom NAME` | View name (multiple views per URL) |
 | `--seuil-stable F` | `stable` threshold (default: 0.002 = 0.2%) |
 | `--seuil-regression F` | `regression` threshold (default: 0.05 = 5%) |

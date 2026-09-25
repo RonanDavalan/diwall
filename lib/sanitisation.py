@@ -90,14 +90,45 @@ def _entropie_shannon(texte):
 
 _SEUIL_ENTROPIE_BASE64 = 3.5
 
+# Chaîne structurée : faite de mots séparés par / _ - . + =, comme un chemin,
+# un nom de page, une ancre ou un identifiant de code. Le plancher d'entropie
+# ne suffit pas à les écarter : mesuré le 25/09/2026, il laissait masquer 810
+# des 834 chaînes de 32 caractères et plus du site construit, 78 sur 79 dans
+# docs/ — `fr/guides/ecrire-un-scenario/`, `_CADRE/SPECIFICATIONS/...`.
+# Un segment est un mot s'il est en minuscules, en capitales, en chiffres, un
+# mot suivi d'un court numéro (`v170`, `PHASE6`), ou du camelCase dont au plus
+# un caractère sur quatre est une capitale — un jeton aléatoire fait
+# uniquement de lettres a nettement plus de capitales qu'un identifiant écrit
+# par quelqu'un. Un segment de trois caractères ou moins ne porte pas assez
+# d'aléa pour compter. Un seul segment qui n'est pas un mot suffit à garder la
+# chaîne suspecte : un jeton aléatoire en contient toujours un, sauf cas mesuré
+# à moins de 1 sur 10 000 (jeton sans aucun chiffre et d'allure camelCase).
+# Une empreinte hexadécimale ou un UUID restent masqués : ils ont exactement la
+# forme d'une clé d'API hexadécimale, rien ne permet de les distinguer.
+_SEPARATEURS_MOTS = re.compile(r"[/+=_.-]")
+_SEGMENT_MOT = re.compile(r"^(?:[a-z]+|[A-Z]+|[0-9]+|(?:[a-z]+|[A-Z]+)[0-9]{1,4})$")
+_SEGMENT_CAMEL = re.compile(r"^(?:[A-Z]?[a-z]+)+$")
+
+
+def _segment_est_un_mot(segment):
+    if len(segment) <= 3 or _SEGMENT_MOT.match(segment):
+        return True
+    return bool(_SEGMENT_CAMEL.match(segment)) and 4 * sum(c.isupper() for c in segment) <= len(segment)
+
+
+def _chaine_structuree(texte):
+    """Vrai si `texte` n'est fait que de mots séparés — voir ci-dessus."""
+    return all(_segment_est_un_mot(seg) for seg in _SEPARATEURS_MOTS.split(texte) if seg)
+
 
 def _forme_secrete(texte):
     """Vrai si `texte` porte une forme de secret : JWT, ou segment base64
-    long avec une entropie suffisante pour exclure les chaînes structurées."""
+    long, d'entropie suffisante, qui n'est pas une chaîne de mots séparés."""
     if _MOTIF_JWT.search(texte):
         return True
     for m in _BASE64_LONGUE.finditer(texte):
-        if _entropie_shannon(m.group(0)) >= _SEUIL_ENTROPIE_BASE64:
+        segment = m.group(0)
+        if _entropie_shannon(segment) >= _SEUIL_ENTROPIE_BASE64 and not _chaine_structuree(segment):
             return True
     return False
 

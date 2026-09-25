@@ -103,6 +103,7 @@ jobs:
             v1.21.0_validation \
             v1.22.0_validation \
             v1.24.1_validation \
+            v1.24.2_validation \
           ; do
             echo "::group::$suite"
             python3 "scenarios/$suite/verifier.py"

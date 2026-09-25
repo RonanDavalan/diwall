@@ -4,6 +4,47 @@ History of decisions and discoveries by session, in reverse chronological order.
 
 ---
 
+## 2026-09-25 — v1.24.2: secret filter spares structured strings, `diwall-watch --llm claude` works, channel guard, full purge
+
+**Secret filter.** The high-entropy base64 net (32 characters or more from
+`[A-Za-z0-9+/=_-]`, entropy at least 3.5 bits) treated `/`, `_`, `-` and `=` as
+part of a token. Measured on the built site: 810 of the 834 strings of 32
+characters or more were masked — page paths, anchors, file names, test names
+— and 78 of 79 in `docs/`; FR-88 had reported the same on a CSS attribute
+selector. A string made only of words separated by those characters (lowercase,
+capitals, digits, a word with a short number such as `v170`, or camelCase with
+at most one capital in four characters) is now left alone; a single segment
+that is not a word keeps it suspect. On 100 000 generated tokens of eight real
+shapes, the number that escape is at most 2 in 20 000, all without any digit
+and camelCase-looking. Hexadecimal digests and UUIDs stay masked: they have
+exactly the shape of a hexadecimal API key and nothing tells them apart.
+
+**`diwall-watch --llm claude`.** Offered by `--help` since v1.2, it raised
+`NotImplementedError`. It now sends both captures to the Anthropic API with the
+model already used by `diwall-shot --llm claude`, reads the same JSON contract
+as the local model, and applies to `--llm-en-complement`, which previously
+always called the local model whatever `--llm` said. A missing module, a
+refused key or a model refusal is reported as a message, not a traceback. The
+alternative — removing the option from `--help` — was rejected: the mode is an
+explicit operator choice, like `diwall-shot --llm claude`, and the local model
+stays the default.
+
+**Channel guard.** `scripts/install.sh` and `scripts/deploy.sh` refuse to run
+when the Debian package is installed: copying the clone over `/opt/diwall`
+replaced files dpkg believed its own, and the next upgrade or purge undid them
+silently. A package removed but not purged does not block.
+
+**Purge.** `postinst` creates `/opt/diwall/references/` and
+`/opt/diwall/.cache/` outside dpkg's file list, so `apt purge` left
+`/opt/diwall` behind. Purge now removes both; `remove` still keeps them.
+
+**Validation.** `scenarios/v1.24.2_validation/verifier.py`, six offline tests
+added to CI — the Claude path runs end to end against a stand-in `anthropic`
+module that records the request instead of sending it. On v1.24.1 the same
+suite fails four tests out of six.
+
+---
+
 ## 2026-09-25 — v1.24.1: the browser declares a language, a narrower JWT shape, a fixed git-clone install
 
 **Language.** A browser context created without a locale lets Chromium take

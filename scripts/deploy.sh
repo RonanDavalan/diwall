@@ -7,6 +7,10 @@ REPO="$(cd "$(dirname "$0")/.." && pwd)"
 DEST="/opt/diwall"
 GROUPE="diwall"
 
+# shellcheck source=garde_canal_deb.sh
+source "$REPO/scripts/garde_canal_deb.sh"
+garde_canal_deb
+
 # Fichiers de code à déployer (relatifs à REPO)
 CODE_FILES=(
     shot.py

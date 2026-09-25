@@ -31,6 +31,11 @@ done
 echo "=== Diwall — installation depuis $REPO ==="
 echo ""
 
+# Avant toute écriture : voir garde_canal_deb.sh.
+# shellcheck source=garde_canal_deb.sh
+source "$REPO/scripts/garde_canal_deb.sh"
+garde_canal_deb
+
 # ── Étape 1 — Utilisateur et groupe système ──────────────────────────────────
 # Le groupe est créé séparément car userdel ne supprime pas le groupe primaire
 # sous Debian (il peut rester orphelin après désinstallation). useradd échoue

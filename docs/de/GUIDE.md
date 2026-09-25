@@ -1,6 +1,6 @@
 # Diwall – Bedienungsanleitung
 
-Version 1.10 – September 2026 (v1.24.1) – vier weitere Demonstrationsanwendungsfälle (selbstgehostete Observability, Verwaltung von Ticketing-Plattformen, Verfolgung lokaler Veranstaltungen, E-Commerce-Zugriff unter Verwendung von "Respectful Navigation").
+Version 1.10 – September 2026 (v1.24.2) – vier weitere Demonstrationsanwendungsfälle (selbstgehostete Observability, Verwaltung von Ticketing-Plattformen, Verfolgung lokaler Veranstaltungen, E-Commerce-Zugriff unter Verwendung von "Respectful Navigation").
 
 *Ebenfalls auf Französisch, Deutsch und Spanisch unter `docs/fr/`, `docs/de/` und `docs/es/`.*
 

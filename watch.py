@@ -35,16 +35,18 @@ from datetime import datetime, timezone
 from urllib.parse import urlparse
 
 
-__version__ = "1.24.1"
+__version__ = "1.24.2"
 
 REFERENCES_DIR = "/opt/diwall/references"
 SHOT_SCRIPT = "/opt/diwall/shot.py"
 OLLAMA_URL = "http://localhost:11434/api/generate"
 OLLAMA_MODEL = "qwen3-vl:2b"
-CLAUDE_MODEL = "claude-haiku-4-5-20251001"
-
 # Permet d'importer lib/ depuis le même répertoire que watch.py
 sys.path.insert(0, os.path.dirname(os.path.abspath(__file__)))
+
+# Un seul modèle Claude pour Diwall : celui de lib/vision.py, déjà utilisé par
+# diwall-shot --llm claude.
+from lib.vision import CLAUDE_MODEL  # noqa: E402
 
 from lib.sanitisation import (
     _sanitiser_url_journal,
@@ -74,7 +76,7 @@ def parse_args():
     p.add_argument("--prompt", default=PROMPT_DEFAUT,
                    help="Prompt LLM pour la comparaison (remplace le prompt par défaut)")
     p.add_argument("--llm", choices=["local", "claude"], default="local",
-                   help="Mode LLM : local (Ollama llava) ou claude (API Anthropic)")
+                   help="Mode LLM : local (Ollama, défaut) ou claude (API Anthropic — les captures quittent la machine)")
     p.add_argument("--ntfy-url", dest="ntfy_url",
                    help="URL ntfy pour les notifications push en cas d'alerte")
     p.add_argument("--timeout", type=int, default=10000,
@@ -188,7 +190,57 @@ def comparer_ollama(ref_path, actuel_path, prompt):
 
 
 def comparer_claude(ref_path, actuel_path, prompt):
-    raise NotImplementedError("Mode claude API non implémenté (Phase 4+). Utiliser --llm local.")
+    """Même contrat que comparer_ollama, par l'API Anthropic : les deux
+    captures quittent la machine. Mode choisi explicitement par l'opérateur
+    (--llm claude), jamais un défaut. Lève RuntimeError avec un message
+    actionnable si le module ou les identifiants manquent."""
+    try:
+        import anthropic
+    except ImportError:
+        raise RuntimeError(
+            "--llm claude nécessite le module anthropic, absent de l'installation "
+            "standard : sudo /opt/diwall/venv/bin/pip install anthropic — "
+            f"ou utiliser --llm local (Ollama {OLLAMA_MODEL})."
+        )
+    from lib.vision import reduire_pour_api_claude, _extraire_json
+
+    def image(path):
+        return {"type": "image", "source": {
+            "type": "base64", "media_type": "image/png",
+            "data": reduire_pour_api_claude(path),
+        }}
+
+    try:
+        message = anthropic.Anthropic().messages.create(
+            model=CLAUDE_MODEL,
+            max_tokens=1024,
+            messages=[{"role": "user", "content": [
+                {"type": "text", "text": "Capture de référence :"},
+                image(ref_path),
+                {"type": "text", "text": "Capture actuelle :"},
+                image(actuel_path),
+                {"type": "text", "text": prompt},
+            ]}],
+        )
+    except anthropic.AuthenticationError:
+        raise RuntimeError(
+            "--llm claude : identifiants Anthropic refusés ou absents "
+            "(ANTHROPIC_API_KEY dans l'environnement du processus)."
+        )
+    except anthropic.APIConnectionError:
+        raise RuntimeError("--llm claude : API Anthropic injoignable.")
+    except anthropic.AnthropicError as e:
+        raise RuntimeError(f"--llm claude : erreur de l'API Anthropic ({type(e).__name__}).")
+
+    if message.stop_reason == "refusal":
+        raise RuntimeError("--llm claude : le modèle a refusé la comparaison.")
+    raw = "".join(b.text for b in message.content if b.type == "text")
+    analyse = _extraire_json(raw)
+    if not isinstance(analyse, dict):
+        changement = "changement" in raw.lower() and "true" in raw.lower()
+        analyse = {"changement_detecte": changement, "analyse": raw.strip(), "priorite": "basse"}
+    analyse["_modele"] = CLAUDE_MODEL
+    return analyse
 
 
 def notifier_ntfy(ntfy_url, url, analyse, priorite="basse"):
@@ -725,11 +777,14 @@ def comparer_pixel(args):
     analyse_llm = None
     if args.llm_en_complement and verdict != "stable":
         try:
-            analyse = comparer_ollama(ref_path, cap_path, args.prompt)
+            if args.llm == "claude":
+                analyse = comparer_claude(ref_path, cap_path, args.prompt)
+            else:
+                analyse = comparer_ollama(ref_path, cap_path, args.prompt)
             analyse_llm = analyse.get("analyse")
             modeles_appeles.append({
-                "_tag": analyse.get("_modele", OLLAMA_MODEL),
-                "mode_llm": "local",
+                "_tag": analyse["_modele"],
+                "mode_llm": args.llm,
                 "role": "comparaison_semantique",
             })
         except Exception as e:
@@ -837,6 +892,7 @@ def main():
         }, args.sortie_json)
         sys.exit(1)
 
+    code_sortie = 0
     if args.sauver_reference:
         result = sauver_reference(
             args.url, args.timeout,
@@ -855,11 +911,16 @@ def main():
                 "message": sanitiser_urls_dans_chaine(str(e)),
             }, args.sortie_json)
             sys.exit(1)
-        result = comparer(
-            args.url, args.prompt, args.llm, args.ntfy_url, args.timeout,
-            zones=zones,
-            nom=args.nom,
-        )
+        try:
+            result = comparer(
+                args.url, args.prompt, args.llm, args.ntfy_url, args.timeout,
+                zones=zones,
+                nom=args.nom,
+            )
+        except Exception as e:
+            result = {"succes": False, "url": args.url,
+                      "erreur": sanitiser_urls_dans_chaine(str(e))}
+            code_sortie = 1
         _journaliser_run_watch(result, args.url, mutatif=False,
                                intention=args.intention)
     else:
@@ -871,6 +932,7 @@ def main():
         sys.exit(1)
 
     _emettre_resultat(result, args.sortie_json)
+    sys.exit(code_sortie)
 
 
 if __name__ == "__main__":

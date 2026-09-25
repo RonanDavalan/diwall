@@ -1,6 +1,6 @@
 # Diwall – Betriebshandbuch
 
-**Version 1.24.1 – September 2026**
+**Version 1.24.2 – September 2026**
 
 *Ebenfalls auf Französisch, Deutsch und Spanisch unter `docs/fr/`, `docs/de/` und `docs/es/`.*
 
@@ -105,8 +105,12 @@ sudo nano /etc/diwall/diwall.conf
 sudo usermod -aG diwall $USER
 ```
 
-`apt remove diwall` behält `/var/log/diwall/` (Operationsprotokoll, Beweismittel)
-unverändert – `apt purge diwall` löscht es ebenfalls. `~/Vaults/` wird von keiner der beiden Funktionen auf beiden Kanälen beeinflusst.
+`apt remove diwall` lässt `/var/log/diwall/` (Operationsjournal, Nachweise)
+unverändert – `apt purge diwall` entfernt es ebenfalls, zusammen mit `/etc/diwall/`,
+den Referenzaufnahmen von `watch.py` (`/opt/diwall/references/`) und dem
+heruntergeladenen Chromium: Unter `/opt/diwall/` bleibt nichts zurück (v1.24.2).
+Sichern Sie `/opt/diwall/references/` vorher, wenn Sie Ihre Referenzen behalten
+möchten. `~/Vaults/` wird von keinem der beiden Befehle verändert, auf beiden Kanälen.
 
 **Handbuchseite (v1.22.0):** `man diwall` dokumentiert alle sechs Befehle auf
 einer einzigen Seite. Die fünf anderen Befehlsnamen (`man diwall-rpa` und so
@@ -146,6 +150,12 @@ bash ~/git/Diwall/Diwall/scripts/deploy.sh
 mkdir -p ~/Vaults/<your-project>/Diwall
 # Erstellen Sie die Datei `~/Vaults/<ihr-projekt>/Diwall/<hostname>.json` mit Ihren Zugangsdaten.
 ```
+
+Ist Diwall bereits über das `.deb` installiert, verweigern `install.sh` und
+`deploy.sh` die Ausführung (v1.24.2): Sie würden Dateien überschreiben, die dpkg
+verwaltet, und das nächste Upgrade oder die nächste Bereinigung des Pakets würde
+sie stillschweigend rückgängig machen. Führen Sie zuerst `sudo apt purge diwall`
+aus, um den Kanal zu wechseln.
 
 Auf diesem Kanal ist die Konfiguration `/opt/diwall/diwall.conf`, nicht
 `/etc/diwall/diwall.conf`. Deinstallieren Sie zuerst mit
@@ -1138,6 +1148,22 @@ Kombinieren Sie Pixel-Differenzanalyse und LLM-Analyse:
 --llm-en-complement   # LLM only if pixel verdict is drift or regression
 ```
 
+`--llm claude` (v1.24.2) sendet sowohl die Referenzaufnahme als auch die aktuelle Aufnahme an die
+Anthropic API anstelle des lokalen Modells; dies gilt sowohl für `--comparer` als auch für
+`--llm-en-complement`. Die Aufnahmen verlassen den Computer und werden so reduziert, dass
+ihre längste Seite 1568 px nicht überschreitet, was die Größe ist, mit der die API arbeitet. Es benötigt
+das Modul `anthropic`, das in einer Standardinstallation nicht vorhanden ist, und einen Schlüssel in der
+Umgebung des Prozesses:
+
+```bash
+sudo /opt/diwall/venv/bin/pip install anthropic
+ANTHROPIC_API_KEY=... diwall-watch --url https://target.local/status --comparer --llm claude --guide-version 1.3
+```
+
+Ein fehlendes Modul, ein verweigerter Schlüssel oder eine Ablehnung des Modells wird als eine einfache
+Nachricht in der Ausgabe angezeigt (`erreur`, oder `analyse_llm` im Pixelmodus), niemals als
+Traceback.
+
 ### 8d. Eine animierte Zone ignorieren
 
 ```bash
@@ -1346,13 +1372,14 @@ Fügen Sie keinen Eintrag ``copytruncate`` zu einer Diwall-Logrotate-Konfigurati
 | `--sauver-reference` | Erfassen und als Referenz speichern |
 | `--comparer-pixel REF` | Pixel-Differenz im Vergleich zur PNG-Datei REF |
 | `--comparer` | Semantische LLM-Differenz |
-| `--nom NAME` | Anzeigename (mehrere Ansichten pro URL) |
-| `--seuil-stable F` | `stable` Schwellenwert (Standard: 0.002 = 0,2 %) |
-| `--seuil-regression F` | `regression` Schwellenwert (Standard: 0.05 = 5 %) |
-| `--exclure-zone X,Y,W,H` | Zu ignorierende Zone (wiederholbar) |
+| `--llm local\|claude` | Engine für `--comparer` und `--llm-en-complement` (Standard: `local`; `claude` sendet die Erfassungen an die Anthropic API, v1.24.2) |
+| `--nom NAME` | Name der Ansicht (mehrere Ansichten pro URL) |
+| `--seuil-stable F` | `stable` Schwellenwert (Standard: 0.002 = 0.2%) |
+| `--seuil-regression F` | `regression` Schwellenwert (Standard: 0.05 = 5%) |
+| `--exclure-zone X,Y,W,H` | Zone, die ignoriert werden soll (wiederholbar) |
 | `--heatmap` | Erzeugt ein PNG der geänderten Zonen |
 | `--ntfy-url URL` | Sendet eine ntfy-Benachrichtigung bei Regression |
-| `--llm-en-complement` | Fügt eine LLM-Differenz hinzu, wenn Pixel = Drift oder Regression |
+| `--llm-en-complement` | Fügt eine LLM-Differenz hinzu, wenn die Pixel-Differenz eine Abweichung oder Regression darstellt |
 
 ---
 

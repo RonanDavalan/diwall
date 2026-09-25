@@ -3078,3 +3078,67 @@ vérifie désormais que chaque module de `lib/` figure dans la liste de
 installer par le paquet `.deb`.
 
 **Version :** corrigé en Diwall v1.24.1.
+
+---
+
+## FR-94 — Le filtre de secrets masque chemins, ancres et noms de fichiers longs
+
+**Symptôme** : une valeur renvoyée par `evaluer` qui contient un chemin, une
+ancre ou un identifiant de 32 caractères ou plus sans espace
+(`fr/guides/ecrire-un-scenario/`, `_CADRE/SPECIFICATIONS/CHANTIER_SANITISATION`)
+revient remplacée par `<valeur_filtree>` ; un script qui en contient un est
+refusé (`action_secret_en_clair`). Même famille que FR-88.
+
+**Cause** : le filet base64 à haute entropie compte `/`, `_`, `-` et `=` comme
+caractères d'un jeton. Mesuré sur le site construit : 810 des 834 chaînes de
+32 caractères et plus étaient masquées.
+
+**Correctif** : une chaîne faite uniquement de mots séparés par ces caractères
+n'est plus prise pour un secret. Un seul segment qui n'est pas un mot suffit à
+la garder suspecte ; les jetons de formes réelles restent détectés (au plus 2
+échappés sur 20 000 tirages). Les empreintes hexadécimales et les UUID restent
+masqués : ils ont la forme d'une clé d'API hexadécimale.
+
+**Contournement jusqu'à la version 1.24.1** : couper la chaîne par un caractère
+hors du jeu surveillé (guillemets, espace), ou la renvoyer en morceaux.
+
+**Version :** corrigé en Diwall v1.24.2.
+
+---
+
+## FR-95 — `diwall-watch --llm claude` proposé par `--help`, mais non implémenté
+
+**Symptôme** : `--comparer --llm claude` s'arrête sur `NotImplementedError` ;
+`--comparer-pixel --llm-en-complement --llm claude` appelle le modèle local
+sans le dire.
+
+**Cause** : le mode figurait dans les choix de l'option depuis la v1.2 sans
+implémentation ; le complément du mode pixel appelait Ollama en dur.
+
+**Correctif** : les deux captures sont envoyées à l'API Anthropic avec le
+modèle de `diwall-shot --llm claude`, réduites à 1568 px de plus grand côté ;
+le complément suit `--llm`. Module `anthropic` absent, clé refusée ou refus du
+modèle : message lisible, jamais de trace Python.
+
+**Version :** corrigé en Diwall v1.24.2.
+
+---
+
+## FR-96 — `apt purge diwall` laisse `/opt/diwall`
+
+**Symptôme** : après `sudo apt purge diwall`, dpkg signale « le répertoire
+/opt/diwall n'était pas vide, donc il n'a pas été supprimé » ; restent
+`references/` (captures de référence de `watch.py`) et `.cache/` (Chromium,
+plusieurs centaines de Mo).
+
+**Cause** : `postinst` crée ces deux répertoires hors de la liste des fichiers
+du paquet ; dpkg ne supprime que ce qu'il possède.
+
+**Correctif** : `postrm purge` les supprime, puis `/opt/diwall` s'il est vide.
+`apt remove` les conserve toujours.
+
+**Contournement jusqu'à la version 1.24.1** : `sudo rm -rf /opt/diwall` après
+la purge.
+
+**Version :** corrigé en Diwall v1.24.2.
+

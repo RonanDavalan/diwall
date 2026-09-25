@@ -1,6 +1,6 @@
 # Diwall — Manual de operación
 
-**Versión 1.24.1 — Septiembre de 2026**
+**Versión 1.24.2 — Septiembre de 2026**
 
 *También disponible en francés, alemán y español bajo `docs/fr/`, `docs/de/` y `docs/es/`.*
 
@@ -104,8 +104,11 @@ sudo usermod -aG diwall $USER
 ```
 
 `apt remove diwall` mantiene `/var/log/diwall/` (registro de operaciones, evidencia)
-intacto; `apt purge diwall` también lo elimina. `~/Vaults/` nunca es modificado por
-ninguno de los dos, en ambos canales.
+intacto; `apt purge diwall` también lo elimina, junto con `/etc/diwall/`, las
+capturas de referencia de `watch.py` (`/opt/diwall/references/`) y el Chromium
+descargado: no queda nada en `/opt/diwall/` (v1.24.2). Guarde antes
+`/opt/diwall/references/` si desea conservar sus referencias. `~/Vaults/` nunca
+es modificado por ninguno de los dos, en ambos canales.
 
 **Página del manual (v1.22.0):** `man diwall` documenta los seis comandos en una
 sola página. Los otros cinco nombres de comandos (`man diwall-rpa`, y así sucesivamente)
@@ -143,6 +146,11 @@ bash ~/git/Diwall/Diwall/scripts/deploy.sh
 mkdir -p ~/Vaults/<your-project>/Diwall
 # Cree el archivo `~/Vaults/<su-proyecto>/Diwall/<nombre_de_host>.json` con sus credenciales.
 ```
+
+Si Diwall ya está instalado desde el `.deb`, `install.sh` y `deploy.sh`
+se niegan a ejecutarse (v1.24.2): sobrescribirían archivos que dpkg gestiona, y
+la próxima actualización o desinstalación del paquete los revertiría silenciosamente. Ejecute
+`sudo apt purge diwall` primero para cambiar de canal.
 
 En este canal, la configuración es `/opt/diwall/diwall.conf`, no
 `/etc/diwall/diwall.conf`. Desinstala con
@@ -1129,6 +1137,22 @@ Combina el análisis de diferencias de píxeles con el análisis de modelos de l
 --llm-en-complement   # LLM only if pixel verdict is drift or regression
 ```
 
+`--llm claude` (v1.24.2) envía las dos capturas — la de referencia y la actual —
+a la API de Anthropic en lugar del modelo local; se aplica tanto a `--comparer`
+como a `--llm-en-complement`. Las capturas salen de la máquina, reducidas para
+que su lado más largo no supere los 1568 px, el tamaño con el que trabaja la API.
+Necesita el módulo `anthropic`, ausente de una instalación estándar, y una clave
+en el entorno del proceso:
+
+```bash
+sudo /opt/diwall/venv/bin/pip install anthropic
+ANTHROPIC_API_KEY=... diwall-watch --url https://target.local/status --comparer --llm claude --guide-version 1.3
+```
+
+Un módulo ausente, una clave rechazada o un rechazo del modelo se devuelven como
+un mensaje en la salida (`erreur`, o `analyse_llm` en modo píxel), nunca como un
+traceback.
+
 ### 8d. Ignorar una zona animada
 
 ```bash
@@ -1331,21 +1355,22 @@ Propaga todas las banderas relevantes de shot.py, además de:
 
 ### watch.py
 
-| Flag | Descripción |
+| Flag | Description |
 |---|---|
 | `--version` | Imprime la versión instalada y sale inmediatamente (v1.18.0) |
-| `--guide-version X.Y` | Prueba de lectura de `docs/GUIDE_LLM.md` — verificada independientemente, misma regla que shot.py (v1.18.0) |
+| `--guide-version X.Y` | Prueba de lectura de `docs/GUIDE_LLM.md` — verificada de forma independiente, misma regla que shot.py (v1.18.0) |
 | `--url URL` | URL a monitorizar |
 | `--sauver-reference` | Captura y guarda como referencia |
 | `--comparer-pixel REF` | Diferencia de píxeles con respecto al archivo PNG REF |
-| `--comparer` | Diferencia semántica del modelo de lenguaje (LLM) |
+| `--comparer` | Diferencia semántica del LLM |
+| `--llm local\|claude` | Motor para `--comparer` y `--llm-en-complement` (por defecto `local`; `claude` envía las capturas a la API de Anthropic, v1.24.2) |
 | `--nom NAME` | Nombre de la vista (múltiples vistas por URL) |
 | `--seuil-stable F` | Umbral de `stable` (por defecto: 0.002 = 0.2%) |
 | `--seuil-regression F` | Umbral de `regression` (por defecto: 0.05 = 5%) |
 | `--exclure-zone X,Y,W,H` | Zona a ignorar (repetible) |
 | `--heatmap` | Produce una imagen PNG de las zonas modificadas |
 | `--ntfy-url URL` | Envía una alerta ntfy en caso de regresión |
-| `--llm-en-complement` | Agrega la diferencia del modelo de lenguaje cuando el valor de píxel indica deriva o regresión |
+| `--llm-en-complement` | Añade la diferencia del LLM cuando el píxel es una desviación o una regresión |
 
 ---
 

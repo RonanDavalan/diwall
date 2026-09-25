@@ -1,6 +1,6 @@
 # Diwall — Guía del operador
 
-Versión 1.10 — Septiembre de 2026 (v1.24.1) — cuatro casos de uso de demostración adicionales (observabilidad alojada localmente, administración de plataforma de ticketing, seguimiento de eventos locales, acceso a comercio electrónico bajo "Navegación Respetuosa").
+Versión 1.10 — Septiembre de 2026 (v1.24.2) — cuatro casos de uso de demostración adicionales (observabilidad alojada localmente, administración de plataforma de ticketing, seguimiento de eventos locales, acceso a comercio electrónico bajo "Navegación Respetuosa").
 
 *También disponible en francés, alemán y español bajo `docs/fr/`, `docs/de/` y `docs/es/`.*
 

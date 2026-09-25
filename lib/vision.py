@@ -43,6 +43,27 @@ def _reduire_et_b64(path):
     return base64.b64encode(buf.getvalue()).decode()
 
 
+# Côté le plus long d'une image envoyée à l'API Anthropic : au-delà, l'API
+# redimensionne elle-même avant analyse. Envoyer plus grand n'apporte aucun
+# détail au modèle et fait sortir de la machine des pixels inutiles.
+COTE_MAX_API_CLAUDE = 1568
+
+
+def reduire_pour_api_claude(path, cote_max=COTE_MAX_API_CLAUDE):
+    """PNG en base64, réduit en conservant les proportions pour que son plus
+    grand côté ne dépasse pas `cote_max`. À la différence de _reduire_et_b64
+    (taille fixe, suffisante pour localiser un élément), une comparaison de
+    deux captures a besoin de toute la page lisible."""
+    from PIL import Image
+    import io
+
+    img = Image.open(path)
+    img.thumbnail((cote_max, cote_max), Image.LANCZOS)
+    buf = io.BytesIO()
+    img.save(buf, format="PNG", optimize=True)
+    return base64.b64encode(buf.getvalue()).decode()
+
+
 def _prompt(description, largeur, hauteur):
     return (
         f"Tu analyses une capture d'écran de {largeur}x{hauteur} pixels. "

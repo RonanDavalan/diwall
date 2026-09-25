@@ -4,6 +4,15 @@ Generated from `debian/changelog` at build time — do not edit by hand.
 Edit `debian/changelog` and rebuild instead
 (`bash ~/git/Diwall/scripts/construire-paquet.sh`).
 
+## 1.24.2 — 25 Sep 2026 09:26:13 +0200
+
+- Corrective release, no new capability for an existing workflow.
+- lib/sanitisation.py: the high-entropy base64 net no longer masks strings made only of words separated by / _ - . + = (page paths, anchors, file and test names); measured, 810 of 834 such strings on the built site were masked. A single non-word segment keeps a string suspect; hexadecimal digests and UUIDs stay masked, since they share the shape of an API key.
+- watch.py: --llm claude, offered by --help and never implemented, now sends both captures to the Anthropic API; --llm-en-complement follows --llm instead of always calling the local model. Missing module, refused key and model refusal are reported as messages.
+- scripts/install.sh, scripts/deploy.sh: refuse to run when the Debian package is installed, instead of overwriting files dpkg manages.
+- debian/postrm: purge also removes /opt/diwall/references and the downloaded Chromium, so nothing is left under /opt/diwall.
+- scenarios/v1.24.2_validation: six offline tests, added to CI.
+
 ## 1.24.1 — 25 Sep 2026 00:59:25 +0200
 
 - Corrective release, no new capability.

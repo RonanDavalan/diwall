@@ -1,6 +1,6 @@
 # Diwall — Manuel d'utilisation
 
-**Version 1.24.1 — Septembre 2026**
+**Version 1.24.2 — Septembre 2026**
 
 *Également disponible en français, allemand et espagnol sous `docs/fr/`, `docs/de/` et `docs/es/`.*
 
@@ -102,9 +102,12 @@ sudo nano /etc/diwall/diwall.conf
 sudo usermod -aG diwall $USER
 ```
 
-`apt remove diwall` conserve `/var/log/diwall/` (journal des opérations, preuves)
-inchangés — `apt purge diwall` supprime également cela. `~/Vaults/` n'est jamais modifié par
-l'un ou l'autre, sur les deux canaux.
+`apt remove diwall` laisse intact `/var/log/diwall/` (journal des opérations,
+preuves) — `apt purge diwall` le supprime aussi, avec `/etc/diwall/`, les
+captures de référence de `watch.py` (`/opt/diwall/references/`) et le Chromium
+téléchargé : il ne reste rien sous `/opt/diwall/` (v1.24.2). Sauvegardez
+d'abord `/opt/diwall/references/` si vous voulez garder vos références.
+`~/Vaults/` n'est jamais modifié par l'un ou l'autre, sur les deux canaux.
 
 **Page de manuel (v1.22.0):** `man diwall` documente les six commandes sur une seule page. Les cinq autres noms de commandes (`man diwall-rpa`, etc.) renvoient à la même page. Elle est générée à partir de `debian/diwall.1.md` au moment de la compilation, elle ne peut donc pas devenir obsolète sans avertissement, mais pour la liste exhaustive des options de toute commande, `--help` reste la source d'information privilégiée par rapport à la page de manuel.
 
@@ -139,6 +142,11 @@ bash ~/git/Diwall/Diwall/scripts/deploy.sh
 mkdir -p ~/Vaults/<your-project>/Diwall
 # Créez le fichier `~/Vaults/<votre_projet>/Diwall/<nom_d'hôte>.json` avec vos identifiants.
 ```
+
+Si Diwall est déjà installé par le `.deb`, `install.sh` et `deploy.sh` refusent
+de s'exécuter (v1.24.2) : ils écraseraient des fichiers que gère dpkg, et la
+prochaine mise à jour ou purge du paquet les déferait sans prévenir. Lancez
+d'abord `sudo apt purge diwall` pour changer de canal.
 
 Sur ce canal, la configuration est `/opt/diwall/diwall.conf`, et non
 `/etc/diwall/diwall.conf`. Désinstallez avec
@@ -1129,6 +1137,22 @@ Combiner l'analyse des différences de pixels et l'analyse par modèle linguisti
 --llm-en-complement   # LLM only if pixel verdict is drift or regression
 ```
 
+`--llm claude` (v1.24.2) envoie les deux captures — la référence et l'actuelle —
+à l'API Anthropic au lieu du modèle local ; il s'applique à `--comparer` comme à
+`--llm-en-complement`. Les captures quittent la machine, réduites pour que leur
+plus grand côté ne dépasse pas 1568 px, la taille à laquelle l'API travaille. Il
+faut le module `anthropic`, absent d'une installation standard, et une clé dans
+l'environnement du processus :
+
+```bash
+sudo /opt/diwall/venv/bin/pip install anthropic
+ANTHROPIC_API_KEY=... diwall-watch --url https://target.local/status --comparer --llm claude --guide-version 1.3
+```
+
+Un module absent, une clé refusée ou un refus du modèle revient sous forme de
+message dans la sortie (`erreur`, ou `analyse_llm` en mode pixel), jamais sous
+forme de trace Python.
+
 ### 8d. Ignorer une zone animée
 
 ```bash
@@ -1341,13 +1365,14 @@ Transmet tous les drapeaux shot.py pertinents, ainsi que :
 | `--sauver-reference` | Capture et sauvegarde comme référence |
 | `--comparer-pixel REF` | Différence de pixels par rapport au fichier PNG REF |
 | `--comparer` | Différence sémantique LLM |
+| `--llm local\|claude` | Moteur pour `--comparer` et `--llm-en-complement` (par défaut `local`; `claude` envoie les captures à l'API Anthropic, v1.24.2) |
 | `--nom NAME` | Nom de la vue (plusieurs vues par URL) |
-| `--seuil-stable F` | Seuil `stable` (par défaut : 0.002 = 0,2 %) |
-| `--seuil-regression F` | Seuil `regression` (par défaut : 0.05 = 5 %) |
+| `--seuil-stable F` | Seuil `stable` (par défaut : 0.002 = 0.2%) |
+| `--seuil-regression F` | Seuil `regression` (par défaut : 0.05 = 5%) |
 | `--exclure-zone X,Y,W,H` | Zone à ignorer (répétable) |
 | `--heatmap` | Produit une image PNG des zones modifiées |
 | `--ntfy-url URL` | Envoie une alerte ntfy en cas de régression |
-| `--llm-en-complement` | Ajoute la différence LLM lorsque le pixel = dérive ou régression |
+| `--llm-en-complement` | Ajoute une différence LLM lorsque le pixel = dérive ou régression |
 
 ---
 
