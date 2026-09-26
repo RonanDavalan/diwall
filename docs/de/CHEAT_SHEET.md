@@ -1,6 +1,6 @@
 # Diwall – Schnellreferenz
 
-Version 1.24.3 – September 2026
+Version 1.24.4 – September 2026
 
 Alles auf einer Seite. Vollständige Referenz: `docs/MANUEL.md`.
 

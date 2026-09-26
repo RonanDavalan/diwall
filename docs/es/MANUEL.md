@@ -1,6 +1,6 @@
 # Diwall — Manual de operación
 
-**Versión 1.24.3 — Septiembre de 2026**
+**Versión 1.24.4 — Septiembre de 2026**
 
 *También disponible en francés, alemán y español bajo `docs/fr/`, `docs/de/` y `docs/es/`.*
 
@@ -72,17 +72,33 @@ ls ~/Vaults/__PROJET__/Diwall/
 Si `ls ~/Vaults/...` devuelve una lista vacía o un error:
 → móntalo: `bash ~/git/Diwall/Diwall/scripts/monter-repertoire-chiffre.sh`
 
-### 1a. Instalación desde el paquete de Debian: la opción más sencilla
+### 1a. Instalación desde un paquete: el camino más sencillo.
 
-El `.deb` es un recurso de lanzamiento en GitHub. Es el canal recomendado a menos que tenga la intención de modificar el propio código de Diwall, en cuyo caso consulte 1b. Los dos canales son mutuamente excluyentes en una sola máquina; ambos apuntan a `/opt/diwall/`.
+Los paquetes son recursos de lanzamiento en GitHub. Este es el canal recomendado,
+a menos que tenga la intención de modificar el código propio de Diwall, en cuyo caso, consulte 1b. Los dos
+canales son mutuamente excluyentes en una sola máquina; ambos apuntan a
+`/opt/diwall/`.
 
 ```bash
-sudo apt install ./diwall_1.23.0-1_all.deb
+sudo apt install ./diwall_1.24.4-1_all.deb                          # Debian 13, Ubuntu 24.04, Ubuntu 26.04
+sudo dnf install ./diwall-1.24.4-1.fc44.noarch.rpm                  # Fedora 44
+sudo zypper install --allow-unsigned-rpm ./diwall-1.24.4-1.leap160.noarch.rpm   # openSUSE Leap 16.0
+sudo pacman -U ./diwall-1.24.4-1-any.pkg.tar.zst                    # Arch Linux
 diwall-shot --version
 man diwall
 ```
 
-La instalación de `.deb` requiere acceso a la red (la instalación de dependencias y la descarga de Chromium ocurren durante `postinst`). Seis comandos están disponibles, cada uno una capa delgada: no hay diferencia funcional con las propias llamadas del canal "git-clone":
+Cada paquete fue validado en un contenedor limpio de su sistema: instalación,
+un lanzamiento real de Chromium por `diwall-shot`, eliminación. Ni la visualización ni
+el montaje FUSE del directorio encriptado se pueden probar en un contenedor. Debian 12
+y Ubuntu 22.04 no son compatibles; Linux Mint 22 se basa en Ubuntu 24.04, pero
+no se probó como tal. Playwright oficialmente solo es compatible con Debian y Ubuntu:
+en Fedora, openSUSE y Arch, Chromium se ejecuta porque el paquete declara
+las bibliotecas que necesita.
+
+La instalación requiere acceso a la red (la instalación de dependencias y la descarga de Chromium ocurren en la fase de instalación posterior, como root, en
+`/opt/diwall/.cache/ms-playwright/`). Seis comandos están disponibles,
+cada uno es una capa delgada: no hay diferencia funcional con las propias invocaciones del canal "git-clone":
 
 | Comando | Envuelve |
 |---|---|
@@ -103,12 +119,11 @@ sudo nano /etc/diwall/diwall.conf
 sudo usermod -aG diwall $USER
 ```
 
-`apt remove diwall` mantiene `/var/log/diwall/` (registro de operaciones, evidencia)
-intacto; `apt purge diwall` también lo elimina, junto con `/etc/diwall/`, las
-capturas de referencia de `watch.py` (`/opt/diwall/references/`) y el Chromium
-descargado: no queda nada en `/opt/diwall/` (v1.24.2). Guarde antes
-`/opt/diwall/references/` si desea conservar sus referencias. `~/Vaults/` nunca
-es modificado por ninguno de los dos, en ambos canales.
+`apt remove diwall` conserva `/var/log/diwall/` (registro de operaciones, evidencias), `/etc/diwall/`, las capturas de referencia de `watch.py` (`/opt/diwall/references/`) y la cuenta `diwall` que las protege (1.24.4: antes la cuenta se eliminaba, lo que dejaba los archivos conservados con un número de grupo huérfano) — `apt purge diwall` lo elimina todo, además de `/opt/diwall/` por completo. Guarde antes `/opt/diwall/references/` si desea conservar sus capturas de referencia.
+
+En Fedora, openSUSE y Arch (`dnf remove`, `zypper remove`, `pacman -R`) hay un único comando de desinstalación. Elimina lo que se puede reconstruir (entorno virtual, Chromium, bytecode de Python) y conserva lo que usted ha producido — `/etc/diwall/diwall.conf`, los archivos de `/var/log/diwall/`, las capturas de `/opt/diwall/references/` — junto con la cuenta `diwall`, y luego imprime el comando exacto que los borra. Si no se ha producido nada, no queda nada.
+
+`~/Vaults/` nunca se toca, en ningún canal.
 
 **Página del manual (v1.22.0):** `man diwall` documenta los seis comandos en una
 sola página. Los otros cinco nombres de comandos (`man diwall-rpa`, y así sucesivamente)
@@ -147,27 +162,21 @@ mkdir -p ~/Vaults/<your-project>/Diwall
 # Cree el archivo `~/Vaults/<su-proyecto>/Diwall/<nombre_de_host>.json` con sus credenciales.
 ```
 
-Si Diwall ya está instalado desde el `.deb`, `install.sh` y `deploy.sh`
-se niegan a ejecutarse (v1.24.2): sobrescribirían archivos que dpkg gestiona, y
-la próxima actualización o desinstalación del paquete los revertiría silenciosamente. Ejecute
-`sudo apt purge diwall` primero para cambiar de canal.
+Si Diwall ya está instalado mediante un paquete, `install.sh` y `deploy.sh`
+se niegan a ejecutarse (v1.24.2 para el `.deb`, v1.24.4 para los paquetes de
+Fedora, openSUSE y Arch): sobrescribirían archivos que gestiona el gestor de
+paquetes, y la siguiente actualización o eliminación del paquete los desharía
+sin avisar. Para cambiar de canal, elimine primero el paquete; los scripts
+muestran el comando exacto (`sudo apt purge diwall`, `sudo dnf remove diwall`,
+`sudo zypper remove diwall`, `sudo pacman -R diwall`).
 
 En este canal, la configuración es `/opt/diwall/diwall.conf`, no
 `/etc/diwall/diwall.conf`. Desinstale con
 `bash ~/git/Diwall/Diwall/scripts/uninstall.sh --dry-run` primero, luego sin
-la opción. `uninstall.sh` también se niega cuando el paquete está instalado (v1.24.3):
-eliminaría `/opt/diwall/` y la cuenta `diwall` que dpkg gestiona. Use
-`sudo apt purge diwall` en su lugar.
-
-**Construcción del paquete (mantenedor):**
-
-```bash
-bash ~/git/Diwall/Diwall/scripts/construire-paquet.sh
-```
-
-Construye y luego archiva los tres artefactos (`.deb`, `.buildinfo`, `.changes`)
-bajo `~/git/Diwall/paquets/<version>/`. Se conservan todas las versiones: el
-`.buildinfo` es la única referencia del entorno exacto en el que se construyó un paquete, y no tiene valor si no se conserva.
+la opción. `uninstall.sh` también se niega cuando hay un paquete instalado (v1.24.3
+para el `.deb`, v1.24.4 para los demás): eliminaría `/opt/diwall/` y la cuenta
+`diwall` que gestiona el gestor de paquetes. Muestra el comando de eliminación
+que debe usarse en su lugar.
 
 ---
 

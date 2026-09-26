@@ -4,6 +4,26 @@ Generated from `debian/changelog` at build time — do not edit by hand.
 Edit `debian/changelog` and rebuild instead
 (`bash ~/git/Diwall/scripts/construire-paquet.sh`).
 
+## 1.24.4 — 26 Sep 2026 15:21:19 +0200
+
+- Corrective release, no new capability. Includes the packaging changes of 1.24.3-2, which was never published.
+- Native packages for Fedora 44, openSUSE Leap 16.0 and Arch Linux, built from the same tree with no change to the code. Each package is installed in a clean container of its system, Chromium is launched for real, then the package is removed. A container proves neither the display nor the FUSE mount of the encrypted directory. Playwright officially supports only Debian and Ubuntu.
+- The .deb is validated in containers on Debian 13, Ubuntu 24.04 and Ubuntu 26.04. Debian 12 and Ubuntu 22.04 are not supported: the dependencies use the t64 package names.
+- scripts/garde_canal_deb.sh: install.sh, deploy.sh and uninstall.sh also refuse to run when Diwall is installed by an RPM or pacman package, and print the exact removal command. rpm and pacman are only asked when present, so a Debian machine with rpm installed is not refused.
+- debian/postinst: pip runs with --no-cache-dir. When sudo keeps HOME, pip found the operator's cache under /home and warned at every upgrade; root has no reason to write there, and a cache has no use for a system installation done once per version.
+- debian/postrm: remove no longer deletes the diwall user and group. It keeps /etc/diwall and /var/log/diwall, and deleting the group left them to an orphan GID, which the next group created on the machine would inherit with their rights. The account now goes with the data, at purge.
+- debian/postrm: purge removes /opt/diwall whole, including Python bytecode written at run time. When /opt/diwall holds a git-clone installation made after apt remove, purge leaves it, the log directory and the account untouched.
+- debian/postinst: pip runs on every configure, so a version pinned in requirements.txt reaches an existing installation on upgrade. The virtual environment is rebuilt when it no longer imports playwright, as happens after a distribution upgrade changes the Python version.
+
+## 1.24.3-2 — 26 Sep 2026 11:58:52 +0200
+
+- Packaging-only revision: the code is 1.24.3, unchanged.
+- debian/postrm: remove no longer deletes the diwall user and group. It keeps /etc/diwall and /var/log/diwall, and deleting the group left them to an orphan GID, which the next group created on the machine would inherit with their rights (2770 on the evidence directory). The account now goes with the data, at purge.
+- debian/postrm: purge removes /opt/diwall whole. Python bytecode written at run time (lib/__pycache__, when Diwall ran as root) is owned by no package and kept /opt/diwall alive after a purge. When /opt/diwall holds a git-clone installation made after apt remove, purge leaves it, the log directory and the account untouched.
+- debian/postrm: remove also deletes that bytecode.
+- debian/postinst: pip runs on every configure, so a version pinned in requirements.txt reaches an existing installation on upgrade; it used to run only when the virtual environment was created. The virtual environment is rebuilt when it no longer imports playwright, as happens after a distribution upgrade changes the Python version.
+- Validated in containers on Debian 13 and Ubuntu 24.04: install, real Chromium launch, remove, purge. Debian 12 and Ubuntu 22.04 are not supported: the dependencies use the t64 package names.
+
 ## 1.24.3 — 25 Sep 2026 13:06:04 +0200
 
 - Corrective release, no new capability.

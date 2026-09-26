@@ -104,11 +104,11 @@ Le modèle de langage décide quoi faire ensuite.
 
 | Composant | Version / Notes |
 |---|---|
-| **Système d'exploitation** | Debian 13 Trixie (Linux, peut fonctionner sur macOS — non testé sur Windows) |
-| **Serveur d'affichage** | Wayland (Playwright s'exécute dans cet environnement) |
+| **Système d'exploitation** | Linux. Paquets pour Debian 13, Ubuntu 24.04 et 26.04, Fedora 44, openSUSE Leap 16.0 et Arch Linux — voir [Installation](#installation) pour ce qui a été validé pour chaque distribution. Non testé sur macOS ou Windows |
+| **Serveur d'affichage** | Wayland (Playwright fonctionne dans cet environnement) |
 | **Python** | 3.11+ dans un environnement virtuel isolé (PEP 668 — pip système bloqué sur Debian 13) |
 | **Playwright** | 1.50+ (installé dans l'environnement virtuel) |
-| **playwright-stealth** | 2.0+ — requis pour `--stealth` (v1.15.0). Incompatible avec la version 1.x en termes d'API. |
+| **playwright-stealth** | 2.0+ — requis pour `--stealth` (v1.15.0). Incompatible avec l'API de la version 1.x |
 | **Chromium** | Sans interface graphique, installé via `playwright install chromium` |
 | **Ollama** | Modèles de vision locaux pour `cliquer_visuel` et `watch.py` |
 | **GPU** | Recommandé : NVIDIA RTX 3060 12 Go de VRAM ou équivalent (pour les modèles Ollama qwen3-vl) |
@@ -117,16 +117,18 @@ Le modèle de langage décide quoi faire ensuite.
 
 ## Installation
 
-Deux canaux, **mutuellement exclusifs sur une même machine**. Choisissez le paquet Debian sauf si vous avez l'intention de modifier le code source de Diwall.
+Deux canaux, **mutuellement exclusifs sur une même machine**. Choisissez le paquet, sauf si vous comptez modifier le code de Diwall lui-même.
 
-### Paquet Debian : la solution la plus simple
+### Paquet — la voie simple
 
-Téléchargez le fichier `.deb` depuis la
-[dernière version](https://github.com/RonanDavalan/diwall/releases) — nom de fichier
-`diwall_<version>-1_all.deb` — puis :
+Téléchargez le fichier pour votre distribution depuis la
+[dernière version](https://github.com/RonanDavalan/diwall/releases), puis :
 
 ```bash
-sudo apt install ./diwall_1.24.3-1_all.deb
+sudo apt install ./diwall_1.24.4-1_all.deb                          # Debian 13, Ubuntu 24.04, Ubuntu 26.04
+sudo dnf install ./diwall-1.24.4-1.fc44.noarch.rpm                  # Fedora 44
+sudo zypper install --allow-unsigned-rpm ./diwall-1.24.4-1.leap160.noarch.rpm   # openSUSE Leap 16.0
+sudo pacman -U ./diwall-1.24.4-1-any.pkg.tar.zst                    # Arch Linux
 ```
 
 Cela crée l'utilisateur système `diwall`, l'environnement virtuel et
@@ -138,12 +140,22 @@ man diwall              # covers all six commands
 diwall-shot --version
 ```
 
+L'installation nécessite un accès réseau : elle installe les dépendances Python et télécharge Chromium.
+
+**Ce que « validé » veut dire ici.** Sur chacun de ces cinq systèmes, le paquet a été installé dans un conteneur vierge, Chromium a réellement été lancé par `diwall-shot` sur une page locale, puis le paquet a été retiré sans rien laisser qui n'aurait pas dû rester. Un conteneur ne prouve ni l'affichage, ni le montage du répertoire chiffré des identifiants (pas de périphérique FUSE dans un conteneur). Debian 12 et Ubuntu 22.04 ne sont pas pris en charge. Linux Mint 22 repose sur Ubuntu 24.04 mais n'a pas été testé en tant que tel. Playwright ne prend officiellement en charge que Debian et Ubuntu : sur Fedora, openSUSE et Arch, Diwall fonctionne parce que les paquets déclarent les bibliothèques dont Chromium a besoin, pas parce que Playwright s'en porte garant.
+
 La configuration se trouve dans `/etc/diwall/diwall.conf`; un exemple commenté est installé à côté, sous la forme de `diwall-sample.conf`. Référence complète des commandes : section 1a, `docs/MANUEL.md`.
 
-La mise à jour se fait par `sudo apt install ./diwall_<newer>-1_all.deb` — votre
-configuration est conservée. La désinstallation se fait par `sudo apt remove diwall`, ou
-`sudo apt purge diwall` pour supprimer aussi la configuration, le journal et les
-captures de référence de `watch.py`.
+La mise à niveau consiste à installer le fichier le plus récent de la même manière, et votre configuration est préservée.
+
+Quand une mise à jour du système apporte une nouvelle version de Python — couramment sur Arch Linux, lors d'une mise à niveau de version ailleurs —, Diwall cesse de fonctionner jusqu'à ce que son paquet soit réinstallé, ce qui reconstruit son environnement virtuel pour le nouvel interpréteur :
+
+```bash
+sudo apt install --reinstall ./diwall_1.24.4-1_all.deb
+sudo dnf reinstall ./diwall-1.24.4-1.fc44.noarch.rpm
+sudo zypper install --force --allow-unsigned-rpm ./diwall-1.24.4-1.leap160.noarch.rpm
+sudo pacman -U ./diwall-1.24.4-1-any.pkg.tar.zst
+```
 
 ### À partir de la source — pour modifier directement Diwall
 
@@ -158,9 +170,19 @@ lancerez ensuite.
 Installé à partir du paquet Debian :
 
 ```bash
-sudo apt remove diwall     # keeps /etc/diwall/diwall.conf
-sudo apt purge diwall      # also removes configuration, journal and /opt/diwall entirely
+sudo apt remove diwall     # keeps configuration, journal, reference captures and the diwall account
+sudo apt purge diwall      # removes all of them, and /opt/diwall entirely
 ```
+
+Installé à partir du paquet Fedora, openSUSE ou Arch :
+
+```bash
+sudo dnf remove diwall       # Fedora
+sudo zypper remove diwall    # openSUSE
+sudo pacman -R diwall        # Arch Linux
+```
+
+Ces systèmes disposent d'une seule commande de suppression. Elle supprime tout ce qui peut être recréé (environnement virtuel, Chromium, bytecode Python). Elle conserve ce que vous avez produit et que vous ne pouvez pas récupérer en réinstallant — `/etc/diwall/diwall.conf`, le journal et les preuves sous `/var/log/diwall/`, les captures `watch.py` sous `/opt/diwall/references/` — ainsi que le compte `diwall` qui les protège, et affiche la commande qui les efface. Si vous n'avez rien produit, rien n'est conservé.
 
 Installé à partir du code source :
 
@@ -177,7 +199,7 @@ bash ~/git/Diwall/Diwall/scripts/uninstall.sh --confirme
 
 Supprime : `/opt/diwall/`, `/var/log/diwall/`, utilisateur système `diwall`, groupe système `diwall`, appartenance au groupe d'opérateurs, hook de pré-envoi Git.
 
-Le script refuse de s'exécuter lorsque le paquet Debian est installé ; utilisez `sudo apt purge diwall` dans ce cas.
+Le script refuse de s'exécuter lorsque Diwall est installé via un paquet (Debian, Fedora, openSUSE ou Arch), et affiche la commande de désinstallation à utiliser à la place (`sudo apt purge diwall`, `sudo dnf remove diwall`, `sudo zypper remove diwall`, `sudo pacman -R diwall`). `install.sh` et `deploy.sh` refusent dans le même cas.
 
 **Jamais modifié :** `~/Vaults/` (vos identifiants), le dépôt lui-même, le cache du navigateur Playwright.
 

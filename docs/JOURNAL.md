@@ -4,6 +4,53 @@ History of decisions and discoveries by session, in reverse chronological order.
 
 ---
 
+## 2026-09-26 — v1.24.4: packages for Fedora, openSUSE Leap and Arch, channel guard for every package
+
+**Five systems.** Diwall now ships native packages for Fedora 44, openSUSE Leap
+16.0 and Arch Linux besides the `.deb` (Debian 13, Ubuntu 24.04), with no change
+to the code. Each package is installed in a clean container of its system,
+Chromium is launched for real, then the package is removed. The versions follow
+each distribution's support cycle: Fedora 42 and Leap 15.6, the first
+candidates, were past their end of support. A container proves
+neither the display nor the FUSE mount of the encrypted directory; Playwright
+officially supports only Debian and Ubuntu, so the other three are supported
+because they were tested, not because Playwright guarantees them.
+
+**Removal policy.** RPM and pacman have a single removal verb. It deletes what
+can be rebuilt (virtual environment, Chromium, bytecode) and keeps what the
+operator produced — configuration, journal, reference captures — with the
+`diwall` account that protects them, then prints the command that erases them.
+Deleting everything was rejected: one command would silently destroy evidence.
+Keeping everything was rejected too: a removed package would leave a gigabyte of
+rebuildable files.
+
+**Defects found in containers on the `.deb`.** `apt remove` deleted the `diwall`
+group while keeping `/etc/diwall` and `/var/log/diwall`: the kept files fell to
+an orphan GID that the next group created on the machine would inherit, with
+their rights. The account now goes with the data, at purge. `apt purge` left
+`/opt/diwall` behind when Python bytecode had been written at run time; it now
+removes the directory whole, unless a git-clone installation lives there.
+
+**Channel guard.** `install.sh`, `deploy.sh` and `uninstall.sh` asked only
+`dpkg-query`. On a machine where Diwall came from `dnf`, `zypper` or `pacman`,
+they would have overwritten or deleted files that package manager owns. The
+guard now also asks `rpm -q` and `pacman -Q` — each only when present, so a
+Debian machine with `rpm` installed does not refuse — and prints the exact
+removal command.
+
+**Upgrades.** The package scripts run pip on every install or upgrade, so a pin
+changed in `requirements.txt` reaches an existing installation, with
+`--no-cache-dir`: when `sudo` keeps `HOME`, pip found the operator's cache and
+warned about it at every upgrade. The virtual environment is rebuilt when it no
+longer imports Playwright, as happens after a system update changes Python.
+
+**Tests.** `scenarios/v1.24.4_validation`, five offline tests, added to CI: the
+Debian case unchanged, RPM and pacman refused with the right command, no false
+positive when a manager is present without the package. Run against the 1.24.3
+guard, it fails 2 of 5.
+
+---
+
 ## 2026-09-25 — v1.24.3: `evaluer` keeps the type of numbers and booleans, `uninstall.sh` channel guard
 
 **`evaluer` result type.** A number or a boolean returned by an `evaluer` action
